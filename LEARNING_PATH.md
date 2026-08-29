@@ -17,6 +17,8 @@ The [extra-ten supplement](months/EXTRA_CONCEPTS.md) brings March–August to tw
 
 ## August deep-dive order
 
+March also has an approved deep dive: [Transformer inference](months/2026-03/03-transformer-inference.md).
+
 Follow this order; it moves from how to measure AI systems to how to build their data and control planes.
 
 | Order | Lesson | Build skill | Suggested time |
