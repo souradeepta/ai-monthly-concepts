@@ -6,6 +6,7 @@
 - Conserve chat and workflow tokens, never by reducing the quality or useful depth of output files.
 - Git read-only commands (`status`, `diff`, `log`, `show`) and `git push` are authorized for this repository.
 - Continue article production until all January–August 2026 articles are complete; do not stop after partial batches.
+- Workflow override: push completed article drafts first; perform substantive review as a later follow-up pass to maximize progress under limited usage.
 - Default routing: Luna for easy bounded work; Terra for review; override only for quality.
 - Audience: CS student and SDE2.
 - Lessons should use multiple detailed diagrams, practical code, local implementation steps, explained prerequisites, interview Q&A, glossary, references, and a claim ledger.
