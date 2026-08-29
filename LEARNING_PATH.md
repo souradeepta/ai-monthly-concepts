@@ -20,6 +20,7 @@ The [extra-ten supplement](months/EXTRA_CONCEPTS.md) brings March–August to tw
 March also has an approved deep dive: [Transformer inference](months/2026-03/03-transformer-inference.md).
 January now has an approved deep dive: [Tokens and tokenizers](months/2026-01/01-tokens-and-tokenizers.md).
 Continue January with [KV caching](months/2026-01/02-kv-caching.md).
+Then study [request batching](months/2026-01/03-batching.md).
 
 Follow this order; it moves from how to measure AI systems to how to build their data and control planes.
 
