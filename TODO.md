@@ -5,6 +5,9 @@
 - [x] Expand all August 2026 lessons for CS student/SDE2 depth.
 - [x] Terra-review clarity, source precision, diagrams, code, and local implementation steps.
 - [x] Add a root learning path and navigation.
+- [x] Add a dependency-free August capstone lab.
+- [x] Add March–August concept maps with ten concepts per month.
+- [x] Add a cross-industry and publication source registry.
 
 ## Active
 
@@ -12,4 +15,5 @@
 
 ## Next
 
+- [ ] Expand the highest-priority concepts in March–July into full lessons using the August format.
 - [ ] Start September 2026 source queue at month end.

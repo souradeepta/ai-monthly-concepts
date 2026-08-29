@@ -4,6 +4,8 @@
 
 Teach engineering-relevant AI concepts from the issue month. Prefer primary sources: lab technical posts, official docs, papers, benchmarks, and incident reports. Secondary blogs may add context but cannot be the only evidence.
 
+For each monthly issue, include as many source items as needed to cover distinct, high-impact developments; ten is a learning-map target, not a research cap. Combine primary sources with reputable engineering blogs and impactful peer-reviewed or open-access publications. Mark the source type and do not present vendor claims as independently verified facts.
+
 ## Lesson template
 
 ```md

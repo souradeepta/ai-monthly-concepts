@@ -1,4 +1,17 @@
-# August 2026 learning path
+# March–August 2026 learning path
+
+## Six-month concept maps
+
+- [March: agentic foundations](months/2026-03/README.md)
+- [April: multimodality and training systems](months/2026-04/README.md)
+- [May: orchestration and discovery](months/2026-05/README.md)
+- [June: control and reliable deployment](months/2026-06/README.md)
+- [July: embodied agents and operations](months/2026-07/README.md)
+- [August: deep dives and current concepts](months/2026-08/README.md)
+
+Each map has ten concepts. The August deep dives are the model for future lesson expansion.
+
+## August deep-dive order
 
 Follow this order; it moves from how to measure AI systems to how to build their data and control planes.
 

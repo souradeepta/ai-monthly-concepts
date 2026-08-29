@@ -10,6 +10,12 @@ Status: **research queue, not a claim of comprehensive coverage.**
 | Agent memory | Agents need selective state and retrieval, not an unbounded chat transcript; this affects cost, privacy, and reliability. | [Hugging Face / IBM Research, Aug 18](https://huggingface.co/blog/ibm-research/altk-evolve-hmm) |
 | Multi-vector / late-interaction retrieval | Search can retain token-level vectors, trading index size for precision. | [Hugging Face, Aug 18](https://huggingface.co/blog/multi-vector-encoder) |
 | Cyber-capable agent controls | Tool-using models require sandboxing, authorization, monitoring, and evaluations alongside model capability. | [OpenAI, Aug 7](https://openai.com/index/responding-next-frontier-critical-cyber-capabilities/) |
+| Web-to-agent tools | Websites can expose typed actions to agents; tool schemas still need permission checks, replay protection, and audit logs. | [OpenAI Developer Community — WebMCP](https://community.openai.com/c/announcements/6) |
+| Realtime voice agents | Production voice needs streaming audio, interruption handling, turn detection, and end-to-end latency budgets. | [OpenAI Developer Community announcements](https://community.openai.com/c/announcements/6) |
+| Quantized open models | Lower-precision weights trade memory/bandwidth for potential quality loss; test workload slices, not only benchmarks. | [Hugging Face Blog](https://huggingface.co/blog) |
+| Multimodal unified models | One model can reason across image, audio, video, and text, but each modality expands evaluation and data-governance scope. | [Hugging Face Blog](https://huggingface.co/blog) |
+| Local inference | Running models locally changes privacy, latency, hardware sizing, update, and operational trade-offs. | [Hugging Face Blog](https://huggingface.co/blog) |
+| Benchmark reproducibility | Scores need versioned prompts, model settings, graders, datasets, and contamination controls to be comparable. | [Google DeepMind — double-blind evaluations](https://deepmind.google/blog/piloting-the-worlds-first-double-blind-ai-evaluations/) |
 
 ## Source feeds to check
 
