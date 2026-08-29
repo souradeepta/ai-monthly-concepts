@@ -2,6 +2,9 @@
 
 ## Six-month concept maps
 
+- [January](months/2026-01/README.md)
+- [February](months/2026-02/README.md)
+
 - [March: agentic foundations](months/2026-03/README.md)
 - [April: multimodality and training systems](months/2026-04/README.md)
 - [May: orchestration and discovery](months/2026-05/README.md)
@@ -9,7 +12,8 @@
 - [July: embodied agents and operations](months/2026-07/README.md)
 - [August: deep dives and current concepts](months/2026-08/README.md)
 
-Each map has ten concepts. The August deep dives are the model for future lesson expansion.
+Each map has twenty concepts. The August deep dives are the model for future lesson expansion.
+The [extra-ten supplement](months/EXTRA_CONCEPTS.md) brings March–August to twenty concepts each.
 
 ## August deep-dive order
 

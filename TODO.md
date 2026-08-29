@@ -10,6 +10,7 @@
 - [x] Add a cross-industry and publication source registry.
 - [x] Add rich March deep dives for agent loops and evaluation.
 - [x] Require and backfill background, processing impact, and application context for deep dives.
+- [x] Expand January–August coverage to twenty concepts per month.
 
 ## Active
 
