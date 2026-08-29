@@ -22,6 +22,7 @@ Build a local support-draft agent that may search mock tickets but cannot issue 
 ## Deep dives
 
 - [The agent loop](01-agent-loop.md) — first full lesson; use it as the implementation baseline for the remaining March concepts.
+- [Evaluating agents](02-agent-evaluation.md) — turn an agent prototype into a measurable system.
 
 ## Speakable summary
 

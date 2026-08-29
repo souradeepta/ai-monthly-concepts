@@ -8,6 +8,7 @@
 - [x] Add a dependency-free August capstone lab.
 - [x] Add March–August concept maps with ten concepts per month.
 - [x] Add a cross-industry and publication source registry.
+- [x] Add rich March deep dives for agent loops and evaluation.
 
 ## Active
 
