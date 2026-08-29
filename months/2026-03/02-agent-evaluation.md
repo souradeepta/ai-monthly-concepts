@@ -13,6 +13,10 @@ For a pure parser, one input maps to one output. An agent can take multiple path
 
 The evaluation review in *Artificial Intelligence Review* argues that common benchmarks often omit deployment dimensions such as cost, safety, maintainability, and workflow integration. The engineering response is to use layered evaluation: deterministic unit tests for tools/policy, seeded scenario tests for trajectories, replay from production-like traces, and outcome monitoring after deployment.
 
+## Background, processing impact, and applications
+
+Traditional ML measured predictions on fixed datasets and traditional tests exercised deterministic functions. Agent deployments need a richer process because a model can call changing tools and alter state. The current pipeline therefore needs fixtures, seeded mocks, trace capture, server-side end-state oracles, and release dashboards. This applies to support, coding, browsing, and data workflows; high-stakes applications additionally need domain-approved outcome checks and human escalation.
+
 ## The metric stack
 
 ```mermaid

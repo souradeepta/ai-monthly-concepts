@@ -13,6 +13,10 @@ An LLM chat feature that only returns text can be wrong, but its effect is usual
 
 That is the important boundary. The model is not suddenly an authenticated employee merely because it can produce a valid JSON tool call. It is an input-producing component with unusual strengths and failure modes: it may follow malicious instructions hidden in retrieved data, misunderstand a request, retry aggressively, or find surprising sequences of valid API calls. SDE practice already has useful answers—service identities, authorization, isolation, rate limits, audit logs, and incident response—but they must be applied to the entire agent loop rather than only to a web endpoint.
 
+## Background, processing impact, and applications
+
+Earlier AI features mainly returned text, with effects left to people or deterministic services. Tool-using agents create an action-processing loop that can touch files, browsers, cloud APIs, and business systems. Current controls move permissions, isolation, monitoring, and stopping decisions into the surrounding system. Applications include coding, support, research, and automation; safe autonomy remains proportional to reversibility, scope, and the cost of an incorrect action.
+
 ## Mental model
 
 Treat the model as an untrusted planner inside a control plane. It proposes actions; deterministic services decide whether each action may execute. The model should not possess broad standing credentials, direct production access, or an unrestricted network.

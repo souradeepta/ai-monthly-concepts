@@ -12,6 +12,10 @@ An evaluation asks how a model performs on a workload representing a capability 
 
 Double-blind evaluation (DBE) resolves that dual-confidentiality problem. It places model, benchmark, code, and policy in a temporary secure enclave. The parties verify the enclave identity before releasing secrets; it returns a bounded result and is decommissioned.
 
+## Background, processing impact, and applications
+
+Previously, evaluators often had to reveal private questions or providers had to expose broad model access; either disclosure can change future optimization or expose IP. DBE changes processing so prompts and weights are released only to an attested environment and only bounded results exit. It is useful for third-party capability, safety, and security evaluation, but adds attestation operations and does not prove benchmark quality or model safety.
+
 ## Mental model
 
 Think of this as a two-party zero-trust workflow. The evaluator owns the test set and the model provider owns the weights; neither side should inspect the other's secret inputs, and neither should swap in a different workload after the deal is struck.

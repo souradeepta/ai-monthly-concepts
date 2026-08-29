@@ -14,6 +14,10 @@ Status: emerging | durable | watch
 Sources: [Publisher — YYYY-MM-DD](URL)
 
 ## In one sentence
+## Background: what existed before
+## What changed and why now
+## Impact on current processing and architecture
+## Real-world applications and constraints
 ## Mental model
 ## What changed this month
 ## Engineering consequence
@@ -45,3 +49,5 @@ Default to Luna for easy, bounded tasks and Terra for reviews. Use a stronger mo
 ## Learning-content standard
 
 Each lesson must include: SDE2-friendly introduction; explained prerequisites; colored Mermaid diagrams; a runnable low-cost example; numbered local implementation steps; interview Q&A; glossary; references; and a fact/inference claim ledger. Prefer portable diagrams over browser-only animations.
+
+Every new article must also explain the historical baseline, the change introduced by the source, its impact on current data/model/tool processing, and realistic applications with operational constraints. State whether a source claim is a release-specific fact or an engineering inference.

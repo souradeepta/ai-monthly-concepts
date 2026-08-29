@@ -13,6 +13,10 @@ A chat completion is mostly a pure request/response operation: send context, rec
 
 The model is valuable as a planner under ambiguity. It is not a transaction coordinator, identity provider, or policy engine. Those jobs belong to deterministic code surrounding it. This separation is the core mental model for reliable modern AI.
 
+## Background, processing impact, and applications
+
+Before agents, most LLM products were single-turn chat or retrieval: the application owned the workflow and the model produced language. Modern tool calling lets a model propose the next step in a stateful workflow, changing processing into `goal → authorized context → proposal → policy gate → tool result → persisted state`. This is useful for support drafts, code proposals, research triage, and internal operations, but operational constraints—access scope, retries, cost, latency, and human ownership—set the safe autonomy level.
+
 ## Prerequisites, explained
 
 **State machine.** A state machine defines valid states and transitions. For an agent task, `queued → running → waiting_for_approval → complete|failed|cancelled` is safer than an unbounded while loop because it makes resumption and failure behavior explicit.

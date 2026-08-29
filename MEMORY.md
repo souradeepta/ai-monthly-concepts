@@ -7,6 +7,7 @@
 - Default routing: Luna for easy bounded work; Terra for review; override only for quality.
 - Audience: CS student and SDE2.
 - Lessons should use multiple detailed diagrams, practical code, local implementation steps, explained prerequisites, interview Q&A, glossary, references, and a claim ledger.
+- Every lesson/article needs historical background, what changed, impact on current processing/architecture, and real-world applications with constraints.
 
 ## Project state
 

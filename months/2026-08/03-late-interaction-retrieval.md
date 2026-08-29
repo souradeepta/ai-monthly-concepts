@@ -12,6 +12,10 @@ Retrieval is the service that turns a user question into a manageable set of doc
 
 Multi-vector retrieval keeps more of that evidence available without running a full cross-encoder over the entire corpus. It is therefore a ranking-system tradeoff, not a drop-in quality switch: the extra token vectors affect index size, ingest time, query bandwidth, and tail latency. This lesson explains where the method fits, how to test the tradeoff on a real workload, and why it is commonly introduced as a bounded second stage.
 
+## Background, processing impact, and applications
+
+Earlier systems commonly chose sparse lexical search or one dense vector per chunk. Both are fast but may blur identifiers and multi-constraint queries. Late interaction changes processing to a candidate-retrieval stage plus bounded token-level reranking. It fits code, technical-support, catalog, and complex RAG search when the quality gain is worth added memory, latency, authorization filtering, and a safe fallback.
+
 ## Mental model
 
 Dense retrieval is a lossy summary: one document vector can blur identifiers, code symbols, and multiple constraints.

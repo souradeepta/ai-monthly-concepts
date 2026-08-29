@@ -10,6 +10,10 @@ An agent starting every task from an empty prompt repeats mistakes; appending al
 
 Agent memory is the state-management layer between past runs and the next model call. It decides what to retain, when it becomes stale, and which bounded subset belongs in a prompt. A useful design has explicit write/read paths, ownership and deletion rules, observability, and token and latency budgets.
 
+## Background, processing impact, and applications
+
+Earlier assistants used only the active prompt or manually assembled RAG context; both discard useful experience or repeatedly inject too much text. Agent memory adds a governed write, consolidation, retrieval, and prompt-assembly path. It supports personalized support, coding agents, and long-running operations only when expiry, deletion, authorization, and stale-guidance risks are owned as normal data-system responsibilities.
+
 ## Mental model
 Think of agent memory as a cache of operating lessons, not a chat transcript dump. In this August post, IBM Research describes ALTK-Evolve, which mines guidelines from an agent’s past trajectories, consolidates them, and feeds them back at inference time with no weight updates or human annotation. The point is that memory changes context, not model parameters.
 
