@@ -50,4 +50,6 @@ Default to Luna for easy, bounded tasks and Terra for reviews. Use a stronger mo
 
 Each lesson must include: SDE2-friendly introduction; explained prerequisites; colored Mermaid diagrams; a runnable low-cost example; numbered local implementation steps; interview Q&A; glossary; references; and a fact/inference claim ledger. Prefer portable diagrams over browser-only animations.
 
+Treat deep dives as system-design posts: include at least two architecture-level diagrams (components/data flow plus sequence/state/failure flow) and link relevant reusable visuals or animations when they materially help learning.
+
 Every new article must also explain the historical baseline, the change introduced by the source, its impact on current data/model/tool processing, and realistic applications with operational constraints. State whether a source claim is a release-specific fact or an engineering inference.

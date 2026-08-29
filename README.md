@@ -6,6 +6,7 @@ Answer the calibration questions in [`PROFILE.md`](PROFILE.md). The first monthl
 Use [`LEARNING_PATH.md`](LEARNING_PATH.md) for the recommended study order.
 Build [`projects/secure-agent-lab`](projects/secure-agent-lab/README.md) after the August lessons to connect the concepts locally.
 Use [`SOURCES.md`](SOURCES.md) to extend monthly research beyond ten concepts when distinct, high-impact developments warrant it.
+See [`ARCHITECTURE_VISUALS.md`](ARCHITECTURE_VISUALS.md) for the system-design visual layer and local animation.
 
 ## Repository layout
 
