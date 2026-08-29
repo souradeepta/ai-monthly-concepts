@@ -60,6 +60,40 @@ With m query tokens and n document tokens, straightforward scoring performs O(mn
 
 Costs span ingestion, replication, and query-time token fetch/scoring. Detail-query gains may not transfer to broad queries, so evaluate by slice.
 
+### Index-sizing math (back-of-the-envelope)
+
+Let **N** be the number of passages, **t** the average indexed tokens per passage, and **d** the vector width. A token-vector index contains approximately `N × t` vectors. With `b` bytes per scalar (4 for FP32, 2 for FP16), the raw vector payload is:
+
+```text
+bytes ≈ N × t × d × b
+```
+
+For example, 10 million passages × 180 tokens × 128 dimensions × 2 bytes is about 460.8 GB (before IDs, offsets, ANN structures, replicas, and allocator overhead). A single-vector FP16 index for the same passages would be only about 2.56 GB at 128 dimensions. The ratio is roughly `t`, which is why chunk length and token pruning are first-class capacity decisions. If a passage has a variable token count, size with a high percentile rather than only the mean; a small number of unusually long chunks can dominate tail memory and fetch cost.
+
+This estimate is a capacity screen, not a sizing guarantee. Keep a separate budget for metadata and authorization filters, and multiply the payload by the number of replicas. Quantization can lower the vector term, but it does not remove per-vector IDs or document-to-token boundaries. Measure an actual serialized shard before committing to a capacity plan.
+
+### Candidate recall versus reranker quality
+
+The late stage cannot recover a relevant passage that the first-stage retriever never returns. If the relevant item is absent from the candidate set, a perfect MaxSim score is irrelevant. Therefore, tune the candidate count **K** against first-stage recall before comparing reranker metrics. A useful offline matrix varies `K` (for example, 50, 100, 200) and records both candidate recall@K and final nDCG@10. Increasing K can improve the ceiling for quality while increasing token fetches approximately linearly.
+
+An architecture should also make score ownership explicit: the ANN score chooses candidates, MaxSim orders them, and policy/freshness filters decide eligibility. Do not compare raw dense and MaxSim scores as if they were calibrated probabilities; use per-stage ranks or a validation-calibrated blend when combining signals.
+
+### Latency-quality budget
+
+For a request with `K` candidates, average query length `m`, average candidate length `t`, and vector width `d`, the naïve reranking work is proportional to `K × m × t × d` multiply-adds. This is a useful relative model even when optimized kernels make the wall-clock result smaller. A practical budget decomposes p95 into query encoding, candidate lookup, token-vector fetch, MaxSim compute, filtering, and network/queue time. Instrument each component so a quality experiment cannot hide a queueing regression.
+
+There are several levers with different effects:
+
+| Lever | Typical quality effect | Typical systems effect |
+|---|---|---|
+| Increase K | raises the reranker’s opportunity set until recall saturates | more token fetches and MaxSim work |
+| Increase chunk length | preserves more context per passage | more indexed vectors and pairwise work |
+| Prune/quantize vectors | may lose fine-grained evidence | lower memory and bandwidth |
+| Route only detail-heavy queries | protects broad-query latency | requires a classifier/rule and slice monitoring |
+| Cache query/candidate representations | usually neutral if invalidation is correct | lower repeated compute, more cache memory |
+
+Treat p50 and p95 separately: a configuration that looks cheap on average can overload a shard with long passages or large candidate sets. Set a timeout and a deterministic fallback to dense results so the expensive stage degrades gracefully.
+
 Compression changes the quality/cost boundary: pruning or lower precision saves bandwidth but can discard the evidence that motivated this method. Evaluate it as a model change.
 
 ## What changed this month
@@ -83,6 +117,8 @@ Keep dense (and, where useful, sparse) retrieval as candidate generation. Apply 
 Set candidate, p95 latency, and per-replica memory budgets plus a rollback path. Keep IDs/metadata beside vectors for authorization and freshness. Route only narrow winning query classes to the expensive stage.
 
 For code or catalogs, preserve punctuation and identifier fragments; for long prose, test passage boundaries. Re-run evaluation after encoder, tokenizer, chunk, pooling, compression, or MaxSim changes; representation changes may require a full index rebuild.
+
+Interpret the rollout as two independently testable contracts. The index contract says that every searchable passage has a stable document ID, token-vector span, version, and metadata pointer. The serving contract says that a query produces bounded candidates, fetches only their spans, computes a deterministic score, applies authorization, and returns a fallback on timeout. This split makes re-indexing and serving changes easier to roll back independently. It also prevents an apparently better offline scorer from bypassing access-control or freshness checks.
 
 ## Limits and failure modes
 
@@ -152,6 +188,8 @@ print(round(score, 2))  # 1.7
 3. **What to test:** include an exact identifier, a paraphrase, an irrelevant passage, and a passage matching only one query token. Check that the score reflects independent token evidence, and compare a short versus long document. Test empty token lists and ties explicitly.
 4. **Optional next step:** replace toy vectors with local model outputs and benchmark a small in-memory candidate set. Measure score time and memory before considering an ANN or compressed index.
 
+The sketch is intentionally an interpretation of MaxSim, not a complete ColBERT server. It uses two-dimensional hand-written vectors, dot product, no token masks, and a full scan over one document. In a local prototype, keep the scorer as a pure function and add instrumentation around it: number of query/document tokens, candidate count, elapsed time, and the per-query-token maxima. Then substitute model-generated vectors without changing the scoring interface. This isolates model/tokenizer effects from index and serving effects and gives a small regression fixture for ties, empty inputs, and score changes.
+
 ## Prerequisites
 An **embedding** is a numeric representation in which useful relationships are expressed by geometry; a **dot product** (or cosine similarity) is the basic pairwise score. Dense retrieval stores these vectors in an **approximate nearest-neighbor (ANN)** index, which sacrifices a little exactness to avoid scanning the whole corpus. Sparse retrieval instead uses an **inverted index**: a term points to the documents containing it, so lexical matches are cheap and inspectable. **Tokenization and chunking** decide what the vectors stand for and therefore whether identifiers, headings, and constraints survive ingestion. Finally, know **top-k metrics** such as recall@k and nDCG, plus p50/p95 latency and memory per replica; these connect an offline ranking improvement to a service users can actually operate.
 
@@ -175,6 +213,15 @@ A: The index stores many vectors per passage, increasing ingest work, memory, re
 **Q: When would you deploy it?**
 A: When labeled workload slices show meaningful gains on details such as code symbols or multi-constraint queries, and a bounded reranking stage fits the latency and memory budgets.
 
+**Q: Why must candidate recall be measured before reranker quality?**
+A: The reranker can only reorder candidates it receives. If first-stage recall@K is low, improving MaxSim cannot retrieve a missing relevant document; increase or change candidate generation first.
+
+**Q: How would you estimate capacity before building the index?**
+A: Estimate `passages × average tokens × dimensions × bytes per scalar`, then add metadata, index structures, and replicas. Validate the estimate with a serialized sample and a high-percentile token count.
+
+**Q: What is a safe production fallback?**
+A: Bound K and reranker time, return the dense/sparse candidate ranking on timeout, and monitor fallback rate and p95. The fallback should preserve permissions and freshness filters.
+
 ## Glossary
 - **Bi-encoder:** encodes query and document independently for fast vector search.
 - **MaxSim:** sums each query token’s best similarity with a document token.
@@ -196,3 +243,6 @@ A: When labeled workload slices show meaningful gains on details such as code sy
 | Late interaction preserves token-level matching that a single vector can blur away, but it increases index size. | [Hugging Face — 2026-08-18](https://huggingface.co/blog/multi-vector-encoder) | Fact |
 | The August 26 companion post shows that training guidance for multi-vector models is now part of the same ecosystem. | [Hugging Face — 2026-08-26](https://huggingface.co/blog/train-multi-vector-encoder) | Fact |
 | For production search, multi-vector retrieval is often best treated as a precision layer or reranker, not an unconditional replacement for dense retrieval. | [Hugging Face — 2026-08-18](https://huggingface.co/blog/multi-vector-encoder), [Hugging Face — 2026-08-26](https://huggingface.co/blog/train-multi-vector-encoder) | Inference |
+| Raw vector storage is approximately passages × tokens × dimensions × bytes per scalar; metadata and index overhead must be added. | — | Inference (capacity model) |
+| A late-interaction reranker cannot recover relevant items absent from the first-stage candidate set. | — | Inference (pipeline property) |
+| Bounding candidate count and reranker time with a dense/sparse fallback is a safer serving design. | — | Inference (operational recommendation) |

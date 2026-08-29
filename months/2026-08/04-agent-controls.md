@@ -57,6 +57,12 @@ Start with a small threat model. Write down the asset (customer data, source cod
 
 For SDEs, this usually means a dedicated tool gateway. The gateway owns credentials, validates typed inputs, authorizes a task-scoped identity, enforces quotas and destination allow-lists, and emits structured audit events. The model receives a capability such as `read_issue(issue_id)` rather than an unrestricted database password. Prefer short-lived tokens and disposable workspaces so a compromised run has a small time and resource window.
 
+### A worked threat model
+
+Suppose the support agent can read tickets and issue refunds up to $50. The assets are customer records and money; the actors include a normal user, a malicious user, poisoned ticket text, and a compromised payment integration. The trust boundary is the gateway: ticket text may influence a proposal, but it cannot mint a refund capability. Security invariants are: the caller can read only its tenant, the amount is checked against server-side order data, each refund has an idempotency key, and no single model turn can exceed a dollar or request budget. These invariants are testable without trusting model reasoning.
+
+A useful review question is “what happens if the model is completely compromised?” If the answer is “it can still deploy, enumerate every tenant, and spend unlimited money,” the boundary is not doing its job. Design for graceful degradation: a bad plan should receive a denial, not a credential; a gateway outage should fail closed for side effects; and an operator should be able to revoke the task identity without redeploying the model.
+
 ## Engineering consequence
 
 Build the agent boundary as if the model may produce a valid-looking but wrong request.
@@ -146,6 +152,8 @@ print(authorize("read", "other", "acme"))                # False
 ```
 
 This is deliberately incomplete: production authorization also needs authenticated identities, signed approval records, expiry, rate limits, and a server-side audit event. The point is ownership: the policy code, not the prompt, decides.
+
+For a production-shaped prototype, model the policy result as a typed object—`allow`, `deny`, or `needs_approval`—with a reason code and expiry. Do not return a vague natural-language refusal that the planner might reinterpret. Validate tool outputs too: redact secrets, cap size, and mark external text as untrusted before sending it back to the model. Otherwise a tool can become a prompt-injection tunnel even when invocation itself is authorized.
 
 ## Interview Q&A
 

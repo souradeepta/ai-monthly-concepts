@@ -3,6 +3,7 @@
 A compact, source-backed study repo for **August 2026**. It turns important AI changes into lessons a CS student or software engineer can use.
 
 Answer the calibration questions in [`PROFILE.md`](PROFILE.md). The first monthly index is [`months/2026-08/README.md`](months/2026-08/README.md).
+Use [`LEARNING_PATH.md`](LEARNING_PATH.md) for the recommended study order.
 
 ## Repository layout
 

@@ -53,6 +53,11 @@ Full guideline sets have predictable recall but consume tokens on every call and
 
 Aggressive consolidation can erase exceptions and provenance; keeping raw events forever raises storage, privacy, and deletion costs. Separate operational memory from an access-controlled audit store when needed. Expose freshness, confidence, and specificity: a stale “always use endpoint X” rule is worse than no rule when an API changed.
 
+### Schema and governance invariants
+The row shape is only useful if its fields enforce behavior. Make `scope` a structured value (for example, tenant, user, project, and task), not an arbitrary string that callers can accidentally omit. Store the writer identity and policy decision alongside `source_run_id`; this makes an apparently helpful memory explainable and revocable. Keep a stable version or supersession link when consolidating rather than overwriting in place. A write should be rejected or quarantined when it has no scope, provenance, expiry policy, or reason to be reused.
+
+Retention should be chosen by `kind`: a task-local note can expire at task completion, a preference may require explicit user deletion, and an operational guideline may need a short review interval. Deletion must cover the serving table, search index, caches, backups according to the service’s deletion contract, and any derived summaries. A tombstone or deletion ledger prevents an old replica from resurrecting a record. Do not put secrets, access tokens, or unnecessary personal data into a lesson; redact before indexing, encrypt at rest, and enforce read authorization before ranking. Semantic similarity is never an authorization mechanism: filter by tenant and purpose before the retriever sees candidate text.
+
 ## Engineering consequence
 If you are building agents, memory should be treated like an indexed service with policy, not a blob of text.
 
@@ -66,6 +71,8 @@ Calibrate memory per model and workload, as you would a queue or cache: too much
 This is promising, but it is not a solved general-purpose memory design. The source is one benchmark family, AppWorld, so the results may not transfer cleanly to every agent domain. The article also notes that its retrieval method ranks guidelines by cosine similarity, which does not perfectly predict usefulness.
 
 Stale guidance can outlive its conditions, conflicts can accumulate without recency, and long prompts increase latency and cost. A malicious trajectory can seed a durable instruction, so writes need provenance, validation, and quarantine. Retrieved memories are data, not higher-priority instructions: delimit them and apply prompt-injection defenses.
+
+Common production failures are usually state-management failures rather than model failures. An asynchronous writer can lose a useful lesson or duplicate it; use an idempotency key such as `(source_run_id, candidate_hash)`. A retriever can return a superseded record; filter status at read time and test concurrent updates. A prompt assembler can exceed the model budget; reserve tokens for the user request and tool output, then truncate by whole records with an explicit “no memory” fallback. A compromised or merely mistaken run can poison future runs; require provenance, constrain writable kinds, quarantine high-impact candidates, and support rollback to a known snapshot. Finally, measure false-positive retrievals and harmful-memory incidents, not only completion rate.
 
 Separate capability from safety claims. This source is about capability, not proof of trustworthiness, privacy, or robustness. In production, ask who can read memory, how long it persists, and how it is corrected.
 
@@ -119,6 +126,9 @@ print(selected)  # ['use idempotent writes', 'retry 429s']
 
 This toy selector shows the control point: task classification selects two lessons instead of all three. Set intersection is not semantic retrieval, authorization, ranking, or conflict resolution; production code must add those policies.
 
+### Interpreting the local example
+The selector is intentionally a pure function: the same lesson list and task terms produce the same output, which makes unit tests and incident replay easy. Its tuples stand in for rows returned after authorization and expiry filtering. In a real service, the sequence should be `authorize -> remove expired/superseded -> rank -> enforce token budget -> assemble`, never “retrieve broadly and trust the model to ignore unsafe rows.” Add a deterministic tie-breaker (for example, recency then ID) so prompt contents do not vary because of database order. The example also has no write path, so it cannot demonstrate consolidation, deletion propagation, or poisoning defenses; those need integration tests around the store and queue.
+
 ## Prerequisites
 Before implementing memory, understand the model-call boundary. **Prompt construction** assembles instructions, conversation, tools, and records deterministically; stable prefixes help cache keys and delimiters stop retrieved text masquerading as policy. **Retrieval** selects candidates by lexical/semantic match and filters. **Indexes, APIs, queues, and databases** make lookup and state transitions reliable. These foundations matter because memory bugs involve wrong tenants, stale caches, unbounded prompts, or untraceable writes.
 
@@ -129,6 +139,7 @@ Distinguish scopes: context is per-call input; memory is retained state; RAG ret
 2. **Minimal implementation:** Represent lessons as `(text, terms, scope, expires_at)`, filter by scope and expiry, then select term matches under a fixed count or token budget. Assemble the result between `<memory>` delimiters.
 3. **What to test:** Add cases for no match, expired records, cross-tenant exclusion, conflicting lessons, duplicate writes, and a prompt that stays under budget. Log selected IDs so a result is reproducible.
 4. **Optional next step:** Add a local SQLite table or a hybrid lexical/vector index only after the deterministic version exposes a real paraphrase or scale problem.
+5. **Operational interpretation:** Treat each selected ID as an audit event. For a local experiment, persist `selected_ids`, prompt token estimate, and outcome in JSONL, then compare runs with memory disabled. This separates “the memory was retrieved” from “the memory caused improvement,” and exposes misses, stale hits, and budget truncation.
 
 ## Interview Q&A
 **Q: Is conversation history memory?** A: Only if a system deliberately stores, governs, and retrieves it later; otherwise it is context for one run.
@@ -140,6 +151,10 @@ Distinguish scopes: context is per-call input; memory is retained state; RAG ret
 **Q: Vector search or SQL?** A: Start with SQL filters and exact matches; add vectors for paraphrases, usually with hybrid ranking.
 
 **Q: How do you prevent stale memory?** A: Store timestamps and expiry, model supersession, validate writes, and test replay with old snapshots.
+
+**Q: What must a delete guarantee?** A: That future reads cannot return the memory, including through indexes and caches; define how backups and derived summaries converge, and retain only a minimal tombstone if needed to prevent resurrection.
+
+**Q: How do memory and audit data differ?** A: Memory is optimized for bounded, authorized reuse; audit data preserves evidence for debugging or compliance under stricter access controls. They can reference the same run ID without sharing retention or read permissions.
 
 ## Glossary
 - **Trajectory:** the sequence of model and tool actions from one agent run.

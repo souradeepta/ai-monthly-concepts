@@ -32,6 +32,19 @@ Remote attestation is signed evidence from hardware about the code and environme
 
 Least privilege gives each identity only its needed access: the evaluator submits prompts and reads aggregates, the owner submits weights, and the enclave temporarily reads both. A threat model states what is adversarial and what remains trusted.
 
+### Secure-enclave boundary and attestation decision
+
+The boundary is narrower than “the cloud is trusted.” A useful model treats the ordinary host, hypervisor operator, storage service, network observer, and either participant's accidental debug tooling as potentially hostile. The hardware package, vendor certificate roots, measured boot chain, enclave runtime, evaluation image, and the agreed protocol are trusted only to the extent the parties verify them. A malicious model can still produce a poor or strategically chosen answer; confidentiality does not make the model honest.
+
+Key release should be a fail-closed sequence:
+
+1. The enclave generates a fresh nonce and an ephemeral public key.
+2. Hardware signs a quote containing the nonce, platform identity, and measurements of the booted TCB/image.
+3. Each party checks the vendor chain, freshness, policy (for example, acceptable firmware and debug-disabled mode), and exact image digest.
+4. Only after both checks pass does a key broker encrypt weights or prompts to that ephemeral key. A stale quote, unexpected measurement, or missing policy check means no secret is released.
+
+This protects against a substituted harness or an ordinary host reading RAM, but not against a vulnerable attested image, a compromised vendor root, malicious inputs that exploit the model or scorer, or leakage intentionally returned through an allowed field. Measurement proves *what was launched*, not that the launched code is bug-free. Store the quote and verification decision beside the run ID so a later reviewer can reconstruct why release was authorized.
+
 ## What changed this month
 
 On August 27, 2026, Google DeepMind announced what it called the first double-blind evaluation of a proprietary frontier-class model. The pilot addresses the tradeoff between exposing evaluation prompts and exposing model weights.
@@ -75,6 +88,8 @@ This does not solve evaluation integrity in the abstract. It protects the run wh
 - **Output leakage:** schemas, exceptions, completions, timing, or retry logs can reveal data. “Aggregate only” must be enforced at egress.
 - **Benchmark weakness:** a secure benchmark can still be unrepresentative, noisy, mislabeled, or gamed.
 - **Contamination elsewhere:** DBE cannot prove prompts were absent from earlier training or copied datasets.
+- **Contamination has multiple paths:** *training contamination* means test items or close paraphrases entered pretraining; *tuning contamination* means they influenced instruction tuning, preference optimization, or system-prompt design; and *evaluation contamination* means the provider saw the held-out items while debugging or selecting a checkpoint. DBE mainly blocks disclosure during this run. It does not establish that a private prompt was novel to the model, and it does not prevent a provider from overfitting to a public benchmark family.
+- **Interpretation of a clean score:** compare performance with contamination audits, a fresh hidden slice, paraphrase or perturbation tests, and an unrelated task family. A high score on a contaminated set is evidence of task exposure or memorization as well as capability; a low score may instead reflect interface mismatch, sampling variance, or an ambiguous rubric. Report uncertainty and provenance, not just one aggregate number.
 - **Operational cost:** enclaves, signing, attestation, and incident response add latency and work; debugging is harder.
 - **Coverage tradeoff:** activation probes, token log-likelihood audits, representation steering, or offline weight verification may require white-box access. A bounded black-box result cannot replace every audit.
 
@@ -126,6 +141,8 @@ print("bounded result accepted")
 ```
 
 This models output-policy enforcement. A real harness should validate types and ranges, reject nested fields, cap strings, and make the policy part of the attested image.
+
+The passing assertion means only that this fixture obeys the *shape* of the intended egress contract: no prompt or weight field is present. It does not demonstrate enclave confidentiality, attestation, benchmark validity, or even that the score is correct. To make the check meaningful, add negative fixtures (an extra `completion` key, a nested prompt, a NaN score, and an out-of-range pass rate) and assert that each is rejected. Then inspect captured logs and mock network calls for prompt text. Treat those observations as evidence about the local harness policy, not evidence transferable to a cloud enclave; the real claim requires provider attestation verification and an independently reviewed TCB.
 
 ## Build it locally
 
