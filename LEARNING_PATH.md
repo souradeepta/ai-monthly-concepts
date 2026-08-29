@@ -22,6 +22,7 @@ January now has an approved deep dive: [Tokens and tokenizers](months/2026-01/01
 Continue January with [KV caching](months/2026-01/02-kv-caching.md).
 Then study [request batching](months/2026-01/03-batching.md).
 Close the serving sequence with [latency budgets](months/2026-01/04-latency-budgets.md).
+Add [model routing](months/2026-01/05-model-routing.md) for policy-aware selection.
 
 Follow this order; it moves from how to measure AI systems to how to build their data and control planes.
 
