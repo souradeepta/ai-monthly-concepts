@@ -7,7 +7,7 @@
 
 ## Active
 
-- [ ] Commit and push the reviewed expansion.
+- [x] Commit and push the reviewed expansion.
 
 ## Next
 
