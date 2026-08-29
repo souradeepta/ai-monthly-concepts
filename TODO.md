@@ -14,9 +14,29 @@
 
 ## Active
 
-- [x] Commit and push the reviewed expansion.
-- [ ] Create and review 20 individual standards-compliant articles for each month, January–August 2026.
-- [ ] Rewrite rejected January–March draft batches to meet the substantive 2,400-word, source-specific standard.
+- [ ] January 02 — KV caching: rewrite, Terra-review, push.
+
+## Article backlog
+
+| Month | Approved / 20 | Next action |
+|---|---:|---|
+| January | 1 | Rewrite/review 02–20 individually. |
+| February | 0 | Discard generic batch; rebuild 01 individually. |
+| March | 3 | Rewrite/review 04–20 individually. |
+| April | 0 | Source-first article creation, 01–20. |
+| May | 0 | Source-first article creation, 01–20. |
+| June | 0 | Source-first article creation, 01–20. |
+| July | 0 | Source-first article creation, 01–20. |
+| August | 4 | Source-first article creation, 05–20. |
+
+## Acceptance checklist
+
+- [ ] 2,400+ substantive, topic-specific words.
+- [ ] Direct source facts separated from inference.
+- [ ] Historical baseline, processing impact, applications, and constraints.
+- [ ] Two relevant architecture/system-flow Mermaid diagrams.
+- [ ] Unique runnable code, local build, Q&A, glossary, references, claim ledger.
+- [ ] Terra review confirms no repeated boilerplate before push.
 
 ## Next
 
