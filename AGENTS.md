@@ -49,6 +49,7 @@ Default to Luna for easy, bounded tasks and Terra for reviews. Use a stronger mo
 2. Use direct sources already linked in the lesson; browse only to verify or fill a clear gap.
 3. Make one scoped edit, run the smallest relevant check, then update `TODO.md`.
 4. Keep responses and handoffs terse: outcome, files changed, checks, blocker.
+5. Git read-only commands and `git push` are authorized for this repository; never push an article before it passes the acceptance checklist.
 
 ## Learning-content standard
 

@@ -4,6 +4,8 @@
 
 - Be concise; optimize for low token use and free tools.
 - Conserve chat and workflow tokens, never by reducing the quality or useful depth of output files.
+- Git read-only commands (`status`, `diff`, `log`, `show`) and `git push` are authorized for this repository.
+- Continue article production until all January–August 2026 articles are complete; do not stop after partial batches.
 - Default routing: Luna for easy bounded work; Terra for review; override only for quality.
 - Audience: CS student and SDE2.
 - Lessons should use multiple detailed diagrams, practical code, local implementation steps, explained prerequisites, interview Q&A, glossary, references, and a claim ledger.
