@@ -6,6 +6,10 @@ Teach engineering-relevant AI concepts from the issue month. Prefer primary sour
 
 For each monthly issue, include as many source items as needed to cover distinct, high-impact developments; ten is a learning-map target, not a research cap. Combine primary sources with reputable engineering blogs and impactful peer-reviewed or open-access publications. Mark the source type and do not present vendor claims as independently verified facts.
 
+## Monthly completion contract
+
+Every month must contain **20 individual article files** named `01-*.md` through `20-*.md`; a README, a table, or a concept list never counts as an article. The monthly README must link every article and label any missing lesson as `planned`, never as complete. Do not mark a month complete until each article passes the learning-content standard.
+
 ## Lesson template
 
 ```md
@@ -29,7 +33,7 @@ Sources: [Publisher — YYYY-MM-DD](URL)
 
 ## Style and budget
 
-- Aim for 1,200–1,800 words when a topic needs depth; define jargon on first use.
+- Every article must contain at least 2,400 words of substantive lesson content; define jargon on first use. Expand with topic-specific architecture, processing, trade-offs, failure modes, and applications—not boilerplate.
 - Use systems vocabulary (APIs, state, queues, permissions, tests, cost, latency) before math.
 - Separate capability claims from reliability and safety claims.
 - Link rather than copy source text; never invent monthly developments.

@@ -8,6 +8,7 @@
 - Audience: CS student and SDE2.
 - Lessons should use multiple detailed diagrams, practical code, local implementation steps, explained prerequisites, interview Q&A, glossary, references, and a claim ledger.
 - Every lesson/article needs historical background, what changed, impact on current processing/architecture, and real-world applications with constraints.
+- Every individual article must be at least 2,400 substantive words; generic template padding is not acceptable.
 
 ## Project state
 
