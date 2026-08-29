@@ -19,6 +19,10 @@ This track pairs the month’s research with concepts that make modern systems u
 
 Build a local support-draft agent that may search mock tickets but cannot issue refunds. Measure task success, blocked unsafe requests, p95 latency, and human edits. The goal is an evaluation harness, not an impressive prompt.
 
+## Deep dives
+
+- [The agent loop](01-agent-loop.md) — first full lesson; use it as the implementation baseline for the remaining March concepts.
+
 ## Speakable summary
 
 “Modern agentic AI is a probabilistic planner embedded in deterministic systems. I would separate context from memory, model proposals from authority, and task success from safety metrics.”
