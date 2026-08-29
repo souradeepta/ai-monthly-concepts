@@ -7,8 +7,8 @@ Status: **research queue, not a claim of comprehensive coverage.**
 | Concept | Why an engineer should care | Primary starting point |
 |---|---|---|
 | Double-blind model evaluations | Benchmark leakage can make model scores misleading; secure evaluation design becomes a systems problem. | [Google DeepMind, Aug 27](https://deepmind.google/blog/piloting-the-worlds-first-double-blind-ai-evaluations/) |
-| Agent memory | Agents need selective state and retrieval, not an unbounded chat transcript; this affects cost, privacy, and reliability. | [Hugging Face, Aug 18](https://huggingface.co/blog/agents-memory) |
-| Multi-vector / late-interaction retrieval | Search can retain token-level vectors, trading index size for precision. | [Hugging Face, Aug 18](https://huggingface.co/blog/multi-vector-embeddings) |
+| Agent memory | Agents need selective state and retrieval, not an unbounded chat transcript; this affects cost, privacy, and reliability. | [Hugging Face / IBM Research, Aug 18](https://huggingface.co/blog/ibm-research/altk-evolve-hmm) |
+| Multi-vector / late-interaction retrieval | Search can retain token-level vectors, trading index size for precision. | [Hugging Face, Aug 18](https://huggingface.co/blog/multi-vector-encoder) |
 | Cyber-capable agent controls | Tool-using models require sandboxing, authorization, monitoring, and evaluations alongside model capability. | [OpenAI, Aug 7](https://openai.com/index/responding-next-frontier-critical-cyber-capabilities/) |
 
 ## Source feeds to check

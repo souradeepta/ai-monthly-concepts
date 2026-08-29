@@ -28,3 +28,7 @@ Sources: [Publisher — YYYY-MM-DD](URL)
 - Separate capability claims from reliability and safety claims.
 - Link rather than copy source text; never invent monthly developments.
 - Read sources for one concept only. Draft once, then make one fact-check pass. No paid APIs or multi-agent research unless explicitly requested.
+
+## Agent routing
+
+Default to Luna for easy, bounded tasks and Terra for reviews. Use a stronger model only when this would materially improve accuracy or output quality.
