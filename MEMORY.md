@@ -15,6 +15,8 @@
 - Repository is public: `souradeepta/ai-monthly-concepts`.
 - August 2026 has four lessons: evaluations, agent memory, late interaction retrieval, and agent controls.
 - Use first-party sources; source facts must be distinguishable from inference.
+- Hard rule: every individual lesson is at least 2,400 substantive, topic-specific words. Repeated template appendices do not count as quality.
+- Local uncommitted batches exist for January, February, and March. Do not commit them until they pass both mechanical and Terra substantive review.
 
 ## Low-token workflow
 

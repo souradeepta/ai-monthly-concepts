@@ -10,13 +10,14 @@
 - [x] Add a cross-industry and publication source registry.
 - [x] Add rich March deep dives for agent loops and evaluation.
 - [x] Require and backfill background, processing impact, and application context for deep dives.
-- [x] Expand January–August coverage to twenty concepts per month.
+- [x] Audit revealed concept maps are not 20 standards-compliant articles per month.
 
 ## Active
 
 - [x] Commit and push the reviewed expansion.
+- [ ] Create and review 20 individual standards-compliant articles for each month, January–August 2026.
+- [ ] Rewrite rejected January–March draft batches to meet the substantive 2,400-word, source-specific standard.
 
 ## Next
 
-- [ ] Expand the highest-priority concepts in March–July into full lessons using the August format.
 - [ ] Start September 2026 source queue at month end.
