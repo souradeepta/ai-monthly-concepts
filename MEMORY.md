@@ -30,6 +30,7 @@
 - Reuse templates and source URLs. One drafting pass plus one focused review.
 - Do not copy articles, use paid APIs, or run multi-agent research without need.
 - After draft coverage is complete, expand each draft and run `python3 scripts/audit_lesson_similarity.py <reviewed lesson files or month> --fail-on-findings` before a monthly push.
+- For each expanded lesson, use `python3 scripts/validate_lessons.py <lesson> --run-python` for the repeated structural, diagram, word-count, whitespace, and runnable-example check; use the similarity audit only for a reviewed batch.
 
 ## Execution discipline
 

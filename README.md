@@ -18,6 +18,8 @@ agents/          narrow role prompts
 AGENTS.md        contribution rules
 ```
 
+Run `python3 scripts/validate_lessons.py months/2026-06 --run-python` for the repeatable lesson structure and example check. Run `python3 scripts/audit_lesson_similarity.py months/2026-06 --fail-on-findings` as the later batch overlap check.
+
 ## Operating plan
 
 1. **Collect (weekly, 20 min):** check the source feeds; record only current-month announcements, papers, docs, technical reports, or evaluations.
