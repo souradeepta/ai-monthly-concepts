@@ -22,3 +22,26 @@ Build a “program improver” over two candidate functions and a test suite. Ad
 ## Speakable summary
 
 “Multi-agent systems buy parallel exploration and specialized roles, but the evaluator, handoff contract, and control plane determine whether that complexity pays off.”
+
+## Articles
+
+1. [Multi-agent decomposition](01-multi-agent-decomposition.md) — draft
+2. [Supervisor orchestration](02-supervisor-orchestration.md) — draft
+3. [Debate and critique](03-debate-and-critique.md) — draft
+4. [Search over programs](04-search-over-programs.md) — draft
+5. [Objective functions](05-objective-functions.md) — draft
+6. [Scientific hypothesis generation](06-scientific-hypothesis-generation.md) — draft
+7. [Content provenance](07-content-provenance.md) — draft
+8. [Natural interaction](08-natural-interaction.md) — draft
+9. [Structured outputs](09-structured-outputs.md) — draft
+10. [Experiment tracking](10-experiment-tracking.md) — draft
+11. [Agent state handoffs](11-agent-state-handoffs.md) — draft
+12. [Agent budgeting](12-agent-budgeting.md) — draft
+13. [Evaluator design](13-evaluator-design.md) — draft
+14. [Program sandboxing](14-program-sandboxing.md) — draft
+15. [Hypothesis provenance](15-hypothesis-provenance.md) — draft
+16. [Human experiment review](16-human-experiment-review.md) — draft
+17. [Pointing disambiguation](17-pointing-disambiguation.md) — draft
+18. [Agent audit trails](18-agent-audit-trails.md) — draft
+19. [Candidate selection](19-candidate-selection.md) — draft
+20. [Research reproducibility](20-research-reproducibility.md) — draft

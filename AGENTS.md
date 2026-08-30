@@ -38,6 +38,7 @@ Sources: [Publisher — YYYY-MM-DD](URL)
 - Separate capability claims from reliability and safety claims.
 - Link rather than copy source text; never invent monthly developments.
 - Read sources for one concept only. Draft once, then make one fact-check pass. No paid APIs or multi-agent research unless explicitly requested.
+- A lesson must teach its own concept with source-specific examples and failure modes. Do not reuse explanatory paragraphs, generic operational appendices, diagrams, or code across lessons; shared terminology is not shared prose.
 
 ## Agent routing
 
@@ -50,6 +51,12 @@ Default to Luna for easy, bounded tasks and Terra for reviews. Use a stronger mo
 3. Make one scoped edit, run the smallest relevant check, then update `TODO.md`.
 4. Keep responses and handoffs terse: outcome, files changed, checks, blocker.
 5. Git read-only commands and `git push` are authorized. Push completed article drafts first; record later review findings as follow-up work.
+
+## Execution discipline
+
+- Do not use persistent goal/continuation mechanisms for open-ended article production. Work in concrete scoped edits and report only after a real file change or check.
+- Never emit repeated status-only updates. If automation begins looping, stop that mechanism and return to a normal target-file edit.
+6. Before a monthly push, run `python3 scripts/audit_lesson_similarity.py <reviewed lesson files or month> --fail-on-findings`. Treat any finding as a rewrite/review task, not as a waived warning.
 
 ## Learning-content standard
 

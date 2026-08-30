@@ -22,3 +22,26 @@ Extend the secure-agent lab with a monitor that flags cross-tenant proposals, a 
 ## Speakable summary
 
 “Reliable agent deployment is a control problem: bound authority, observe behavior, intervene before irreversible effects, and make residual risk explicit.”
+
+## Articles
+
+1. [Defense in depth](01-defense-in-depth.md) — draft
+2. [Agent control](02-agent-control.md) — draft
+3. [Monitoring coverage and recall](03-monitoring-coverage-and-recall.md) — draft
+4. [Synchronous intervention](04-synchronous-intervention.md) — draft
+5. [Chain-of-thought limits](05-chain-of-thought-limits.md) — draft
+6. [Agent identity](06-agent-identity.md) — draft
+7. [Multi-agent protocols](07-multi-agent-protocols.md) — draft
+8. [Sandbox and testbed design](08-sandbox-testbed-design.md) — draft
+9. [Incident response for agents](09-incident-response-for-agents.md) — draft
+10. [Safety cases](10-safety-cases.md) — draft
+11. [Capability scoping](11-capability-scoping.md) — draft
+12. [Policy enforcement points](12-policy-enforcement-points.md) — draft
+13. [Anomaly triage](13-anomaly-triage.md) — draft
+14. [Approval boundaries](14-approval-boundaries.md) — draft
+15. [Revocation](15-revocation.md) — draft
+16. [Agent rate limits](16-agent-rate-limits.md) — draft
+17. [Agent containment](17-containment.md) — draft
+18. [Audit evidence](18-audit-evidence.md) — draft
+19. [Control evaluations](19-control-evaluations.md) — draft
+20. [Residual risk](20-residual-risk.md) — draft

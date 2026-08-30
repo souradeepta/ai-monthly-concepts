@@ -23,6 +23,24 @@ Build a local support-draft agent that may search mock tickets but cannot issue 
 
 - [The agent loop](01-agent-loop.md) — first full lesson; use it as the implementation baseline for the remaining March concepts.
 - [Evaluating agents](02-agent-evaluation.md) — turn an agent prototype into a measurable system.
+- [Transformer inference](03-transformer-inference.md)
+- [Context windows](04-context-windows.md)
+- [Tool calling](05-tool-calling.md)
+- [Reinforcement learning and search](06-reinforcement-learning-search.md)
+- [Human-subject evaluation](07-human-subject-evaluation.md)
+- [Prompt injection](08-prompt-injection.md)
+- [Model routing](09-model-routing.md)
+- [AI work redesign](10-ai-work-redesign.md)
+- [Chain-of-thought versus verifiable action](11-chain-of-thought-verifiable-action.md)
+- [Tool error taxonomies](12-tool-error-taxonomies.md)
+- [State machines](13-state-machines.md)
+- [Idempotency](14-idempotency.md)
+- [Replay testing](15-replay-testing.md)
+- [Human-in-the-loop queues](16-human-in-the-loop-queues.md)
+- [Capability security](17-capability-security.md)
+- [Secure prompt-injection handling](18-secure-prompt-injection.md)
+- [Task routing](19-task-routing.md)
+- [AI adoption metrics](20-ai-adoption-metrics.md)
 
 ## Speakable summary
 

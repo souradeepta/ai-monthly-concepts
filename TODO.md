@@ -14,20 +14,29 @@
 
 ## Active
 
-- [ ] January 02 — KV caching: rewrite, Terra-review, push.
+- [ ] Expand April–June draft coverage month by month before returning to July/August missing-file coverage; review/approval remains a later pass.
+- [ ] April 01 — Multimodal representation: mechanics and source pass complete; substantive review, then push.
+- [ ] April 02 — Streaming speech: expansion and mechanics pass complete; substantive review, then push.
+- [ ] April 04 — Embodied reasoning: expansion and mechanics pass complete; substantive review, then push.
+- [ ] April 05 — World models: expansion and mechanics pass complete; substantive review, then push.
+- [ ] April 06 — Asynchronous distributed training: expansion in progress; mechanics pass complete.
+- [ ] May 01 — Multi-agent decomposition: expansion in progress; mechanics pass complete.
+- [ ] January 07 — Structured output: mechanics and source pass complete; Terra-review, push.
+- [ ] January 08 — Function calling: rewrite, mechanics, and source pass complete; Terra-review, push.
+- [ ] January 09 — RAG: clone removed; mechanics and source pass complete; Terra-review, push.
 
 ## Article backlog
 
 | Month | Approved / 20 | Next action |
 |---|---:|---|
-| January | 1 | Rewrite/review 02–20 individually. |
+| January | 1 | Rewrite/review 02–20 individually; overlap audit found cloned prose in 09–20, so none of those drafts may be approved without a source-specific rewrite. |
 | February | 0 | Discard generic batch; rebuild 01 individually. |
 | March | 3 | Rewrite/review 04–20 individually. |
-| April | 0 | Source-first article creation, 01–20. |
-| May | 0 | Source-first article creation, 01–20. |
-| June | 0 | Source-first article creation, 01–20. |
-| July | 0 | Source-first article creation, 01–20. |
-| August | 4 | Source-first article creation, 05–20. |
+| April | 0 | Draft coverage 20/20; expand and substantively review 02–20 before approval. |
+| May | 0 | Draft coverage 20/20; expand and substantively review 01–20 before approval. |
+| June | 0 | Draft coverage 20/20; expand and substantively review 01–20 before approval. |
+| July | 0 | Priority 4: source-first article creation, 01–20. |
+| August | 4 | Priority 5: source-first article creation, 05–20. |
 
 ## Acceptance checklist
 
@@ -37,6 +46,7 @@
 - [ ] Two relevant architecture/system-flow Mermaid diagrams.
 - [ ] Unique runnable code, local build, Q&A, glossary, references, claim ledger.
 - [ ] Terra review confirms no repeated boilerplate before push.
+- [ ] Run `python3 scripts/audit_lesson_similarity.py <reviewed lessons> --fail-on-findings` before each monthly push.
 
 ## Next
 
