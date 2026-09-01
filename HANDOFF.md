@@ -1,35 +1,46 @@
-# Cold-start handoff
+# Article-production handoff
 
-## Last confirmed remote state
+## Active priority
 
-- Branch: `main`; latest pushed standards commit: `8723ab5`.
-- The remote contains curriculum maps, selected rich articles, visual assets, and the 2,400-word standard/validator.
-- It intentionally does **not** contain the unreviewed January–March article batches.
+Quality cleanup is proceeding month by month. January is the reference-clean month: all 20 lessons pass mechanics and the month-wide similarity audit. February is active next; lessons 02–20 have received three cleanup batches, while eight duplicated scaffold blocks remain. Do not mark February approved until its similarity audit passes.
 
-## Local draft state — do not commit yet
+## Current repository state
 
-- January: 20 untracked article files. They mechanically reach 2,400 words but Terra rejected them for a repeated generic operations appendix, templating leaks, and patch artifacts. Rewrite per topic before any commit.
-- February: 20 untracked article files. Structural headings were corrected, but the review found them short/generic and weakly tied to February-specific primary evidence. Rewrite to 2,400 substantive words each.
-- March: existing `01` and `02` plus 18 untracked drafts. Review found `03–20` short/generic and not adequately tied to March developments. Rewrite them; also ensure `01–02` meet the 2,400-word rule.
-- April–August do not yet have 20 individual articles each; do not claim they do.
+- January–August each contain 20 numbered article files.
+- January lessons pass validation, runnable examples, whitespace checks, and similarity audit.
+- February lesson 01 was rewritten around enterprise control-plane boundaries and passes its lesson checks.
+- February lessons 02–20 pass individual validators and `git diff --check`; the February similarity audit still reports shared blocks.
+- March has duplicated long prose across its lesson set and requires the same cleanup approach.
+- May has one reported similarity pair; April, June, July, and August have several lessons below the 2,400-word target.
+- `LICENSE.md`, `LICENSE-CODE.md`, and `DISCLOSURES.md` are present. Preserve existing user changes; do not reset or discard unrelated edits.
 
-## Non-negotiable acceptance gate
+## Definition of done
 
-1. Exactly 20 `01-*.md` … `20-*.md` article files per month.
-2. Run `python3 scripts/validate_lessons.py months/2026-MM`.
-3. Review for topic-specific depth, accurate/month-specific sources, no repeated filler, and no templating artifacts.
-4. Update README to link all 20 articles.
-5. Commit only the reviewed monthly batch; push only after the working tree is clean except unrelated drafts.
+For each article:
 
-## Next safe order
+- Use the monthly concept and linked primary/context sources; label facts versus engineering inferences.
+- Include the required lesson sections, two colored Mermaid diagrams, a runnable low-cost Python example, numbered steps, interview Q&A, glossary, references, and claim ledger.
+- Reach at least 2,400 substantive words, pass `scripts/validate_lessons.py <lesson> --run-python`, and pass `git diff --check`.
+- Keep explanations topic-specific; do not reuse boilerplate paragraphs, generic appendices, diagrams, or code across lessons.
+- Run `python3 scripts/audit_lesson_similarity.py <month> --fail-on-findings` before considering a month review-complete.
+- Update `TODO.md` only with factual milestones; substantive approval remains separate from mechanics.
 
-1. Finish substantive January rewrite and Terra re-review.
-2. Rewrite/review February, then March.
-3. Create April–August in the same source-first, review-per-month workflow.
+## Working loop
 
-## User preferences
+1. Read `MEMORY.md`, `TODO.md`, the target lesson, and its monthly README.
+2. Select a concrete batch, usually one duplicated block across a month or a small set of short lessons.
+3. Edit with `apply_patch`; preserve unrelated dirty-worktree changes.
+4. Run affected validators with `--run-python`, `git diff --check`, and the month similarity audit.
+5. Record the batch result, remaining blocker count, and next batch in the final handoff.
 
-- Keep chat concise; preserve output-file quality.
-- Audience is CS student/SDE2; treat articles as system-design posts.
-- Luna for bounded drafting; Terra for review when available.
-- Use primary sources plus reputable industry/publication context.
+## Next sequence
+
+1. Continue February lessons 02–20 by replacing the remaining eight shared scaffold blocks with concept-specific prose.
+2. Re-run every February validator and the month similarity audit; only then begin March.
+3. Clean March’s duplicated long paragraphs, then resolve May’s remaining similarity pair.
+4. Expand under-target lessons in April, June, July, and August to at least 2,400 substantive words, validating each lesson after editing.
+5. Perform substantive source and quality review before any month is marked approved, committed, or pushed.
+
+## Communication rules
+
+Do not use persistent goals or unattended loops. Work in meaningful batches, suppress raw console output, and report factual outcomes: files or batch changed, checks passed/failed, remaining blocker, and next batch.

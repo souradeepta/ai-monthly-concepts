@@ -113,6 +113,10 @@ Before launch, define a capacity test. Simulate many concurrent runs with normal
 
 The same standard applies to model upgrades. Pin a workflow to explicit model and prompt versions, replay a representative evaluation set, and compare cost, latency, evidence coverage, and escalation behavior before changing production traffic. A better benchmark score may still be unacceptable if it weakens citation checks or alters a role's tool-use pattern.
 
+### A practical rollout sequence
+
+Ship decomposition behind a feature flag and begin with a shadow run: execute the specialist roles for sampled requests while a single-agent baseline remains authoritative. Compare the final recommendation, citations, budget, and elapsed time without exposing extra output to customers. Next, enable the workflow only for low-impact tasks with a clear human fallback. Promote it after the evidence shows a measurable gain on the chosen rubric and after operators have exercised cancellation, retry, and rollback paths. This sequence limits blast radius and avoids mistaking a compelling demo for a production reliability result.
+
 ## Build it locally
 
 ```python

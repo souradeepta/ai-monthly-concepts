@@ -9,16 +9,16 @@ Observability links traces, metrics, and logs to explain model, tool, cost, and 
 Traditional service logs rarely connected an LLM call to retrieval, tools, tokens, or user result.
 
 ## What changed and why now
-Distributed traces can carry a request ID across orchestration and inference spans. This month's focus is observability as an operable system boundary: its measurements and controls determine whether the capability survives contact with real traffic.
+Distributed traces can carry a request ID across orchestration and inference spans. The January focus is observability as causal evidence: telemetry should let an operator connect a user outcome to model, retrieval, tool, policy, and dependency events.
 
 ## Impact on current processing and architecture
-Capture latency, token counts, model version, tool outcomes, and redacted errors with retention controls. A production path should carry version, tenant, latency, cost, and failure metadata beside the model result.
+Capture trace context, token counts, model version, tool outcomes, and redacted errors under an explicit retention policy. Keep route, tenant, latency, cost, sampling, and drop metadata beside the user outcome.
 
 ## Real-world applications and constraints
-Use dashboards for TTFT, error rate, cache hits, retrieval recall proxies, and cost by route. Start with reversible, low-risk workloads; define SLOs, access controls, and an owner before expanding.
+Use dashboards for time-to-first-token, span completeness, dependency latency, tool denials, and cost by route. Begin with a non-sensitive canary, then define alert ownership, payload redaction, and a runbook action before increasing sampling.
 
 ## Mental model
-A trace is causal context across spans; correlation IDs connect events without storing raw secrets. Model the concept as a state transition with explicit inputs, outputs, authority, and failure handling.
+A trace is causal context across spans; correlation IDs connect events without storing raw secrets. Think of telemetry as a pipeline whose records move from emitted to exported, retained, queried, and eventually deleted.
 
 ## Prerequisites: a foundational primer
 
@@ -45,6 +45,8 @@ A missing correlation ID fragments an incident; high-cardinality payload labels 
 
 ## Mini exercise (15–30 min)
 
+For agent systems, observability must connect model work to external state without making sensitive prompts the default log payload. Put trace and run IDs on retrieval, model, policy, tool, queue, and provider events. Record versions, latency, token estimates, decisions, and receipts; redact secrets before export and restrict raw evidence separately. A useful dashboard distinguishes model refusal, policy denial, provider error, timeout, and unknown external outcome. Each category leads to a different response and should not be collapsed into “request failed.”
+
 Instrument a retrieval-to-validator stub with parent/child spans, error classes, counts, and a redaction test. Verify a dependency failure still yields a final state.
 
 ## Tracing one AI request across changing components
@@ -61,9 +63,9 @@ For a document assistant incident, a trace shows retrieval returned an old polic
 
 ## Impact on current data processing
 
-The data path is `request → trace collector → validator/policy → outcome`. The `redacted request trace` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where spans and outcome events become an application decision.
+The telemetry path is `request → context propagation → service spans/events → exporter → protected store → metrics and incident views`. A trace links model, retrieval, tool, queue, and policy spans while outcome events record completion, cancellation, denial, correction, or unknown state. Payloads are not the identity of a trace: store bounded attributes, source and deployment versions, timing, status, and references to separately protected evidence. This lets operators reconstruct a causal path without turning observability into a copy of customer data.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for spans and outcome events alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound span attributes, event rate, queue backlog, exporter memory, and retention. Measure trace completeness, dropped-span rate, first-token and end-to-end latency, dependency errors, retries, tool denials, token cost, and downstream corrections by route and protected slice. If telemetry is delayed, mark the view incomplete rather than treating missing evidence as healthy traffic. Propagate correlation and idempotency IDs through retries and queues. Traces, exemplars, and recordings inherit tenant access and deletion rules; these controls are engineering inferences, not guarantees supplied by the source.
 
 ## Architecture and data flow
 
@@ -84,7 +86,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms spans and outcome events; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+The application path and telemetry path are separate trust domains. Admission creates a correlation context containing tenant scope, purpose, deadline, and deployment version; workers add child spans for retrieval, generation, validation, and side effects; exporters enforce redaction and access policy. Outcome events are emitted by the component that knows the final state, not inferred from a successful transport response. Only the application policy gate can authorize a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +112,39 @@ A missing correlation ID fragments an incident; high-cardinality payload labels 
 
 ## Design walkthrough: operating spans and outcome events safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The trace collector receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the redacted request trace identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+Instrument an AI request as a causal story rather than a bag of timestamps. A trace should connect admission, prompt or feature assembly, retrieval, model calls, tool calls, validation, side effects, and the user-visible outcome. Each span records start and end time, status, bounded attributes, dependency versions, and a correlation ID. Metrics summarize fleet behavior; logs explain a selected event; traces explain one request’s path. Keeping these roles separate makes an alert actionable without storing every prompt.
 
-A document-assistant trace can show an old index version, omitted effective date, and accepted validator state in one timeline. The owner can then fix freshness and regression tests without searching raw prompts.
+For a document assistant, one trace might show that retrieval used an index from Monday, the source document became effective Tuesday, the model cited the older version, and a validator accepted the answer because it checked only schema. That is a freshness and validation gap, not simply “high latency.” The trace should make the boundary visible while redacting document contents. A useful outcome event records answer state, citation status, user correction, and downstream action, allowing owners to connect infrastructure signals to quality.
 
-Now follow a difficult request. An unusually large spans and outcome events value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Propagate context across asynchronous boundaries. Put trace and tenant identifiers in queue metadata, carry them through retries, and create a new linked span when a worker resumes after a delay. Record attempt number and idempotency key so duplicate work is distinguishable from a long call. For streaming responses, capture first-token latency, inter-token gaps, cancellation, and final completion state. For batch jobs, record partition, checkpoint, replay count, and partial-output disposition. A single request ID without state transitions cannot explain why an agent acted twice.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the redacted request trace as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Define cardinality before enabling telemetry. User IDs, raw prompts, URLs, and generated text can explode metric dimensions or create privacy exposure. Keep high-cardinality details in access-controlled event storage, hash or bucket where possible, and use stable reason codes for metrics. Apply tenant-aware retention and deletion to traces, exemplars, attachments, and derived dashboards. Test that a revoked user cannot retrieve a trace merely because they know its correlation ID.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For spans and outcome events, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Build alerts around symptoms and causes. Queue age, dependency failures, tool-denial rates, token spend, and p99 latency are useful symptoms; stale index versions, validator bypasses, and rising human overrides suggest causes. Break down metrics by model route, source age, language, tenant class, and task type only when those slices lead to an action. Compare current behavior with a pinned baseline and alert on both sudden shifts and slow drift. A low error rate can coexist with a severe failure in a small protected slice.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+Close each instrumentation change with a privacy and debugging review. State what is collected, who can read it, retention, redaction, sampling, and the incident question it answers. Pin schema versions and maintain compatibility for consumers such as dashboards, replay tools, and billing. During an incident, preserve a small safe exemplar and the deployment manifest; after resolution, add a detector or test if the missing signal delayed diagnosis. Telemetry is part of the product’s control plane and must be operated with the same rigor as the model path.
+
+### Outcome taxonomy
+
+Choose final states that describe what happened: `completed`, `cancelled`, `timed_out`, `dependency_unavailable`, `policy_denied`, `validation_failed`, `partial`, and `unknown`. Do not infer success from an HTTP 200 or a nonempty string. Emit the state at the boundary that owns the decision, then let downstream systems attach their observations. This prevents dashboards from counting a generated answer as successful when its tool call failed or its side effect was never confirmed.
+
+### Sampling and replay
+
+Tail-based sampling can retain slow or failed traces while reducing routine storage, but the sampler needs enough context to recognize a failure. Always retain a small protected sample across tenants and task classes, and make sampling decisions auditable. Replay should use synthetic or redacted fixtures with mocked side effects. Never turn production traces into an unrestricted tool-execution harness. A replay result must identify which dependencies were simulated and which signals therefore cannot be compared with production.
+
+### Runbook design
+
+Every alert needs an owner, a query, a severity threshold, and a safe first action. If tool-denial spikes, the runbook should distinguish a policy rollout from credential expiry and suggest read-only degradation where possible. If traces disappear, check exporter backpressure and sampling configuration before assuming the application is healthy. Record operator actions in the incident timeline. A dashboard that cannot lead to a bounded decision is documentation, not observability.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which spans and outcome events are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Observability earns its cost when distributed failures cannot be explained from application logs alone. Start with identifiers and aggregate measurements, then add carefully redacted payload detail for incident cohorts. Budget exporters, storage, query, and privacy-review work; separate instrumentation overhead from user-facing latency. Cheaper telemetry is not useful if sampling removes the evidence needed to connect a failure to its cause.
 
 More span detail shortens diagnosis but increases storage and privacy cost. Payloads improve forensic context while expanding breach impact; IDs and hashes are safer but may require a controlled replay path.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to spans and outcome events: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Watch for cardinality explosions, missing parent spans, clock skew, exporter backpressure, secret capture, and misleading aggregate dashboards. Test dropped events, retries, cancellations, streaming disconnects, sampled-out errors, and cross-tenant queries. A healthy dashboard can coexist with blind spots. Assign an alert owner and retention rollback; source capabilities are facts, while diagnostic value is an inference to verify locally.
 
 ## Runnable low-cost example
 

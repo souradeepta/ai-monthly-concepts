@@ -1,6 +1,6 @@
 # Evaluating agents: measure the world, not the story
 
-Status: durable  
+Status: durable
 Sources: [HumanSignal — 2026-03-11](https://humansignal.com/blog/agent-evaluation-framework/), [Agentic AI evaluation review — 2026-04-24](https://doi.org/10.1007/s10462-026-11571-0)
 
 ## In one sentence

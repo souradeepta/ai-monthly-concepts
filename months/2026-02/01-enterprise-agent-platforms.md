@@ -50,7 +50,7 @@ The engineering inference in this lesson is that turning a collection of clever 
 
 ## Historical baseline and problem boundary
 
-Before this month's event, a team could make a convincing prototype with a synchronous request, a prompt, one model call, and a small script around an API. That baseline remains appropriate for drafting or a read-only experiment. It becomes unsafe or unreliable when a request crosses systems, waits, changes durable data, or must be explained later. The failure is not merely that the model can be wrong. It is that the surrounding software may have no place to record authority, version, evidence, retries, or recourse.
+Before a shared enterprise control plane, teams commonly assembled each assistant from a synchronous API call, a prompt, and a service-specific credential. That approach can work for a read-only prototype, but ownership fragments as soon as dozens of agents share customer records, tools, and queues. One team may log prompts while another logs only tool outcomes; one may rotate permissions while another leaves them embedded in configuration. The platform problem is therefore coordination: define a common run identity, registry, policy decision, context reference, and outcome record without forcing every workload onto one model or one deployment region.
 
 For **root-cause investigation for a hardware manufacturer**, draw the boundary before choosing a model. Identify the human or service principal, the records allowed into context, the actions proposed by the model, the component that validates them, and the owner who handles an ambiguous result. Decide which operations are reads, reversible writes, irreversible writes, or merely recommendations. A useful rule is that an untrusted string may influence a proposal but may never create a permission, erase an audit event, or bypass a state transition.
 
@@ -70,13 +70,13 @@ flowchart LR
   class A,C,X,L data; class I,B control; class M risk
 ```
 
-Use separate fields for user text, retrieved facts, policy instructions, tool output, and generated proposal. This prevents an instruction hidden in a document or tool result from acquiring the authority of a system rule. Every record should carry a tenant or project key where relevant. Cache keys must include authorization scope and source version. Logs should retain enough structured evidence to explain a decision while redacting secrets and unnecessary free text.
+Keep user intent, retrieved business facts, platform policy, tool results, and generated proposals in separate typed fields. In a platform, this separation is also an ownership map: the context service owns source authorization, the model adapter owns generation metadata, the tool gateway owns capability checks, and the audit stream owns the decision record. An instruction hidden in a ticket or tool response may influence a proposal but cannot become a platform policy. Bind tenant, region, data class, and registry version to cache and event keys. Retain references and hashes where possible; a central audit plane should explain a decision without becoming a second unrestricted copy of every transcript.
 
 A minimal run record is: `run_id`, `request_id`, actor, tenant, purpose, model/version, policy/version, context references, proposal hash, action, decision, timestamps, attempts, effect IDs, and final status. For this topic add agent registry, semantic context layer, adapter, tenant control plane, and audit stream. Do not put an unbounded transcript in the primary operational table; store a redacted pointer with a retention policy.
 
 ## Processing walkthrough and state
 
-The happy path is only one transition. A request may be malformed, missing evidence, denied, awaiting a reviewer, interrupted after a remote commit, or invalidated by a policy change. Model states explicitly: `received`, `validated`, `proposed`, `blocked`, `pending`, `running`, `succeeded`, `failed`, and `cancelled`. Guard transitions with a run version or compare-and-swap so two workers cannot both advance the same work.
+An enterprise platform must make control-plane failures visible as states, not hide them behind a generic model error. A run can be `registered`, `admitted`, `context_denied`, `proposed`, `policy_blocked`, `awaiting_owner`, `executing`, `completed`, or `reconciliating`. Store the registry and policy versions at each transition. If a policy service is unavailable, the safe default for a write is usually blocked or read-only; if a regional control plane is partitioned, a short-lived cached decision needs an explicit expiry and scope. Compare-and-swap on the run record prevents two workers or two regions from both claiming the same platform action.
 
 ```mermaid
 sequenceDiagram

@@ -33,15 +33,15 @@ Extend the secure-agent lab with a monitor that flags cross-tenant proposals, a 
 6. [Agent identity](06-agent-identity.md) — draft
 7. [Multi-agent protocols](07-multi-agent-protocols.md) — draft
 8. [Sandbox and testbed design](08-sandbox-testbed-design.md) — draft
-9. [Incident response for agents](09-incident-response-for-agents.md) — draft
-10. [Safety cases](10-safety-cases.md) — draft
-11. [Capability scoping](11-capability-scoping.md) — draft
-12. [Policy enforcement points](12-policy-enforcement-points.md) — draft
-13. [Anomaly triage](13-anomaly-triage.md) — draft
-14. [Approval boundaries](14-approval-boundaries.md) — draft
-15. [Revocation](15-revocation.md) — draft
-16. [Agent rate limits](16-agent-rate-limits.md) — draft
-17. [Agent containment](17-containment.md) — draft
-18. [Audit evidence](18-audit-evidence.md) — draft
-19. [Control evaluations](19-control-evaluations.md) — draft
-20. [Residual risk](20-residual-risk.md) — draft
+9. [Incident response for agents](09-incident-response-for-agents.md) — mechanics pass complete; substantive review pending
+10. [Safety cases](10-safety-cases.md) — mechanics pass complete; substantive review pending
+11. [Capability scoping](11-capability-scoping.md) — mechanics pass complete; substantive review pending
+12. [Policy enforcement points](12-policy-enforcement-points.md) — mechanics pass complete; substantive review pending
+13. [Anomaly triage](13-anomaly-triage.md) — mechanics pass complete; substantive review pending
+14. [Approval boundaries](14-approval-boundaries.md) — mechanics pass complete; substantive review pending
+15. [Revocation](15-revocation.md) — mechanics pass complete; substantive review pending
+16. [Agent rate limits](16-agent-rate-limits.md) — mechanics pass complete; substantive review pending
+17. [Agent containment](17-containment.md) — mechanics pass complete; substantive review pending
+18. [Audit evidence](18-audit-evidence.md) — mechanics pass complete; substantive review pending
+19. [Control evaluations](19-control-evaluations.md) — mechanics pass complete; substantive review pending
+20. [Residual risk](20-residual-risk.md) — mechanics pass complete; substantive review pending

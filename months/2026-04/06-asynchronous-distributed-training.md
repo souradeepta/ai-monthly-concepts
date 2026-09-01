@@ -92,6 +92,30 @@ Monitor island availability, queue depth, update arrival age, merge lag, bytes t
 
 Failure injection should include a slow link, lost island, duplicate delivery, corrupt payload, partial checkpoint write, incompatible manifest, and a merge timeout. Establish the safe response for each case: retry receipt, quarantine artifact, restore checkpoint, or halt a merge. A system that stays running while silently admitting incompatible updates is not fault tolerant.
 
+### Backpressure and fairness
+
+An asynchronous exchange needs admission control. If a network partition heals, an island may release a burst of old updates that overwhelms the merger or makes the active state jump unpredictably. Bound queue length and artifact size, apply per-island quotas, and choose an explicit policy for overflow: reject, quarantine, or retain only the newest compatible update. The policy should preserve evidence even when it refuses the payload. Measure queue age and rejected volume so a quiet queue is not mistaken for healthy delivery.
+
+Fairness matters when islands have different data sizes or hardware. An island with faster local compute may publish more updates, while another may represent a valuable but smaller data slice. Weighting by arrival count can overrepresent the fastest source; weighting by data volume can overrepresent the largest source. Define the objective and inspect validation metrics by island and data slice. If a stream is deliberately downweighted, record the reason and verify that the resulting model still meets the intended coverage.
+
+### Numerical and semantic compatibility
+
+Shape compatibility is only the first check. Two updates can have matching tensors while using different normalization, tokenizer, label map, loss, optimizer, or data-filter rules. Put these semantic dependencies in the manifest and reject or quarantine an update when the receiver cannot verify them. Keep a schema version for the payload and a policy version for its data. A migration should have a boundary checkpoint and a new evaluation baseline instead of quietly mixing old and new semantics.
+
+### Observability during recovery
+
+Recovery has its own workload. Track how many workers are rebuilding, how much storage and bandwidth checkpoints consume, and whether validation queues are delayed by recovery traffic. Emit a state event when an island is declared lost, when its last accepted update is known, and when it rejoins. Operators need to distinguish “not yet received,” “received but not verified,” “verified but not merged,” and “merged but not evaluated.” These states prevent a late artifact from being applied twice or a missing artifact from disappearing into a success dashboard.
+
+### Release decision
+
+Approve an asynchronous topology only after comparing it with a synchronous or otherwise controlled baseline. Hold model initialization, data budget, validation fixtures, and policy constant. Define acceptable convergence, protected-slice quality, recovery time, cost, and rejected-update rates before the experiment. If the topology improves availability but creates an unbounded quality tail, keep it in a restricted route or reduce the exchange scope. The final release record should link the experiment manifest, checkpoint lineage, fault schedule, and reviewer decision.
+
+### Small worked scenario
+
+Suppose three islands train a classifier. Island A publishes update 41 from base version 100, Island B publishes update 42 from base version 99, and Island C loses its link before publishing. The receiver first verifies both manifests and observes that A is within the five-step age limit while B is stale. It merges A, quarantines B, and records C as unavailable rather than interpreting silence as a zero update. When C reconnects, its artifact is checked against the active policy and either accepted, downweighted by a documented rule, or rejected for being too old. The validation job compares the merged checkpoint with the last known-good baseline before promotion.
+
+This scenario illustrates why a queue dashboard is insufficient. Operators need lineage, age, policy, and validation state together. It also shows why an asynchronous design should make partial progress visible: retaining a useful checkpoint may be safer than forcing every island to catch up immediately.
+
 Convergence is a measured outcome, not an assumption from transport design. Compare an asynchronous run to a controlled baseline using matched data budget, tokenizer, model initialization, optimizer, and validation suite. Inspect not only aggregate loss but also held-out quality by language, task, safety category, and long-tail slice. A lower queue wait time is not a win if rare but important slices regress. Define acceptance thresholds before the run, and retain artifacts necessary to repeat the comparison.
 
 Merge policy is a source of behavior. A simple policy may average deltas; another may weight updates by age, local steps, data volume, or validation signal. Each choice changes optimization dynamics and can create incentive problems when islands have different data distributions. Keep policy code versioned and test it with synthetic updates that are fresh, stale, conflicting, duplicated, and malformed. If a policy downweights an update, log the applied weight and reason so later analysis is possible.

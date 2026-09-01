@@ -280,6 +280,10 @@ Build a tiny linear classifier with fixed weights and two classes. Produce predi
 
 ## Claim ledger
 
+## Impact on current processing
+
+Quantization changes the artifact, runtime kernels, memory layout, calibration contract, and observability needed for inference. A lower-bit checkpoint may fit on a smaller accelerator, but the serving stack must load the intended scales, select compatible kernels, and preserve accumulator precision. Compare the same prompts and generation settings against a floating-point baseline, and inspect structured outputs and refusal behavior rather than relying on perplexity alone.
+
 | Claim | Source | Fact or inference |
 |---|---|---|
 | LLM.int8() uses vector-wise quantization and a higher-precision path for outlier feature dimensions. | [LLM.int8()](https://arxiv.org/abs/2208.07339) | Fact, scoped to the paper’s method |

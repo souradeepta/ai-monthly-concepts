@@ -9,16 +9,16 @@ Data governance specifies retention, access, deletion, provenance, and purpose f
 Teams often copied prompts and outputs into logs and training stores without lifecycle ownership.
 
 ## What changed and why now
-Governance makes data state explicit across collection, inference, storage, sharing, and deletion. This month's focus is data governance as an operable system boundary: its measurements and controls determine whether the capability survives contact with real traffic.
+Governance makes data state explicit across collection, inference, storage, sharing, and deletion. The January focus is lineage as an operational control: teams must know which derived records inherit a source's purpose, access rules, and deletion request.
 
 ## Impact on current processing and architecture
-Classify fields, minimize collection, enforce TTLs, audit access, and propagate deletion to indexes and caches. A production path should carry version, tenant, latency, cost, and failure metadata beside the model result.
+Classify fields, minimize collection, enforce TTLs, audit access, and propagate deletion to indexes and caches. Carry asset ID, lineage version, tenant, purpose, retention deadline, processing latency, cost, and deletion status.
 
 ## Real-world applications and constraints
-Use separate stores and keys for tenants, redact telemetry, and test deletion end to end. Start with reversible, low-risk workloads; define SLOs, access controls, and an owner before expanding.
+Use separate stores and keys for tenants, redact telemetry, and test deletion end to end. Begin with synthetic or low-sensitivity records, then assign data owners, jurisdiction rules, and an exception process before production ingestion.
 
 ## Mental model
-Provenance records where data came from and what transformations occurred; retention is a policy, not a default. Model the concept as a state transition with explicit inputs, outputs, authority, and failure handling.
+Provenance records where data came from and what transformations occurred; retention is a policy, not a default. Follow an asset through classified, approved, transformed, served, restricted, and deleted states.
 
 ## Prerequisites: a foundational primer
 
@@ -45,6 +45,8 @@ A deleted row can survive in a vector segment, backup, cache, or vendor copy; a 
 
 ## Mini exercise (15–30 min)
 
+Governance follows the data through transformations. A source document can create chunks, embeddings, caches, prompts, traces, evaluation fixtures, and backups, each with an owner and retention rule. Maintain lineage and tenant boundaries so an access request or deletion request can find derived copies. Purpose limitation also applies to diagnostics: retaining raw prompts “for debugging” may create a new use that was never approved. Verify deletion with a discoverability test and document vendor, archive, and legal-hold exceptions rather than claiming certainty from one database query.
+
 Inventory five assets for one tenant, assign expiry, and execute a deletion plan that checks source, vector, cache, and evaluation discoverability afterward.
 
 ## Lifecycle controls for AI-derived data
@@ -61,9 +63,9 @@ For a recruiting assistant, candidate documents are parsed into a restricted sto
 
 ## Impact on current data processing
 
-The data path is `request → governance registry → validator/policy → outcome`. The `retention and deletion receipt` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where data assets and lineage edges become an application decision.
+The governed asset path is `source → classified asset → transformation job → derived asset → serving index → deletion/audit workflow`. Each node has an owner, purpose, sensitivity, retention state, and location; each edge records input digests, code or model version, timestamp, and actor. A deletion receipt describes graph coverage rather than claiming that one table row disappeared. Retrieval and export must consult the asset’s current access and retention state before using it.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for data assets and lineage edges alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound lineage fan-out, graph-query depth, deletion backlog, export size, and metadata retention. Measure orphan assets, broken edges, stale classifications, overdue retention jobs, cross-tenant joins, deletion coverage, and audit-query latency by asset class. If a dependency or vendor copy is unavailable, mark the request pending or exception and isolate the asset from new inference; never report verified deletion from a partial scan. Workers need idempotent task IDs and receipts. These controls are engineering inferences, not guarantees supplied by the source.
 
 ## Architecture and data flow
 
@@ -84,7 +86,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms data assets and lineage edges; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+The source system, derived stores, and governance registry are separate trust boundaries. Admission attaches tenant, purpose, legal or policy basis, deadline, and source snapshot; the registry resolves permitted lineage; workers materialize or delete named assets; validators check scope, retention, and completeness. Only an authorized policy transition can expose or act on the result. Telemetry records asset, edge, job, and receipt IDs without copying sensitive values by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +112,39 @@ A deleted row can survive in a vector segment, backup, cache, or vendor copy; a 
 
 ## Design walkthrough: operating data assets and lineage edges safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The governance registry receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the retention and deletion receipt identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+Govern an AI data asset as a living graph, not as one database table. Register raw inputs, cleaned records, chunks, embeddings, prompts, evaluations, outputs, and human corrections as separate asset classes. Each node needs an owner, purpose, sensitivity, location, retention rule, and quality state. Edges explain derivation, joins, model or index versions, and access scope. Without those edges, a deletion request or a surprising answer cannot be followed to the artifacts that reproduced it.
 
-A recruiting assistant keeps candidate documents, vectors, and reviewer notes in separate retention classes. A candidate deletion request removes derived search artifacts and records a verification receipt.
+In a recruiting assistant, candidate documents, extracted fields, vectors, reviewer notes, and aggregate reports may have different purposes and retention periods. A candidate deletion request must find the original file, queue payloads, caches, vector records, backups, and derived evaluation examples. The system should return a verification receipt naming the checked asset classes and any legal or technical exception. “Deleted from the primary table” is not a complete deletion claim.
 
-Now follow a difficult request. An unusually large data assets and lineage edges value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Make lineage write-once enough to be trusted while allowing corrections to metadata. A processing job records input digests, output IDs, code and model versions, schema, policy, timestamp, and actor. If a transformation samples or filters records, record the rule and count. If a vector index is rebuilt, link the new index to the source snapshot and mark the old index’s serving state. Keep lineage queries permission-aware: an auditor may need to prove derivation without seeing the underlying sensitive value.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the retention and deletion receipt as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Separate quality, access, and retention state. A stale record can remain legally retained but unsuitable for a current answer; a restricted record can be high quality but unavailable to one tenant; a quarantined artifact can be useful for incident analysis but forbidden from training. Enforce these states at ingestion, retrieval, export, and deletion boundaries. Test joins where one input is public and the other confidential, and test revocation after a derived artifact has already entered a queue.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For data assets and lineage edges, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Plan for propagation lag. Deleting a source may require asynchronous removal from caches, replicas, feature stores, vector indexes, training manifests, and backups. Expose pending, verified, and exception states, with an owner and deadline for each exception. A model already trained on a record may not be removable by deleting a row; the governance record must distinguish artifact deletion from model retraining or documented risk treatment. Never claim stronger erasure than the architecture can demonstrate.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+Review a change packet before adding a new source or derived asset. Include purpose limitation, schema, sensitivity, owner, consumers, lineage edges, retention, access policy, deletion behavior, and quality checks. Monitor orphan assets, broken edges, unexpected cross-tenant joins, retention overdue counts, and lineage gaps. After an incident, preserve only the minimum redacted evidence needed to reproduce it and update the graph so the same dependency can be found next time.
+
+### Asset contracts
+
+An asset contract should state what a producer guarantees and what consumers must not assume. Define field meanings, units, null behavior, freshness, acceptable quality, permitted uses, and change notification. A dataset may be valid for aggregate trend analysis but prohibited for identity decisions. Contract tests should fail when a producer silently changes a field or drops a lineage edge. Keep sample records synthetic where possible, with controlled access to production exemplars.
+
+### Deletion workflow
+
+A deletion job first resolves the graph, then creates idempotent tasks for each materialized copy. Workers report found, removed, unavailable, or exception, with receipts linked to the request. Re-running the job must not recreate the asset from a stale queue message. Search indexes need tombstones or rebuild plans; caches need invalidation; exports need revocation. A reviewer should be able to inspect coverage without downloading the deleted content.
+
+### Responsible reuse
+
+Reuse requires checking purpose, consent or legal basis, jurisdiction, and access—not merely checking that a file is available. Derived labels and embeddings can preserve sensitive information even after obvious identifiers are stripped. Treat them as governed assets. If a source is used for evaluation, document whether it may enter training or prompt examples. Governance earns trust when it makes legitimate use easier to explain and unsafe reuse harder to perform.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which data assets and lineage edges are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Governance is most valuable when one source feeds prompts, embeddings, evaluations, and reports whose ownership is otherwise hard to track. Start with an inventory and read-only access, then automate deletion and review gates. Budget cataloging, lineage capture, access reviews, storage, and deletion verification; separate ingest latency from compliance workflow time. Faster pipelines are not progress if they create untraceable copies.
 
 Collecting less data reduces utility and debugging context but reduces exposure and deletion cost. Keeping rich lineage improves reproducibility while increasing governance surface and access-review work.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to data assets and lineage edges: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Watch for orphaned embeddings, unclassified fields, retention exceptions, deletion gaps, jurisdiction mismatch, access-log loss, and derived data that outlives its source. Test partial lineage, duplicate assets, backfills, revocation during transformation, and failed deletion propagation. A clean catalog view cannot prove every copy is governed. Assign an owner and deletion receipt; legal or safety conclusions require local evidence.
 
 ## Runnable low-cost example
 

@@ -7,6 +7,7 @@ Use [`LEARNING_PATH.md`](LEARNING_PATH.md) for the recommended study order.
 Build [`projects/secure-agent-lab`](projects/secure-agent-lab/README.md) after the August lessons to connect the concepts locally.
 Use [`SOURCES.md`](SOURCES.md) to extend monthly research beyond ten concepts when distinct, high-impact developments warrant it.
 See [`ARCHITECTURE_VISUALS.md`](ARCHITECTURE_VISUALS.md) for the system-design visual layer and local animation.
+Read [`DISCLOSURES.md`](DISCLOSURES.md) for source attribution, AI-assistance, vendor-claim, external-service, and no-warranty disclosures. Repository licensing is described in [`LICENSE.md`](LICENSE.md); original code uses [`LICENSE-CODE.md`](LICENSE-CODE.md).
 
 ## Repository layout
 

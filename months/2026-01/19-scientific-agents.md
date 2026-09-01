@@ -9,16 +9,16 @@ Scientific agents can propose hypotheses and plans, but experiments and measurem
 Scientific software automated narrow calculations while literature review and hypothesis generation stayed manual.
 
 ## What changed and why now
-Agents connect literature, code, instruments, and analysis in an iterative loop with explicit provenance. This month's focus is scientific agents as an operable system boundary: its measurements and controls determine whether the capability survives contact with real traffic.
+Agents connect literature, code, instruments, and analysis in an iterative loop with explicit provenance. The January focus is the experiment boundary: an agent may expand hypotheses and protocols, but observations and conclusions must remain reproducible and researcher-controlled.
 
 ## Impact on current processing and architecture
-Sandbox code, validate units and controls, preserve raw data, and require researcher approval for experiments. A production path should carry version, tenant, latency, cost, and failure metadata beside the model result.
+Sandbox code, validate units and controls, preserve raw data, and require researcher approval for experiments. Carry protocol version, sample identity, instrument state, tenant, runtime, cost, and provenance beside each observation.
 
 ## Real-world applications and constraints
-Use agents for search, protocol drafting, simulation, and analysis triage while researchers own conclusions. Start with reversible, low-risk workloads; define SLOs, access controls, and an owner before expanding.
+Use agents for search, protocol drafting, simulation, and analysis triage while researchers own conclusions. Begin with literature and synthetic simulations, then define lab-access permissions, stopping rules, and review ownership before connecting instruments.
 
 ## Mental model
-A hypothesis is a testable proposal; an agent's rationale is not experimental evidence. Model the concept as a state transition with explicit inputs, outputs, authority, and failure handling.
+A hypothesis is a testable proposal; an agent's rationale is not experimental evidence. Separate proposed, protocol-approved, executed, observed, analyzed, and researcher-accepted states.
 
 ## Prerequisites: a foundational primer
 
@@ -61,9 +61,9 @@ For a materials-screening project, the agent proposes compositions, simulates st
 
 ## Impact on current data processing
 
-The data path is `request → sandboxed research orchestrator → validator/policy → outcome`. The `reproducible run bundle` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where hypotheses, protocols, and measurements become an application decision.
+The experiment path is `question → hypothesis set → protocol compiler → sandbox or instrument → observation store → analysis → review`. A run bundle links every proposal to its source snapshot, code, parameters, random seed, environment, calibration, and raw observation IDs. It is reproducibility evidence, not an authorization token. Admission checks project, facility, budget, hazard, and deadline; validators distinguish measured values from simulated or inferred values before a conclusion is published.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for hypotheses, protocols, and measurements alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound literature calls, simulation branches, instrument time, material inventory, analysis runs, and reviewer queue. Measure protocol validity, replication rate, prediction-to-observation agreement, null-result retention, compute and lab cost, queue age, and p95 run time by project. If an instrument or source is unavailable, record a censored or unavailable observation rather than filling it with a generated value. Retries preserve run IDs and receipts; datasets, embeddings, traces, and run bundles inherit project access and retention rules. These controls are engineering inferences, not guarantees supplied by the source.
 
 ## Architecture and data flow
 
@@ -84,7 +84,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms hypotheses, protocols, and measurements; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+The researcher, model planner, sandbox, instrument controller, and observation store are separate trust domains. Admission attaches project, purpose, deadline, protocol version, and facility policy; the agent proposes typed parameters; the sandbox enforces resource and network limits; the instrument adapter checks safety ranges; and review validates provenance and analysis. Only authorized operators can approve physical or publication side effects. Telemetry records run, sample, calibration, and receipt IDs without copying sensitive data by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +110,39 @@ A tool failure can look like a null result; an uncalibrated instrument can creat
 
 ## Design walkthrough: operating hypotheses, protocols, and measurements safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The sandboxed research orchestrator receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the reproducible run bundle identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+Treat a scientific agent as a hypothesis-management system with a language model at its planning edge. The agent can propose a question, search literature, compare candidate protocols, or prioritize experiments, but it cannot turn a plausible explanation into a result. Separate hypothesis, protocol, observation, analysis, and conclusion records. Each record carries provenance and uncertainty so a later researcher can tell what was predicted, what was measured, and what was inferred.
 
-A materials agent ranks simulated compositions, then a researcher approves a small controlled lab batch. Spectra and calibration metadata are stored before the agent updates its proposal.
+In a materials workflow, an agent may rank simulated compositions and recommend a small batch. A researcher approves the protocol, instruments record calibration and environmental conditions, and raw spectra are retained before the agent updates its belief. The experiment runner should expose typed parameters and safe ranges rather than accepting arbitrary generated shell commands. A failed run is evidence about the protocol or apparatus, not automatically evidence against the scientific hypothesis.
 
-Now follow a difficult request. An unusually large hypotheses, protocols, and measurements value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Give the agent a bounded search budget and an explicit stopping rule. Define the allowed sources, date range, simulation packages, laboratory instruments, and number of trials before the run starts. Record negative results and abandoned branches; retaining only successful candidates creates survivorship bias. If a source is inaccessible, a simulator fails, or a measurement is below detection, record an unavailable or censored observation instead of filling the gap with a model-generated value.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the reproducible run bundle as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Use preregistration or a locked analysis plan when confirmation risk is high. The plan can specify primary outcome, exclusion rules, comparison baseline, statistical test, and stopping condition. Exploratory analyses remain valuable, but label them as exploratory and avoid presenting a post-hoc pattern as a preplanned confirmation. A reviewer should be able to inspect the code, data snapshot, random seeds, instrument metadata, and exact model prompts that influenced the proposal.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For hypotheses, protocols, and measurements, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Protect the physical and organizational boundary. A research agent may write a draft protocol but should not independently order hazardous materials, change a live instrument, or publish a claim. Require approval for irreversible actions and enforce identity, facility, budget, and safety constraints at the tool boundary. Queue receipts and idempotency keys prevent a retry from ordering twice. Tenant isolation matters for proprietary datasets and unpublished results; shared embeddings or caches can leak more than the visible report.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+Evaluate the complete loop rather than only the prose. Measure novelty, protocol validity, reproducibility, prediction-to-measurement agreement, resource cost, time to result, reviewer correction, and the fraction of proposals that survive safety and feasibility checks. A more novel list is not better if it consumes scarce instrument time or cannot be reproduced. Keep a baseline workflow and compare protected scientific tasks, including negative and contradictory evidence.
+
+### Evidence graph
+
+Represent a run as a graph: question leads to hypotheses; hypotheses lead to protocols; protocols produce observations; analyses consume observations; conclusions cite analyses. Use immutable IDs and content digests for nodes, with append-only links for revisions. A conclusion that changes after a corrected measurement should point to both the old and new analysis. This graph supports audit and collaboration without pretending that provenance alone proves causal validity.
+
+### Experiment scheduler
+
+The scheduler should choose work using expected information, feasibility, cost, and safety—not model excitement alone. Reserve capacity for controls and replication. Avoid letting the agent continually refine simulations while starving the experiment that could falsify its preferred theory. Enforce quotas per project and instrument, expose queue age, and make cancellation explicit. If a run starts, persist its receipt and environmental snapshot before allowing a retry.
+
+### Reproducibility review
+
+Before sharing a result, another researcher should be able to regenerate the analysis from the pinned snapshot or understand precisely why regeneration is impossible. Review dependency versions, random seeds, unit conversions, missing-data handling, and selection criteria. For proprietary or hazardous work, provide a redacted reproduction with a controlled access path. The agent’s summary is an index into this evidence, not the evidence itself.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which hypotheses, protocols, and measurements are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Scientific agents are useful when literature triage, parameter sweeps, or routine analysis consume scarce researcher time. Begin with proposals and sandbox runs, then require approval for physical experiments. Budget model calls, simulation compute, instrument time, sample handling, storage, and review; distinguish interactive planning latency from experiment duration. Faster hypothesis generation is not progress if it increases unregistered multiple testing.
 
 Automation expands search and planning but consumes compute, lab capacity, and reviewer attention. More hypotheses increase multiple-testing and confirmation-bias risk; controls and preregistration trade speed for credible evidence.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to hypotheses, protocols, and measurements: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Watch for unit mismatch, contaminated literature, unpinned dependencies, instrument drift, sample mix-ups, unsafe protocols, and conclusions that outrun measurements. Test missing observations, censored results, retries, duplicate experiments, conflicting papers, and sandbox escape. A plausible rationale is not a replicated result. Assign a researcher owner and stop control; source capabilities are facts, while scientific value requires replication.
 
 ## Runnable low-cost example
 

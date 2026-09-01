@@ -364,6 +364,36 @@ A: Versioned feature extraction, candidate registry, policy, model and adapter I
 
 ## Claim ledger
 
+## Impact on current processing
+
+Routing becomes a policy decision before inference. The router must normalize the request, classify data sensitivity and task type, filter ineligible candidates, and select a model whose adapter satisfies the output and latency contract. A fallback repeats those checks with the remaining deadline and authority; it is not a blind retry. Record model, adapter, policy, features, and reason codes so a route can be reproduced without storing sensitive payloads.
+
+## Mental model
+
+Think of routing as an air-traffic controller. A cheap model may handle a clear short flight, while a sensitive or uncertain flight needs a different runway, more inspection, or a safe refusal. The controller does not change the aircraft’s permissions because the pilot sounds confident. Eligibility is a hard gate; utility ranks only candidates that already meet safety and compatibility requirements.
+
+## Engineering consequence
+
+Maintain a candidate registry with capability, data-region, cost, latency, and deprecation metadata. Evaluate routes on protected slices, structured validity, correction rate, and total cost per accepted outcome. Shadow candidates without allowing side effects, then canary with rollback thresholds. Keep an explicit abstain route when no candidate satisfies the contract.
+
+## Build it locally
+
+```python
+def choose(request, candidates):
+    eligible = [c for c in candidates if c['region'] == request['region'] and c['max_tokens'] >= request['tokens']]
+    return min(eligible, key=lambda c: (c['cost'], c['latency'])) if eligible else {'state': 'unavailable'}
+
+print(choose({'region': 'eu', 'tokens': 100}, [
+    {'name': 'small', 'region': 'eu', 'max_tokens': 200, 'cost': 1, 'latency': 2},
+    {'name': 'other-region', 'region': 'us', 'max_tokens': 500, 'cost': 0, 'latency': 1},
+]))
+```
+
+1. Save the snippet as `route.py` and run `python3 route.py`.
+2. Add a sensitivity field and exclude candidates without the required boundary.
+3. Add a remaining-deadline check and an explicit abstention result.
+4. Log a redacted decision record and test a fallback after a simulated timeout.
+
 | Claim | Source | Fact or inference |
 | --- | --- | --- |
 | The model-selection guide recommends optimizing accuracy first, then cost and latency. | [OpenAI model selection](https://developers.openai.com/api/docs/guides/model-selection) | Fact, source guidance |

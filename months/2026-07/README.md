@@ -14,6 +14,24 @@ Primary starting point: [Google DeepMind’s news archive](https://deepmind.goog
 | 8 | **Inference efficiency** | Batching, quantization, speculative decoding, caching, and routing reduce cost but can change latency/quality behavior. | Measure p50/p95 and quality slices after an optimization. |
 | 9 | **Long-running tasks** | Durable agents need checkpoints, resumable state, deadlines, idempotent effects, and operator takeover. | Explain exactly-once ambition versus practical idempotency. |
 | 10 | **Human-robot handoff** | Physical systems need clear stop conditions, safe states, explanations, and a human takeover path. | Define an operator UI for uncertain actions. |
+- [11 — Robot fleet scheduling](11-robot-fleet-scheduling.md) — draft expansion in progress
+- [12 — UI state grounding](12-ui-state-grounding.md) — draft expansion in progress
+
+## Lessons
+
+- [01 — Robot task orchestration](01-robot-task-orchestration.md) — draft expansion in progress.
+- [02 — Video understanding](02-video-understanding.md) — draft expansion in progress.
+- [03 — Closed-loop control](03-closed-loop-control.md) — draft expansion in progress.
+- [04 — Computer use](04-computer-use.md) — draft expansion in progress.
+- [05 — Cybersecurity evaluation](05-cybersecurity-evaluation.md) — draft expansion in progress.
+- [06 — Red teaming](06-red-teaming.md) — draft expansion in progress.
+- [07 — Model weight security](07-model-weight-security.md) — draft expansion in progress.
+- [08 — Inference efficiency](08-inference-efficiency.md) — draft expansion in progress.
+- [09 — Long-running tasks](09-long-running-tasks.md) — draft expansion in progress
+- [10 — Human–robot handoff](10-human-robot-handoff.md) — draft expansion in progress
+- [13 — Browser sandboxing](13-browser-sandboxing.md) — draft expansion in progress.
+- [14 — Cyber ranges](14-cyber-ranges.md) — draft expansion in progress.
+- [15 — Model artifact signing](15-model-artifact-signing.md) — draft expansion in progress.
 
 ## Capstone prompt
 

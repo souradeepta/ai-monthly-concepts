@@ -1,5 +1,5 @@
 # Context windows
-Status: durable  
+Status: durable
 Sources: [OpenAI — Managing context](https://platform.openai.com/docs/guides/prompt-engineering)
 
 ## In one sentence

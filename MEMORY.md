@@ -13,6 +13,9 @@
 - Every lesson/article needs historical background, what changed, impact on current processing/architecture, and real-world applications with constraints.
 - Every individual article must be at least 2,400 substantive words; generic template padding is not acceptable.
 - Current user-directed sequencing: expand April–June draft coverage month by month now; then return to July/August missing-file coverage. Defer strict review and approval until after the expansion pass. Do not mislabel drafts as complete.
+- Current override: park the May expansion objective and prioritize creating and expanding July 2026 articles. Resume May only after the user redirects work back to it.
+- For the active August checklist, continue directly from the next unchecked article after each completed mechanics pass; do not request repeated approval. Keep chat and console reporting to one concise completed-work line.
+- Suppress raw console output by default. Run checks silently and report only concise factual summaries (completed file, word count, pass/fail, and blocker when applicable).
 
 ## Project state
 
@@ -37,3 +40,11 @@
 - Do not create a persistent goal for open-ended article production. It can trigger automatic continuation loops that consume turns without editing files.
 - Every continuation must begin with a concrete file action or verification command; never send status-only replies to an automatic continuation.
 - If an automation loop appears, stop using that mechanism, state the cause once, then resume normal scoped edits. Do not repeat empty “still working” updates.
+
+## Workflow handoff memory
+
+- Use `HANDOFF.md` for active article-production scope, sequence, and definition of done.
+- Use `COLD_START.md` at the beginning of every new session; read memory, TODO, README, and the target lesson before editing.
+- Apply tables when they materially clarify comparisons, state transitions, trade-offs, or decisions; avoid decorative tables.
+- Keep July active until articles 01–20 pass mechanics and similarity checks; May remains parked.
+- User allows a modest word-count shortfall when the lesson is substantively complete; still target 2,400 and retain required sections/checks.

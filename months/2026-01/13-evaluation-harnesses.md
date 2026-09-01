@@ -9,16 +9,16 @@ A harness turns versioned fixtures, runners, scorers, and reports into repeatabl
 Manual spot checks were hard to reproduce and easy to bias toward memorable examples.
 
 ## What changed and why now
-Versioned test cases and final-state assertions expose regressions across models and prompts. This month's focus is evaluation harnesses as an operable system boundary: its measurements and controls determine whether the capability survives contact with real traffic.
+Versioned cases and final-state assertions expose regressions across models and prompts. The January focus is the harness's role as a release instrument: its evidence must distinguish a changed model from a broken fixture, dependency, or grader.
 
 ## Impact on current processing and architecture
-Pin datasets and configs, separate development from holdout tests, and report uncertainty and cost. A production path should carry version, tenant, latency, cost, and failure metadata beside the model result.
+Pin datasets and configs, quarantine holdouts, and attach denominators to every score. A test result needs candidate, fixture, evaluator, runtime, and failure metadata before it can support a release decision.
 
 ## Real-world applications and constraints
-Run cheap deterministic checks on every change, then schedule larger representative suites. Start with reversible, low-risk workloads; define SLOs, access controls, and an owner before expanding.
+Run invariant checks on every change and reserve expensive judge or human passes for evidence-rich slices. Begin with shadow or read-only comparisons, then name the release owner and rollback threshold.
 
 ## Mental model
-A harness is an executable experiment: inputs, environment, policy, model, scorer, and artifact all have identities. Model the concept as a state transition with explicit inputs, outputs, authority, and failure handling.
+A harness is an executable experiment: inputs, environment, policy, model, scorer, and artifact all have identities. Think of each case as moving from an admission contract to pass, fail, blocked, or inconclusive evidence.
 
 ## Prerequisites: a foundational primer
 
@@ -45,6 +45,8 @@ A flaky dependency can look like a model regression; a grader can reward fluent 
 
 ## Mini exercise (15–30 min)
 
+An evaluation harness should make failures actionable, not merely produce one score. Version the fixture set, model or application revision, tool stubs, evaluator, random seed, and environment. Partition by task, language, risk, and dependency state so a gain on easy cases cannot hide a regression in a protected slice. Store the input, expected invariant, observed output, final side effect, and disagreement reason under the retention policy. When a production incident is reduced to a safe fixture, add it to the regression set and record why it was representative.
+
 Create ten cases with normal, negative, adversarial, and dependency-failure paths. Run two system versions and report per-slice deltas plus one grader disagreement.
 
 ## An evaluation harness as executable evidence
@@ -61,9 +63,9 @@ For a customer-support agent, the harness checks citation presence, ticket owner
 
 ## Impact on current data processing
 
-The data path is `request → evaluation runner → validator/policy → outcome`. The `result matrix and regression record` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where versioned test cases become an application decision.
+The test path is `fixture manifest → isolated system run → oracle and judge → result matrix → release decision`. A fixture includes input, permitted tools, expected invariants, protected slices, and source or policy versions; the result matrix records pass, fail, blocked, and inconclusive states separately. Test artifacts are scoped and versioned, but they are not application memory or permission. A release decision can then explain which contract changed and which evidence justified rollout.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for versioned test cases alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound fixture count, parallel workers, external-call budgets, judge tokens, and artifact retention. Report pass rate by task and risk slice alongside flake rate, runtime, cost, evaluator disagreement, and post-release correction. If a dependency or oracle is unavailable, mark the case inconclusive rather than converting infrastructure failure into model failure. Retries preserve fixture digest and run ID, while logs and outputs inherit tenant access and deletion rules. These controls are engineering inferences, not guarantees supplied by an evaluation source.
 
 ## Architecture and data flow
 
@@ -84,7 +86,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms versioned test cases; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+The candidate system and evaluator remain separate trust domains. The harness attaches fixture digest, candidate version, tool permissions, deadline, and policy version; the candidate produces an output or tool proposal; deterministic assertions and independent reviewers check invariants that generated text cannot establish. The harness must not let the candidate edit its own expected answer or grading rule. Telemetry records run, evaluator, and artifact IDs without copying sensitive payloads by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +112,37 @@ A flaky dependency can look like a model regression; a grader can reward fluent 
 
 ## Design walkthrough: operating versioned test cases safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The evaluation runner receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the result matrix and regression record identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+For a support-agent harness, define a case with user role, ticket state, policy version, expected citation, permitted escalation, and forbidden side effect. The runner executes the baseline and candidate against the same stubbed tools. It checks citation identity and ticket ownership deterministically, then routes tone or completeness to a calibrated reviewer. The result records whether a prompt change improved the task without granting permission to send an email or alter the account.
 
-A support-agent harness checks citation IDs, ticket ownership, escalation, and no email send without confirmation. A prompt change first runs against the baseline before a canary.
+Design cases around decisions rather than outputs. A response can use different words and still satisfy the contract, while a response with perfect wording can violate an authorization rule. Store expected invariants, allowed variation, and the evidence needed to judge each case. If the fixture includes a stale source, the expected behavior may be abstention; if a dependency is down, it may be an explicit unavailable state rather than a fabricated answer.
 
-Now follow a difficult request. An unusually large versioned test cases value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Protect the harness from the candidate. The candidate must not read answer keys, rewrite labels, change the evaluator, or retain access to another tenant’s fixtures. Give tool stubs controlled responses for success, malformed data, timeout, rate limit, and partial effect. A harness should exercise recovery and error paths, not only the normal answer path.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the result matrix and regression record as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Report results by fixture, task, risk, language, dependency state, and policy. Include denominator, evaluator version, runtime, tokens, cost, retries, and human disagreement. A canary can be blocked by one critical safety regression even when the average score improves. Keep the exact baseline and candidate manifests so a reviewer can reproduce the comparison.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For versioned test cases, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Close each evaluation change with a decision record: question, fixture digest, baseline, candidate, evaluator, failures, protected-slice result, reviewer, rollout scope, and rollback trigger. Turn every confirmed production incident into a redacted regression case. Retain the failure reason and original expected invariant; changing the expected result merely to make the suite green destroys its value.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+### Harness maintenance
+
+Review the harness whenever the application contract changes. A new tool schema, retrieval index, policy, model route, or output validator can invalidate old fixtures or require new failure cases. Keep fixture owners and review dates, and mark cases active, deprecated, or retired with a reason. Run a fast smoke tier on every change and a full protected suite before release. If a dependency is unavailable, report that the evaluation is inconclusive rather than silently treating unavailable output as a model failure.
+
+### Interpreting disagreement
+
+Disagreement between a rule, model judge, and human is a useful signal. Preserve each result and ask which question each evaluator was answering. A deterministic schema check may be right about shape while a clinician or domain reviewer identifies an unsafe meaning. Adjudicate only the cases that need a final decision, and add the disagreement pattern to calibration or the fixture set. Never hide evaluator disagreement by averaging incompatible labels.
+
+### Release and incident loop
+
+After deployment, compare live error categories with the offline suite. If production produces a new stale-source, permission, latency, or final-state failure, capture a safe reproduction and add it to the next regression run. When rolling back, run the suite against the rollback artifact too; a prior release may avoid the new bug while retaining an older limitation. This connects evaluation to operations and keeps the suite grounded in actual user consequences.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which versioned test cases are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Harnesses pay off when a release has many behavioral contracts and manual comparison would miss regressions. Begin with shadow runs, then add a reviewed gate. Budget fixture execution, judge calls, artifact storage, and triage time; report separate latency for smoke and full suites. Faster scoring is not progress if it drops protected cases or hides evaluator disagreement.
 
 More cases improve coverage but raise runtime and fixture-maintenance cost. Exact assertions are trustworthy for invariants but brittle for wording; model graders cover nuance but require calibration and disagreement review.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to versioned test cases: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Watch for fixture drift, denominator changes, flaky dependencies, grader leakage, and answer-key exposure. Exercise empty, duplicated, adversarial, timeout, and partial-effect cases; a green smoke tier cannot establish holdout performance. Assign a test owner and rollback artifact before release. Source descriptions are facts about the cited harness; claims about production quality or safety remain local inferences.
 
 ## Runnable low-cost example
 

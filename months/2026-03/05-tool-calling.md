@@ -1,5 +1,5 @@
 # Tool calling
-Status: durable  
+Status: durable
 Sources: [OpenAI — Function calling](https://platform.openai.com/docs/guides/function-calling)
 
 ## In one sentence

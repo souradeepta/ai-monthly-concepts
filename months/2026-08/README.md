@@ -31,4 +31,23 @@ Start with these four, but publish only three to five after source review. A mod
 
 ## Lesson filenames
 
-`01-double-blind-evals.md`, `02-agent-memory.md`, `03-late-interaction-retrieval.md`, `04-agent-controls.md`.
+- [01-double-blind-evals.md](01-double-blind-evals.md)
+- [02-agent-memory.md](02-agent-memory.md)
+- [03-late-interaction-retrieval.md](03-late-interaction-retrieval.md)
+- [04-agent-controls.md](04-agent-controls.md)
+- [05-web-to-agent-tools.md](05-web-to-agent-tools.md)
+- [06-realtime-voice-agents.md](06-realtime-voice-agents.md)
+- [07-quantized-open-models.md](07-quantized-open-models.md)
+- [08-multimodal-unified-models.md](08-multimodal-unified-models.md)
+- [09-local-inference.md](09-local-inference.md)
+- [10-benchmark-reproducibility.md](10-benchmark-reproducibility.md)
+- [11-multimodal-safety-evaluation.md](11-multimodal-safety-evaluation.md)
+- [12-video-temporal-grounding.md](12-video-temporal-grounding.md)
+- [13-audio-visual-synchronization.md](13-audio-visual-synchronization.md)
+- [14-edge-model-serving.md](14-edge-model-serving.md)
+- [15-media-provenance.md](15-media-provenance.md)
+- [16-multimodal-model-routing.md](16-multimodal-model-routing.md)
+- [17-multimodal-prompt-injection.md](17-multimodal-prompt-injection.md)
+- [18-multimodal-artifact-lineage.md](18-multimodal-artifact-lineage.md)
+- [19-human-review-in-media-pipelines.md](19-human-review-in-media-pipelines.md)
+- [20-media-data-governance.md](20-media-data-governance.md)

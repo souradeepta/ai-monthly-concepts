@@ -9,16 +9,16 @@ Capability overhang is useful technical ability that adoption, interfaces, skill
 Deployment often lagged research demonstrations because workflows, trust, and training were missing.
 
 ## What changed and why now
-Better scaffolding, education, and task design can convert latent capability into practical outcomes. This month's focus is capability overhang as an operable system boundary: its measurements and controls determine whether the capability survives contact with real traffic.
+Better scaffolding, education, and task design can convert latent capability into practical outcomes. The January focus is the conversion gap: measure where a capable model fails to become a reliable workflow, then remove the bottleneck without pretending capability equals readiness.
 
 ## Impact on current processing and architecture
-Measure realized task success, not benchmark scores alone; invest in onboarding, permissions, and feedback. A production path should carry version, tenant, latency, cost, and failure metadata beside the model result.
+Measure completed, corrected, and abandoned tasks rather than benchmark scores alone; invest in onboarding, permissions, and feedback. Carry workflow stage, model route, tenant, latency, cost, dependency state, and human-correction metadata.
 
 ## Real-world applications and constraints
-Use small workflow pilots, reusable templates, and outcome metrics to find bottlenecks. Start with reversible, low-risk workloads; define SLOs, access controls, and an owner before expanding.
+Use small workflow pilots, reusable templates, and outcome metrics to find bottlenecks. Begin with drafting or retrieval, then expand only when training, permissions, support load, and downstream quality are measured.
 
 ## Mental model
-The gap is between what a system can do under suitable conditions and what users reliably accomplish. Model the concept as a state transition with explicit inputs, outputs, authority, and failure handling.
+The gap is between what a system can do under suitable conditions and what users reliably accomplish. Map an opportunity from discovered to enabled, piloted, adopted, measured, or blocked by a named dependency.
 
 ## Prerequisites: a foundational primer
 
@@ -61,9 +61,9 @@ For a municipal permitting office, an assistant can summarize submitted document
 
 ## Impact on current data processing
 
-The data path is `request → adoption funnel and feedback loop → validator/policy → outcome`. The `outcome and bottleneck record` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where workflow conversion stages become an application decision.
+The readiness path is `capability probe → workflow map → bottleneck evidence → control assessment → staged adoption decision`. An outcome record links the task, cohort, interface, model route, dependency state, user correction, and downstream result. It is evidence for a rollout decision, not durable memory or authority. Admission checks user and tenant scope; the system reports proposal, accepted, corrected, deferred, and abandoned states separately so capability is not confused with beneficial completion.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for workflow conversion stages alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound pilot traffic, evaluation cohorts, feedback retention, review capacity, and rollout scope. Measure stage conversion, time to benefit, correction and reversal, dependency failure, p95 latency, cost per accepted outcome, accessibility, and protected-cohort impact. If a connector or reviewer pool is unavailable, report a blocked stage rather than blaming model capability. Retries preserve cohort and event IDs; caches, traces, drafts, and feedback inherit tenant access and deletion rules. These controls are engineering inferences, not guarantees supplied by the source.
 
 ## Architecture and data flow
 
@@ -84,7 +84,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms workflow conversion stages; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+Users, model outputs, organizational policy, and external dependencies are distinct parts of the adoption system. Admission attaches tenant, purpose, cohort, deadline, and model or interface version; the capability proposes a bounded draft; workflow validators check evidence, accessibility, and authorization; a human or policy gate owns the consequential transition. Telemetry records stage, cohort, dependency, and outcome IDs without copying sensitive payloads by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +110,39 @@ Low adoption can reflect missing connectors, permissions, latency, skills, or le
 
 ## Design walkthrough: operating workflow conversion stages safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The adoption funnel and feedback loop receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the outcome and bottleneck record identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+Measure AI adoption as a chain of user outcomes, not as a count of generated responses. A capability can be impressive in a demo yet fail because people cannot upload inputs, understand the result, trust the next step, or recover from an error. Map the workflow from entry to beneficial completion: discovery, setup, input, processing, review, action, correction, and repeat use. At each stage record abandonment, latency, assistance cost, and the reason for leaving when it is safe to collect.
 
-A permitting office uses an assistant for document summaries and missing-field detection while staff retain permit authority. Pilot data shows the upload connector, not model quality, is the largest conversion loss.
+A permitting office might use an assistant to summarize applications and identify missing fields while staff retain permit authority. If applicants abandon the workflow because the upload connector rejects common formats, improving the model will not increase completion. Instrument the handoff, show the extracted field beside its source, and provide a correction path. A successful pilot should report completed permits and correction burden, not only response quality or weekly active users.
 
-Now follow a difficult request. An unusually large workflow conversion stages value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Separate capability from readiness. Capability asks whether the model can perform a task under stated conditions; readiness asks whether the organization can support it with identity, training, integration, policy, accessibility, and incident response. A rollout may begin with draft output, read-only records, and a human-confirmed transition. Do not let a high-quality draft silently become an external commitment. Require explicit confirmation when an action is costly, irreversible, or visible to a third party.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the outcome and bottleneck record as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Find bottlenecks with controlled changes. Improve one stage at a time, keep a comparison cohort, and measure downstream completion and reversals. Faster generation may increase queue pressure or review fatigue. More automation may reduce setup time while increasing exception handling. Segment by customer size, language, device, input quality, and task complexity; aggregate adoption can rise while a protected group loses access. Document which outcome the experiment was designed to improve and the harm threshold that stops it.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For workflow conversion stages, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Treat feedback as a governed signal. A thumbs-up can mean politeness, speed, or correctness; a retry can mean dissatisfaction or a changed request. Combine explicit feedback with corrections, abandonment, support contacts, and independently checked outcomes. Avoid training directly on unreviewed feedback when it may contain private data or strategic behavior. Route recurring failure categories to product, integration, model, and policy owners so “low adoption” becomes an actionable diagnosis.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+Close a launch with an operating contract: supported tasks, excluded tasks, service levels, cost owner, access model, review boundary, telemetry, rollback, and user communication. Maintain a safe fallback for outages and a migration plan when the interface changes. After launch, compare promised benefit with actual completion, time saved, error correction, and distribution of workload. Retire a feature when it consumes attention without improving a protected outcome, even if usage metrics look healthy.
+
+### Funnel instrumentation
+
+Give each workflow stage a stable event and state transition. A session that uploads a file, receives a parse error, retries, and succeeds should not look like two unrelated users. Include version, tenant scope, device or route where appropriate, and a reason code for failure. Keep raw content out of aggregate metrics. Join events only through access-controlled identifiers, and define retention for abandoned drafts and diagnostic payloads.
+
+### Adoption experiments
+
+Use a hypothesis such as “showing source spans reduces reviewer correction time” rather than “add an AI feature.” Choose a primary metric, guardrails, sample window, and stop condition before rollout. Randomization may be unsafe for high-consequence decisions; use staged deployment or matched comparison instead. Account for novelty effects, training, seasonality, and users switching between routes. A positive result is an inference from the measured cohort, not proof that the capability works everywhere.
+
+### Capability overhang response
+
+When a model can do more than the organization can safely deploy, preserve the gap explicitly. List blocked capabilities, required controls, missing data, staffing limits, and evidence needed for expansion. Offer lower-risk adjacent work such as drafting, classification, simulation, or retrieval with citations. Revisit the list after dependencies, policies, and training change. This turns overhang into a portfolio and governance problem instead of pressuring operators to activate an unsupported power.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which workflow conversion stages are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Capability-overhang analysis is useful when benchmark strength is not translating into completed work and teams need to identify the missing workflow support. Start with a measured pilot, then fund the bottleneck—training, integration, permissions, or review. Budget model calls, enablement time, support, corrections, and opportunity cost; report adoption latency separately from inference latency. More attempts are not progress if downstream rework rises.
 
 Training and interface work can unlock value without changing model weights, but it costs staff time and may expose new operational risk. Optimizing attempts alone can worsen corrections; optimize beneficial outcomes per unit cost.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to workflow conversion stages: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Watch for selection bias, novelty effects, abandoned pilots, permission workarounds, support overload, and benchmark-to-workflow confusion. Test new-user paths, rare tasks, handoffs, dependency outages, reversals, and harmful incentives. A successful demo may only show expert prompting. Assign an adoption owner and stop criteria; capability evidence does not establish readiness or safety.
 
 ## Runnable low-cost example
 

@@ -1,6 +1,6 @@
 # The agent loop: turning a model call into a controlled system
 
-Status: durable  
+Status: durable
 Sources: [HumanSignal — 2026-03-11](https://humansignal.com/blog/agent-evaluation-framework/), [DeepMind — 2026-03-10](https://deepmind.google/blog/10-years-of-alphago/)
 
 ## In one sentence

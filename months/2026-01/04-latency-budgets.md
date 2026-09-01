@@ -329,6 +329,22 @@ A: Break down traces by queue class, prompt/output length, region, model revisio
 
 ## Claim ledger
 
+## Impact on current processing
+
+An end-to-end deadline must be propagated as an absolute deadline, not recreated as a fresh timeout at every hop. The gateway reserves time for admission, retrieval, model prefill, decode, validation, and serialization. Each dependency receives the remaining budget and returns a bounded result or an explicit timeout state. This prevents a slow retrieval call from consuming the entire window while the model and validator still appear healthy in isolation.
+
+## Real-world applications
+
+Voice assistants prioritize time to first audio, search assistants prioritize a useful partial answer, and batch document processing prioritizes throughput. A single budget cannot describe all three. Define route-specific objectives, protect high-value traffic from queue buildup, and decide whether partial output is safe for the application. Include retries, cold starts, streaming disconnects, and provider throttling in the budget rather than treating them as rare exceptions.
+
+## Mental model
+
+Treat latency as a relay race with one shared finish line. A runner that spends the baton’s time cannot hand the next stage an imaginary full allowance. Percentiles describe populations, so a p95 stage value is not a promise that every request or every stage will fit the route target. Trace the same request across the relay and reserve slack for variance.
+
+## Engineering consequence
+
+Store deadline, route, queue class, model revision, and stage timestamps in every trace. Reject work that cannot meet its deadline instead of accepting it into an unbounded queue. Tune batch wait and output limits against tail latency, then verify with representative long-context and dependency-failure cases. A budget is useful only when the system can enforce cancellation and report which stage consumed it.
+
 | Claim | Source | Fact or inference |
 |---|---|---|
 | Performance optimization should define granular requirements before design, use elastic and scalable patterns, monitor with logs/traces/metrics/alerts, and continuously reassess. | [Google Cloud performance optimization pillar](https://cloud.google.com/architecture/framework/performance-optimization) | Fact, scoped to the source |

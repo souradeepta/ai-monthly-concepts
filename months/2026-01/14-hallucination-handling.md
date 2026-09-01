@@ -9,16 +9,16 @@ Hallucination handling combines citation, validation, abstention, and uncertaint
 Systems often accepted fluent text as fact without checking claims or provenance.
 
 ## What changed and why now
-Grounding and post-generation checks make unsupported statements observable and rejectable. This month's focus is hallucination handling as an operable system boundary: its measurements and controls determine whether the capability survives contact with real traffic.
+Grounding and post-generation checks make unsupported statements observable and rejectable. The January focus is the claim boundary: generated language must remain visibly separate from evidence, uncertainty, and authorization.
 
 ## Impact on current processing and architecture
-Require evidence IDs, validate structured claims, calibrate abstention, and expose uncertainty to users. A production path should carry version, tenant, latency, cost, and failure metadata beside the model result.
+Require claim-level evidence IDs, validate dates and numbers, calibrate abstention, and expose conflict to users. Each answer should retain source snapshot, verifier, tenant, latency, cost, and failure metadata.
 
 ## Real-world applications and constraints
-Use retrieval citations and deterministic validators in high-value workflows, with escalation for conflicts. Start with reversible, low-risk workloads; define SLOs, access controls, and an owner before expanding.
+Use retrieval citations and deterministic validators where an unsupported sentence can change a decision. Start with drafts and evidence navigation; define freshness targets, escalation ownership, and a safe abstention response before widening access.
 
 ## Mental model
-A hallucination is an unsupported or false output; confidence-like wording is not calibrated probability. Model the concept as a state transition with explicit inputs, outputs, authority, and failure handling.
+A hallucination is an unsupported or false output; confidence-like wording is not calibrated probability. Treat each claim as moving through evidence states: proposed, supported, partial, contradicted, unverified, or unavailable.
 
 ## Prerequisites: a foundational primer
 
@@ -45,6 +45,8 @@ A valid citation can support only part of a sentence; stale evidence can make a 
 
 ## Mini exercise (15–30 min)
 
+Claim handling works best as a pipeline. First split an answer into checkable claims; then retrieve evidence, compare the claim with that evidence, validate identifiers and numbers deterministically, and choose support, conflict, abstention, or escalation. Citation presence is only a routing signal. A citation can be stale, irrelevant, or unable to support the exact number stated. Record the evidence version and checker result so an operator can see why the system abstained and improve the right stage rather than lowering every threshold.
+
 Label ten claims as supported, conflicting, or unsupported. Implement citation-existence and numeric checks, then measure false reassurance versus false abstention.
 
 ## Uncertainty controls around generated claims
@@ -61,9 +63,9 @@ In a clinical literature assistant, the model summarizes studies but does not di
 
 ## Impact on current data processing
 
-The data path is `request → claim checker → validator/policy → outcome`. The `answer with support status` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where claims and evidence links become an application decision.
+The claim path is `question → source retrieval → claim extraction → evidence alignment → support state → presentation`. Each claim links to source IDs, evidence spans, retrieval time, and a verifier result; the answer is a view over those records rather than one undifferentiated string. Admission records tenant, purpose, and deadline, while the claim checker emits `supported`, `partial`, `contradicted`, `unverified`, or `unavailable`. Policy decides whether a state may be shown or acted upon.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for claims and evidence links alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound source fan-out, claim count, verifier work, citation payload, and review queue size. Measure citation precision, unsupported-claim rate, contradiction recall, abstention usefulness, source freshness, p95 latency, cost, and reviewer correction by domain and answer length. If evidence is missing or a verifier is unavailable, preserve that state instead of retrying until prose sounds confident. Retries carry claim and request IDs; caches, traces, and derived claim records inherit tenant access and deletion rules. These controls are engineering inferences, not guarantees supplied by the source.
 
 ## Architecture and data flow
 
@@ -84,7 +86,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms claims and evidence links; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+The caller and retrieved sources remain outside the claim checker’s authority assumptions. Admission attaches tenant, purpose, deadline, and source policy; retrieval applies access and freshness filters; extraction proposes claims; independent alignment checks whether evidence entails them and detects contradictions. Only a separately authorized policy transition can produce a side effect. Telemetry records claim, source, and verifier identifiers without copying sensitive payloads by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +112,39 @@ A valid citation can support only part of a sentence; stale evidence can make a 
 
 ## Design walkthrough: operating claims and evidence links safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The claim checker receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the answer with support status identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+Treat an answer as a set of claims with different support states, not as one trustworthy string. A claim extractor can split “the service returned 503 because the database was overloaded” into an observed event, a causal explanation, and a confidence-bearing hypothesis. The first may be supported by a trace, the second may require a documented dependency signal, and the third may need a human or a later experiment. Rendering should preserve those distinctions instead of giving every sentence the same visual authority.
 
-A literature assistant cites publication IDs and dates, displays conflicting findings separately, and never turns a study summary into a clinical diagnosis. A clinician correction becomes a protected test case.
+For a literature assistant, require a source locator before accepting a factual sentence: publication identifier, section or page, retrieval timestamp, and the quoted or normalized evidence span. If the retrieved source says that two studies disagree, the answer must retain the disagreement; a fluent synthesis is not permission to choose a winner. For a support assistant, “I could not find this in the runbook” is a valid outcome. It is more useful than inventing a command that a hurried operator may execute.
 
-Now follow a difficult request. An unusually large claims and evidence links value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+The pipeline should separate generation, grounding, verification, and presentation. Generation proposes a claim. Grounding retrieves candidate records and records why they matched. Verification checks entailment, dates, units, authorization, and contradictions using deterministic rules where possible and a reviewer where necessary. Presentation shows citations, uncertainty, and abstentions in a form the caller can act on. A verifier that only checks whether prose sounds plausible is not a hallucination control; it is another source of correlated error.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the answer with support status as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Hard cases deserve explicit states. A missing source is different from a source that contradicts the draft; a stale source is different from a parser failure; and a low-confidence paraphrase is different from a claim whose evidence is outside the permitted tenant. Return states such as `supported`, `partially_supported`, `contradicted`, `unverified`, and `unavailable`. Log the transition and reason code, while redacting sensitive text. Retry retrieval failures, not unsupported claims. Retrying a model until it sounds confident can increase exposure without adding evidence.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For claims and evidence links, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Test the defenses against realistic pressure. Include questions with no answer in the corpus, plausible but wrong entity names, conflicting versions of a policy, tables whose units differ, and prompts that ask the system to cite a source it never opened. Measure unsupported-claim rate, citation precision, contradiction recall, abstention usefulness, reviewer correction time, and p95 latency separately. Segment by language, domain, source age, and answer length: a good average can hide a dangerous long-answer tail.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+Close a change with a provenance record: model and prompt versions, retrieval index, source snapshot, verifier configuration, protected cases, and rollout threshold. When a user corrects an answer, preserve the original claim and evidence decision before updating the index or prompt. A redacted incident case should reproduce the failure without retaining customer secrets. The rollback target must include the verifier and source snapshot, because reverting only the generator can leave the system asserting claims against a changed evidence base.
+
+### Hallucination triage
+
+When an answer is reported as wrong, first classify the failure. The model may have fabricated a claim, the retriever may have missed the right record, the parser may have lost a qualifier, the verifier may have accepted a contradiction, or the UI may have hidden an abstention label. These causes require different fixes and metrics. Store a compact case packet containing the question, permitted source IDs, retrieved IDs, claim spans, verifier results, and reviewer judgment. Do not label every bad answer a “model hallucination”; that diagnosis can conceal an indexing or product failure.
+
+### Operational guardrails
+
+Use bounded answer length and claim count when verification is expensive. Require stronger evidence for irreversible actions, regulated advice, or external publication than for a private brainstorming draft. A citation link alone is insufficient if the cited page does not entail the sentence. Protect source access with tenant-aware filters and test revocation during an in-flight request. If verification is delayed, expose the answer as pending or draft rather than silently promoting it to verified. Alert on sudden changes in abstention, unsupported claims, citation domains, and reviewer overrides.
+
+### Human review without false certainty
+
+Reviewers should see the claim, evidence span, competing evidence, and proposed action—not just a polished paragraph. Record accept, reject, edit, and “needs more evidence” separately. Agreement between two reviewers is useful but does not prove truth, especially when both see the same incomplete corpus. Periodically sample accepted claims and evaluate them against newly available evidence. This keeps the control loop focused on actual user risk rather than on a score that the system can improve by becoming less informative.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which claims and evidence links are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Claim controls are most valuable when users need fast evidence navigation but cannot safely trust fluent synthesis. Start with cited drafts, then add reviewed actions. Budget retrieval, verification, citation storage, and correction work; separate interactive answer latency from batch corpus checks. Lower latency is not progress if it raises unsupported claims or conceals conflicting evidence.
 
 Aggressive abstention lowers unsupported claims but can hide useful partial evidence; permissive answering improves coverage while increasing correction and harm. Tune thresholds by consequence and domain.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to claims and evidence links: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Watch for stale sources, citation fabrication, qualifier loss, unit errors, tenant leakage, and confident fallback during verifier outage. Test unanswered questions, conflicting policy versions, ambiguous entities, and adversarial citation requests. A fluent happy path says little about claim-level tail risk. Assign a verifier owner and rollback source snapshot; source claims are facts, while quality and safety conclusions require local evidence.
 
 ## Runnable low-cost example
 

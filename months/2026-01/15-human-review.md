@@ -9,16 +9,16 @@ Human review reserves accountable judgment for high-impact, ambiguous, or irreve
 Automation either stopped for every case or silently acted, producing queues or unreviewed harm.
 
 ## What changed and why now
-Risk-based review routes only cases whose uncertainty, impact, or policy triggers exceed thresholds. This month's focus is human review as an operable system boundary: its measurements and controls determine whether the capability survives contact with real traffic.
+Risk-based review routes only cases whose uncertainty, impact, or policy triggers exceed thresholds. The January focus is review as an accountable decision gate: a person receives enough evidence and authority to accept, correct, defer, or reject a proposed action.
 
 ## Impact on current processing and architecture
-Design reviewer context, decision recording, appeal paths, workload limits, and override monitoring. A production path should carry version, tenant, latency, cost, and failure metadata beside the model result.
+Design the packet, queue priority, decision record, appeal path, workload cap, and override monitor. Carry proposal, evidence, reviewer role, tenant, latency, cost, and final-action metadata together.
 
 ## Real-world applications and constraints
-Use review for financial, medical, employment, deletion, and safety-sensitive actions; sample low-risk work. Start with reversible, low-risk workloads; define SLOs, access controls, and an owner before expanding.
+Use review for financial, medical, employment, deletion, and safety-sensitive actions; sample low-risk work. Start with drafts and reversible decisions, then define safe-deferral behavior, reviewer coverage, and escalation ownership.
 
 ## Mental model
-A reviewer is a control with authority and evidence, not a rubber stamp added after deployment. Model the concept as a state transition with explicit inputs, outputs, authority, and failure handling.
+A reviewer is a control with authority and evidence, not a rubber stamp added after deployment. Model a case as queued, assigned, evidenced, decided, appealed, or safely deferred, with each transition recorded.
 
 ## Prerequisites: a foundational primer
 
@@ -45,6 +45,8 @@ A queue can clear through rubber-stamping; sensitive evidence can be overexposed
 
 ## Mini exercise (15–30 min)
 
+Human review is a queueing and decision-design problem. Define entry conditions using consequence, uncertainty, policy, and appeal—not an opaque confidence score alone. Show the reviewer the smallest useful proposal, evidence, provenance, known errors, and exact choices available. Bind an approval to the case version and intended effect so it cannot authorize a later mutation. Measure queue age, abandonment, overturns, disagreement, and fatigue; a reviewer who clicks every item is not reliable evidence of safety.
+
 Simulate ten cases with deadlines and harm priorities. Add a compare-and-swap state transition so two reviewers cannot approve conflicting decisions.
 
 ## Human review as a designed state transition
@@ -61,9 +63,9 @@ For an insurance claims triage tool, routine low-value claims can be routed to a
 
 ## Impact on current data processing
 
-The data path is `request → review queue and policy engine → validator/policy → outcome`. The `decision plus reviewer rationale` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where reviewable decisions become an application decision.
+The review path is `request → risk router → evidence packet → assigned reviewer → adjudication → authorized action`. The automated proposal, reviewer decision, rationale, and appeal are separate versioned records scoped to the case owner; none is a blanket permission for later work. Admission checks identity, jurisdiction, deadline, and required evidence. The final state records who decided, under which policy, and whether the action is accepted, rejected, deferred, or appealed.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for reviewable decisions alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound queue depth, packet size, assignment fan-out, reviewer concurrency, and escalation time. Measure queue age, abandonment, disagreement, overturn rate, correction, appeal outcome, reviewer workload, p95 decision latency, and cost by risk slice. If evidence or staffing is unavailable, defer safely or narrow automation; do not convert a missing review into approval. Retries preserve case and action IDs, while packets, comments, recordings, and exports inherit tenant access and retention rules. These controls are engineering inferences, not guarantees supplied by the source.
 
 ## Architecture and data flow
 
@@ -84,7 +86,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms reviewable decisions; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+The requester, proposal generator, and reviewer are distinct roles. Admission attaches tenant, purpose, deadline, and policy version; the router selects a permitted queue; the packet presents evidence and uncertainty; the reviewer records a bounded decision; an action gate rechecks authorization before the side effect. Telemetry records case, role, policy, and outcome identifiers without copying sensitive payloads by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +112,39 @@ A queue can clear through rubber-stamping; sensitive evidence can be overexposed
 
 ## Design walkthrough: operating reviewable decisions safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The review queue and policy engine receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the decision plus reviewer rationale identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+Design review as a decision boundary, not as a decorative approval button. The automated stage should produce a bounded proposal, evidence bundle, uncertainty signal, and explicit requested action. The reviewer should be able to accept, reject, edit, or request more evidence without recreating the whole investigation. Store the proposal and final decision separately so later analysis can distinguish model error from reviewer judgment and from a policy change.
 
-An insurance tool straight-through processes routine claims but sends ambiguous coverage and high-value claims to specialists. The adjuster sees highlighted evidence and owns the decision; appeal creates a linked case.
+In an insurance workflow, routine claims may be paid automatically while ambiguous coverage, unusual loss patterns, and high-value claims enter a specialist queue. The adjuster needs the policy version, extracted facts, missing fields, and comparable cases—not an opaque confidence number. An appeal should create a linked case with a new reviewer and preserved prior reasoning. A reviewer who merely clicks “approve” on a preselected answer supplies little independent control.
 
-Now follow a difficult request. An unusually large reviewable decisions value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Route work using consequence and uncertainty together. A low-confidence answer about a harmless formatting choice need not block a user; a moderately confident decision that changes benefits, access, or a medical record may require review. Admission checks identity, jurisdiction, deadline, and required evidence before consuming queue capacity. If the source system is unavailable, show “waiting for evidence” rather than converting absence into approval. If the request is revoked while waiting, remove it from the actionable queue and record the revocation.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the decision plus reviewer rationale as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Make the queue itself observable. Track age, priority, assignment, reassignment, abandonment, time in each state, reviewer workload, and outcome changes. Protect against starvation by giving old cases an escalation path, but do not let urgency bypass authorization. A surge can be handled with a second reviewer pool, narrower automation, or a safe deferral state; silently lowering review quality is not capacity planning. Keep customer and tenant boundaries on queue items, attachments, comments, and exported reports.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For reviewable decisions, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Measure reviewer performance without turning people into a single score. Sample accepted and rejected cases for second review, monitor disagreement by policy and case type, and measure correction quality and appeal outcomes. Speed can improve because the interface hides difficult cases, so pair handling time with error, reversal, and harm indicators. Protect reviewers from repetitive near-duplicates, adversarial content, and excessive context switching. A human in the loop is only a control when the person has authority, time, evidence, and a meaningful ability to change the outcome.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+Record every transition with actor, role, reason code, timestamp, policy version, and evidence identifiers. Do not overwrite the automated proposal when the reviewer edits it. At release, pin routing thresholds, queue rules, model versions, and staffing assumptions. During an incident, freeze new automation or route all affected cases to review; after recovery, compare the held-out cases and add representative failures to the regression suite. The rollback artifact includes queue migrations and notification behavior, not only the model binary.
+
+### Review packet design
+
+A useful packet has a small “decision at a glance” region and expandable evidence. Put requested action, deadline, risk tier, missing information, and recommended disposition first. Show the exact source span for each material fact, including its timestamp and access scope. Hide unrelated personal data by default and make redaction deterministic enough for reviewers to trust it. If evidence conflicts, place the conflict beside the claim instead of burying it in a long transcript. The packet should survive a later policy update so an auditor can see what the reviewer actually saw.
+
+### Calibration and escalation
+
+Set review thresholds from labeled cases and downstream consequences, then recalibrate after distribution shift. Reviewers need a “cannot decide” path with a named escalation owner; forcing a binary choice turns uncertainty into arbitrary action. Escalation should carry the unresolved question and prior evidence, not merely forward the entire conversation. If a reviewer repeatedly encounters a new pattern, pause automation for that slice and create a policy or training change. Record whether the final resolution came from additional evidence, a rule exception, or a human override.
+
+### Privacy and labor constraints
+
+Minimize sensitive fields in the review surface and enforce retention for screenshots, comments, and exports. Access to a case does not imply permission to reuse it for model training. Account for reviewer availability, local law, language coverage, accommodations, and the emotional cost of harmful content. A queue that meets latency targets by exhausting reviewers is an operational failure. Service-level objectives should include safe deferral, appeal response, and reviewer well-being signals where appropriate.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which reviewable decisions are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Human review is most valuable when an automated proposal is fast but the consequence of an uncorrected decision is material. Begin with draft recommendations, then gate narrowly defined actions. Budget packet assembly, queue delay, reviewer minutes, appeals, and correction cost; report decision latency separately from model latency. A shorter queue is not progress if reviewers lack evidence or rush critical cases.
 
 Reviewing more cases raises delay and fatigue while reviewing fewer cases risks missed harm. The threshold should optimize downstream correction and appeal outcomes, not queue size alone.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to reviewable decisions: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Watch for stale packets, reviewer impersonation, queue starvation, rubber-stamping, privacy leakage, and action after revocation. Test reassignment, duplicate cases, missing evidence, reviewer disagreement, cancellation, and appeal paths. A fast approval path says little about rare harmful decisions. Assign an escalation owner and safe fallback; source claims remain facts while operational quality requires local evidence.
 
 ## Runnable low-cost example
 

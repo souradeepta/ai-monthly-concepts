@@ -45,6 +45,8 @@ A summary can remove a critical number; stale memory can override a correction; 
 
 ## Mini exercise (15–30 min)
 
+Context assembly is a stateful preprocessing stage with its own observability. Emit a manifest containing block IDs, authority, source version, freshness, estimated tokens, and omission reasons. This makes a bad answer diagnosable: the evidence may have been missing, stale, truncated, or placed below an instruction with the wrong precedence. Test correction and deletion paths because a summary that survives after its source is withdrawn is both a quality defect and a governance concern. Keep secrets and unrelated tenant material outside the model-visible working set.
+
 Create policy, evidence, history, and tool-result blocks with authority and freshness. Assemble under a fixed budget and prove a low-authority block cannot reorder policy.
 
 ## Context as a bounded working set
@@ -61,9 +63,9 @@ For an incident triage assistant, context includes alert metadata, the latest ru
 
 ## Impact on current data processing
 
-The data path is `request → context assembler → validator/policy → outcome`. The `context manifest` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where ordered evidence blocks become an application decision.
+The working-set path is `request → authority filter → retrievers → ranker/compressor → context manifest → model`. The manifest names each included and omitted block, its source version, trust tier, token cost, and reason for selection. It is an input artifact, not durable memory or permission. Admission records tenant, task, deadline, and budget; the assembler emits a bounded state; downstream validation checks citations and policy before any action. This makes omissions and ordering decisions observable.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for ordered evidence blocks alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound context tokens, retrieval calls, compression time, and source fan-out. Measure source coverage, authority conflicts, freshness, omitted-required-blocks, assembly latency, p95 model latency, token cost, and correction rate by task and tenant. If a required policy block cannot fit, return `insufficient_context` or request a narrower scope; do not silently replace it with a lower-trust summary. Retries preserve manifest IDs and correlation, while caches inherit source version, tenant, and deletion rules. These controls are engineering inferences, not guarantees supplied by the source.
 
 ## Architecture and data flow
 
@@ -84,7 +86,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms ordered evidence blocks; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+The caller, retrieved pages, and historical summaries remain outside the assembler’s authority assumptions. Admission attaches tenant, purpose, deadline, and policy version; retrieval applies access and freshness filters; the assembler orders evidence by authority and task need; validation checks required citations and action permissions. Only a separately authorized transition can cause a side effect. Telemetry records manifest and source identifiers without copying sensitive payloads by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +112,33 @@ A summary can remove a critical number; stale memory can override a correction; 
 
 ## Design walkthrough: operating ordered evidence blocks safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The context assembler receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the context manifest identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+For an incident assistant, assemble a small working set: the active alert, current service state, relevant runbook section, recent deployment, and source identifiers. Assign each block an authority, freshness, tenant scope, and token estimate. The assistant should cite included blocks and state what was omitted. A responder can then tell whether a recommendation rests on current evidence or an old summary.
 
-An incident assistant includes the active alert, current runbook section, and recent changes while excluding unrelated logs and credentials. Its recommendation cites the manifest's source IDs and marks omitted evidence.
+Context selection is a ranking problem with constraints. Retrieval score alone cannot decide precedence because a low-scoring policy block may outrank a highly similar user note. Apply authorization and freshness before ranking, reserve space for non-negotiable instructions, and record the inclusion order. If a required block cannot fit, narrow the task, use an approved larger context, or abstain rather than silently truncating it.
 
-Now follow a difficult request. An unusually large ordered evidence blocks value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Consider a difficult request with conflicting evidence. One document says a service is healthy, while a newer alert says its error rate is rising. The assembler should retain both timestamps and mark the conflict; it should not choose the fluent paragraph. A corrected memory should invalidate descendants that relied on the old value. These are context-state transitions and should be measurable independently from model uncertainty.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the context manifest as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Tenant isolation applies to context manifests, caches, summaries, vector results, traces, and temporary files. Derive tenant from authenticated state, filter before prompt construction, and test a request whose valid resource ID belongs to another tenant. A denial is different from an empty result because timing and audit behavior can reveal that a lookup occurred. Recheck permissions when a long-running run refreshes context.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For ordered evidence blocks, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Capacity planning should measure token budget, assembly latency, retrieval calls, cache hit rate, source freshness, and omission rate across short and long tasks. Add context metrics such as evidence recall, conflict detection, manifest reproducibility, and correction survival. A canary is useful only when protected prompts retain required policy and source blocks; a better average answer can hide a missing exception.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+Close each context change with a manifest that records model, prompt template, source versions, filters, ranking, compression, token budget, policy, and omitted-block reasons. Pin the manifest for replay and keep a protected correction case. After launch, inspect answers whose manifests differ or whose users correct a source. The owner should be able to reconstruct what entered the model call without exposing unrelated raw customer content.
+
+Context quality should be tested with counterfactuals. Remove one required block, swap a current policy for an older version, insert an untrusted instruction into retrieved text, and exceed the token budget. The expected behavior is a visible omission or refusal with a reason, not a confident answer. Also test a correction: when a source changes, the next manifest should point to the new version and prevent a stale cached summary from silently returning.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which ordered evidence blocks are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+### Budgeting the working set
+
+Treat the context window as a budgeted working set rather than an unlimited mailbox. Reserve space for the current request, system policy, tool instructions, retrieved evidence, intermediate state, and the expected response. If a tool can return an unexpectedly large payload, enforce its limit before concatenation; truncating after the model has already seen the payload is too late. Record which blocks were admitted, compressed, evicted, or rejected, together with their versions and reasons. This makes a quality regression diagnosable: the model may have received the right document but lost the exception paragraph during packing. A useful local test varies evidence order and budget, then checks whether required constraints survive summarization. When a required block cannot fit, return `context_budget_exceeded` or ask the user to narrow scope instead of silently dropping policy.
+
+Context engineering pays off when the model must act on several sources with different authority, freshness, or purpose. An incident assistant may need the current runbook, service ownership, recent alerts, and a prior postmortem, while excluding an obsolete procedure. Begin with a read-only answer and expose the assembled sources; only add tool actions after omission and conflict behavior are measured. Budget retrieval, ranking, compression, cache misses, and review time alongside model tokens.
 
 More context can improve recall while increasing latency and distraction. Compression saves tokens but risks semantic loss; retrieval filtering preserves provenance but may omit a needed exception.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to ordered evidence blocks: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+The main failure is not merely a full context; it is a context with the wrong ordering or authority. Test missing blocks, contradictory policies, stale summaries, duplicate evidence, prompt injection in a retrieved page, and compression that removes a qualifier. Track source coverage, freshness, conflict detection, omitted-block reasons, token utilization, and correction rate by task. Enforce tenant and access filters before assembly, and make an unavailable source visible rather than silently substituting a lower-trust document. A longer prompt is not evidence of a better working set.
 
 ## Runnable low-cost example
 

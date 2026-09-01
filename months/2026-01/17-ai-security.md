@@ -9,16 +9,16 @@ AI security treats model inputs, retrieved text, and tool outputs as untrusted d
 Prompt-only defenses assumed instructions could separate trusted commands from arbitrary text.
 
 ## What changed and why now
-Threat models now include prompt injection, data poisoning, excessive agency, and insecure output handling. This month's focus is ai security as an operable system boundary: its measurements and controls determine whether the capability survives contact with real traffic.
+Threat models now include prompt injection, data poisoning, excessive agency, and insecure output handling. The January focus is AI security as capability containment: every model proposal must encounter a narrow permission gate before it can reach a tool or data boundary.
 
 ## Impact on current processing and architecture
-Use least privilege, content boundaries, egress controls, sandboxing, validation, and adversarial tests. A production path should carry version, tenant, latency, cost, and failure metadata beside the model result.
+Use least privilege, content boundaries, egress controls, sandboxing, validation, and adversarial tests. Carry principal, capability, policy version, token expiry, tenant, latency, cost, and denial metadata beside each proposal.
 
 ## Real-world applications and constraints
-Keep tools narrow, pass structured data, reauthorize every action, and log policy decisions. Start with reversible, low-risk workloads; define SLOs, access controls, and an owner before expanding.
+Keep tools narrow, pass structured data, reauthorize every action, and log policy decisions. Begin with read-only tools and synthetic hostile inputs, then define revocation, incident ownership, and a bounded recovery path.
 
 ## Mental model
-The model is a probabilistic component inside a security system, not the security boundary. Model the concept as a state transition with explicit inputs, outputs, authority, and failure handling.
+The model is a probabilistic component inside a security system, not the security boundary. Track a request from untrusted content through policy decision, scoped capability, tool execution, receipt, or denial.
 
 ## Prerequisites: a foundational primer
 
@@ -61,9 +61,9 @@ For a customer-service agent, read-only ticket lookup is automatic, while refund
 
 ## Impact on current data processing
 
-The data path is `request → security policy gateway → validator/policy → outcome`. The `threat decision and audit event` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where untrusted messages and capabilities become an application decision.
+The security path is `untrusted input → trust labeling → policy decision → narrow capability → tool adapter → receipt/audit`. A threat decision is a record of evaluation, not a capability itself; the capability binds principal, tenant, operation, resource, expiry, and nonce. Admission records the request and policy revision, while the adapter rechecks those constraints immediately before execution. This makes prompt-injection, confused-deputy, replay, and revocation failures visible at the side-effect boundary.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for untrusted messages and capabilities alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound parsing, retrieval, tool fan-out, token lifetime, and retry count. Measure policy denials, capability issuance and expiry, replay attempts, cross-tenant test failures, tool latency, side-effect receipts, p95 cost, and safe-degradation rate by route. If the policy service is unavailable, deny or defer privileged actions while preserving read-only diagnosis. Retries require idempotency keys and receipt lookup. Tokens, queues, traces, caches, and forensic artifacts inherit tenant access and deletion rules; these are engineering inferences, not guarantees supplied by the source.
 
 ## Architecture and data flow
 
@@ -84,7 +84,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms untrusted messages and capabilities; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+User messages, retrieved documents, model output, and tool results are untrusted inputs to the enforcement path. Admission attaches principal, tenant, purpose, deadline, and policy version; trust labeling prevents content from becoming authority; the policy engine issues a narrow capability; the adapter validates it and records the external receipt. Only that final gate can produce a side effect. Telemetry records capability, policy, and receipt identifiers without copying secrets by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +110,39 @@ An attachment can instruct exfiltration; tool output can smuggle a new tool name
 
 ## Design walkthrough: operating untrusted messages and capabilities safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The security policy gateway receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the threat decision and audit event identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+Treat every message as data until a separately authorized component proves that an action is allowed. An instruction hidden in a ticket, web page, image, tool result, or retrieved document can be relevant content without being an instruction for the agent. Keep trust labels on inputs and pass only the minimum text and capabilities to each step. The model may propose an action, but a policy gate should validate actor, resource, operation, tenant, amount, freshness, and approval before a side effect.
 
-A support agent reads tickets automatically but can refund only within amount and ownership limits after fresh confirmation. The gateway rejects an attachment's request to export another tenant's data.
+A support agent may summarize tickets and draft a reply, while refunds require an authenticated customer, an owned order, a monetary limit, and a fresh confirmation. A malicious attachment that says “export all records” remains untrusted content. The tool adapter should reject it even if the model repeats it confidently. This separation makes the security property testable: the decision depends on authorization state, not on whether a prompt happened to persuade the model.
 
-Now follow a difficult request. An unusually large untrusted messages and capabilities value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Use capability tokens instead of ambient authority. Give a worker a narrow, short-lived permission such as “read order 1842 for tenant T” rather than a general database credential. Bind the token to an audience, expiry, operation, and request nonce; check it again at execution time. For a multi-step agent, do not assume that approval for planning authorizes execution after a policy, user, or resource state changes. Revoke queued work and invalidate tokens when the account, case, or session is closed.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the threat decision and audit event as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Design for confused-deputy and replay failures. A worker must not use its own broad access to satisfy a user who lacks access. An idempotency key and receipt lookup prevent retries from repeating a payment, email, or deletion. Log denied attempts and policy reasons without storing secrets. Rate-limit expensive parsing, retrieval, and tool calls independently; an attacker can exhaust resources even when every final side effect is denied. Return a safe unavailable state when a security dependency cannot answer.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For untrusted messages and capabilities, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Test attacks as sequences, not isolated strings. Include indirect instructions in retrieved content, tool output that changes the apparent objective, cross-tenant identifiers, expired approvals, malformed capability tokens, duplicate requests, prompt truncation, and a policy revocation between two steps. Assert the protected invariant at the tool boundary. A red-team prompt that produces a refusal is not evidence if a direct API call, alternate route, or retry path can still perform the operation.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+Record a security change packet with threat model, trust boundaries, capabilities, policy version, test fixtures, telemetry, rollout scope, and rollback action. Pin parsers and tool schemas because an innocuous field change can widen authority. Review false positives as well as bypasses: a gate that blocks all legitimate work will be disabled under pressure. After an incident, preserve the attack path, rotate affected credentials, add a regression case, and verify that the case cannot reveal the original secret.
+
+### Trust-boundary inventory
+
+Draw boundaries around user input, retrieved content, model context, tool arguments, service credentials, queues, caches, and external systems. For each boundary, name the parser, validator, principal, and failure behavior. A document can cross into a prompt but must not cross into an authorization decision without an independent check. A trace can identify a request but must not become a bearer token. Review data exports and debugging tools too; secondary paths frequently have weaker controls than the main agent.
+
+### Policy decision records
+
+Persist the inputs needed to explain allow, deny, and defer decisions: principal, resource, operation, policy revision, capability ID, expiry, and reason code. Hash sensitive values or store references when full values are unnecessary. Do not let the model write the policy decision record; it may supply context, but a deterministic enforcement point owns the result. Compare policy decisions across model versions during a canary to detect newly exposed routes.
+
+### Incident containment
+
+Prepare a kill switch that disables side effects while preserving read-only diagnosis. Scope it by tenant, tool, capability, or route so responders need not shut down unrelated work. Drain queues safely, revoke short-lived tokens, and query receipts before replaying uncertain requests. Capture which permissions were available at the time, not only the final text. Recovery is complete only after a targeted regression, credential review, and confirmation that monitoring can detect the same path again.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which untrusted messages and capabilities are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Security controls matter when a model can reach valuable data or side effects faster than a human can inspect every prompt. Start with read-only capability probes, then gate one reviewed action at a time. Budget policy checks, sandbox isolation, token rotation, denial handling, and incident response; measure control latency separately from model latency. Faster agency is not progress if it expands blast radius.
 
 Defense-in-depth adds latency and integration effort, while broad model agency is convenient but magnifies blast radius. Narrow tools and deterministic gates make capability less flexible yet incidents more containable.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to untrusted messages and capabilities: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Watch for confused deputies, privilege drift, prompt injection, secret egress, replay, duplicate side effects, and fail-open policy outages. Test hostile documents, revoked tokens, malformed tool arguments, partial writes, retries, and cross-tenant identifiers. A blocked demo proves little about bypass resistance. Assign a security owner and kill switch; source threat claims are facts, while residual risk needs local testing.
 
 ## Runnable low-cost example
 

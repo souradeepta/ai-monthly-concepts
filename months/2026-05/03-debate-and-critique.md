@@ -70,6 +70,10 @@ For code changes, a critic can inspect a patch while a test runner supplies repr
 
 In a security review, the candidate can be a threat model: assets, trust boundaries, attack paths, and mitigations. A critic searches for missing permissions, untrusted inputs, and unsafe defaults, while automated scanners test the code and configuration. In a clinical or scientific workflow, the candidate can be a study proposal. Critics check evidence quality, protocol feasibility, and whether an inference is being presented as a measured fact. The final approval policy must reflect the domain's actual risk rather than the rhetorical confidence of the agent.
 
+## Mental model
+
+Treat critique like a test harness for an argument. The generator supplies a candidate; critics supply targeted failing cases or evidence; deterministic checks verify mechanical requirements; and an evaluator applies the acceptance contract. Debate adds value only when it produces a new observable signal. A longer exchange of fluent agreement is closer to repeated sampling than to independent review.
+
 ## Operational design
 
 Route each artifact through the cheapest reliable check first. Schema validation and citation presence are inexpensive; executing a test suite may cost more; a human review is scarce and should receive a compact evidence packet. This ordering reduces waste while preserving a strong gate for consequential decisions. It also gives operators clear reason codes when a workflow stops: malformed candidate, missing evidence, failed deterministic test, unresolved critical finding, or human decision required.
@@ -107,6 +111,14 @@ An adversarial critic can also become unproductive. If a role is rewarded only f
 The quality of a critique depends on the rubric. A vague request such as “review this answer” invites stylistic preference. A useful rubric asks whether each factual claim has a source, whether a source directly supports the claim, whether evidence is current enough, whether a proposed action is authorized, and whether required tests passed. Version the rubric as code or data. When an evaluator changes, replay representative artifacts to see which prior decisions would change and why.
 
 Disagreement is valuable data. Preserve the candidate, each finding, evidence pointers, evaluator decision, and disposition in an append-only record. A later incident may show that a dismissed concern was valid, or that a critic systematically generated false alarms for a task slice. This record enables calibration: measure precision, recall, time to resolution, and the rate at which accepted artifacts are reopened.
+
+### Designing productive dissent
+
+Ask critics to identify the smallest claim they challenge and the observation that would resolve it. A finding such as “the plan seems risky” is not actionable; “claim c4 says the endpoint is idempotent, but the cited API contract has no idempotency key” is testable. This discipline keeps criticism tied to an artifact rather than a model’s tone. It also enables the generator to revise one bounded field instead of restarting the whole workflow with a longer prompt.
+
+Use disagreement sampling to tune the process. When two critics disagree materially, route a representative subset to a domain reviewer and label the source of disagreement: evidence coverage, rubric interpretation, stale information, or model reasoning. Then improve the relevant component. Repeatedly adding more independent-sounding agents often increases cost without resolving an ambiguous rubric. A clear acceptance rule, a source of record, or a deterministic test is usually the higher-leverage fix.
+
+For consequential decisions, preserve a “no conclusion” outcome. A critic may correctly show that available evidence is insufficient without proving the opposite claim. The evaluator should be able to return `ESCALATE` or `DEFER` with the missing evidence rather than forcing a false accept-or-reject choice. This prevents a debate loop from converting uncertainty into consensus merely because the workflow requires a terminal-looking answer.
 
 ## Build it locally
 

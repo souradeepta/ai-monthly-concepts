@@ -340,6 +340,26 @@ Use arrivals at 0, 1, 2, 9, 10, and 11 ms with work times 1, 1, 12, 1, 1, and 1 
 
 ## Claim ledger
 
+## What changed
+
+The important shift is from waiting for a fixed batch to forming compatible work continuously. A scheduler can admit a short request without waiting for a long generation to finish, provided it preserves per-request state and output correlation. This changes the unit of capacity planning from requests per second to tokens, active sequences, queue age, and memory. It also makes admission policy part of model serving rather than an incidental web-server setting.
+
+## Impact on current processing
+
+Batching changes the request path: admission places work in a bounded queue, the scheduler chooses compatible members, prefill and decode consume different resources, and streaming must multiplex results without crossing request boundaries. Measure queue wait separately from compute time. A throughput improvement is not useful if it causes interactive deadlines to fail or if a long prompt monopolizes memory needed by many short requests.
+
+## Real-world applications
+
+Interactive chat, document extraction, and offline embedding jobs have different batching contracts. Chat needs low time to first token and cancellation; extraction can trade wait for throughput; embeddings can use large static batches. Separate queues and quotas prevent a nightly backfill from consuming the slots reserved for user traffic. Cost, fairness, memory pressure, and retry behavior belong in the design review.
+
+## Mental model
+
+View a batch as a temporary shared conveyor belt. Requests share a kernel invocation, but each still has its own deadline, cancellation state, tenant, and output stream. The conveyor can accept a new parcel only when its shape, memory, and policy fit. When one parcel is slow, the scheduler should measure the straggler rather than pretending the whole batch is one atomic request.
+
+## Engineering consequence
+
+Implement item-level tracing, bounded admission, cancellation propagation, and output correlation before tuning batch size. Keep a non-batched fallback for incompatible shapes and a protected queue for urgent work. Run load tests with mixed prompt lengths, cancellations, retries, and tenant weights; report p50 and tail latency alongside tokens per second and GPU memory.
+
 | Claim | Source | Fact or inference |
 |---|---|---|
 | Triton dynamic batching combines inference requests on the server and is intended for stateless models. | [Triton batchers](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html) | Fact, scoped to the cited Triton documentation |

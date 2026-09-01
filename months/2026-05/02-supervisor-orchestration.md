@@ -117,6 +117,14 @@ Use small, meaningful rollout metrics. Track whether the supervisor reached a co
 
 When changing orchestration code, run replay tests over representative persisted traces. Verify that older states can still be decoded or migrated deliberately, that duplicate completions remain harmless, and that new policy rules do not accidentally authorize legacy artifacts. Version schemas and state transitions just as carefully as public APIs. Workflow compatibility bugs often surface only after a retry or delayed message, when the original run no longer exists in memory.
 
+### Selecting what the supervisor decides
+
+Keep high-frequency routing decisions cheap and deterministic. For example, a supervisor can dispatch a retrieval task when a request has a known document ID, reject it when the tenant is missing, or escalate it when the task requests an external write. A model may propose a decomposition for an unfamiliar research question, but the supervisor should validate that each proposed role maps to a registered task type with a declared schema and maximum budget. This division preserves flexibility without letting natural-language planning expand the workflow surface at runtime.
+
+Record the decision inputs as well as the outcome. A later incident review should answer why a task was admitted, why a particular role was selected, and which policy version allowed a transition. When the decision uses a learned score, store the threshold and a compact explanation alongside it, then supply a deterministic fallback for unavailable scoring. This makes a supervisor debuggable by ordinary application engineers rather than a hidden layer of model behavior.
+
+Capacity policy belongs here too: reserve worker slots for urgent, short runs, cap fan-out per tenant, and surface queue age before a user abandons the request. Those controls prevent one exploratory workflow from starving ordinary operations.
+
 ## Build it locally
 
 ```python

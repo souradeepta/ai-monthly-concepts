@@ -61,9 +61,9 @@ An enterprise policy assistant can cache a versioned 30-page policy prefix while
 
 ## Impact on current data processing
 
-The data path is `request → prefix cache → validator/policy → outcome`. The `cache key and hit record` is versioned and scoped to its owner; it is not treated as a durable memory or permission. Admission records the input shape and deadline, processing emits typed intermediate state, and the final result carries provenance and a reason code. This makes a change measurable at the boundary where cacheable prompt prefixes become an application decision.
+The serving path is `request → eligibility check → prefix lookup → volatile suffix → model → outcome`. A cache key binds exact prefix bytes to model route, tokenizer assumptions, policy revision, tenant scope, and expiry; the hit record is evidence about reuse, not permission or durable memory. Admission records request budget and deadline, while the live suffix supplies current identity, query, and retrieved records. Validation happens after the complete prompt is assembled, so a cache hit cannot bypass current policy.
 
-Operationally, keep the concept-specific resource bounded. Measure the signal that matters for cacheable prompt prefixes alongside p95 latency, error class, cost, and downstream correction. Under overload or missing evidence, return a typed degraded state or queue for review. Retrying must preserve idempotency and correlation. Any cache, index, trace, or derived artifact inherits tenant isolation and retention rules. These are engineering inferences from the source, not guarantees supplied by it.
+Operationally, bound prefix size, entry count, resident memory, TTL, and lookup time. Measure hit and miss reasons, saved prefill tokens, time to first token, eviction, invalidation lag, p95 latency, cost, and correction by route and tenant. If a cache service is down, bypass it within the request budget; if the live policy or source version is uncertain, return an uncached or unavailable state. Invalidation and retries need idempotent keys, receipts, and deletion coverage. These controls are engineering inferences, not guarantees supplied by the caching source.
 
 ## Architecture and data flow
 
@@ -84,7 +84,7 @@ flowchart LR
   class E,F result
 ```
 
-The source or caller remains outside the worker's trust assumptions. Admission attaches tenant, purpose, deadline, and version; the worker transforms cacheable prompt prefixes; validation checks invariants that generated or approximate computation cannot establish. Only the final policy transition can produce a side effect. Telemetry records identifiers and measurements without copying sensitive payloads by default.
+The caller and volatile evidence remain outside the cache worker’s trust assumptions. Admission attaches tenant, purpose, deadline, and cache namespace; the lookup reuses only an exact eligible prefix; suffix assembly supplies current authorization and task data; validation checks invariants that reuse cannot establish. Only a separate policy transition can produce a side effect. Telemetry records key version, hit reason, and outcome identifiers without copying sensitive prompt text by default.
 
 ## Sequence and failure flow
 
@@ -110,27 +110,37 @@ Whitespace or schema order can cause misses; a global key can leak cross-tenant 
 
 ## Design walkthrough: operating cacheable prompt prefixes safely
 
-Take one realistic request and follow it through the system. The caller supplies an identity, purpose, input, and deadline; admission validates those fields before allocating work. The prefix cache receives only the fields needed for its computation and emits a proposal, measurement, or transformed state. It does not get ambient credentials, an unbounded queue, or permission to redefine the contract. The gateway stores the cache key and hit record identifier and the versions that produced it, then invokes checks owned by code outside the probabilistic or approximate step.
+For a benefits assistant, cache only the stable, approved policy prefix and append employee-specific questions after authorization. The key must include policy version, locale, model contract, and tenant or an explicitly public scope. A policy update creates a new namespace; it must not rely on eventual eviction to prevent an old rule from being used. Record hit and miss decisions without retaining sensitive employee text by default.
 
-A benefits assistant caches a versioned policy prefix and appends employee-specific questions. Eligibility is checked per request, while a policy update creates a new namespace and invalidates old entries.
+Cache eligibility is a contract. The prefix must be byte-stable after rendering, and changes in whitespace, ordering, tool definitions, policy, or source version can make reuse invalid. Define which fields are stable and which are request-specific. A cache hit should return the expected prefix identity and version so downstream traces can explain why it was used. If the cache is unavailable, bypass it without changing authorization or output validation.
 
-Now follow a difficult request. An unusually large cacheable prompt prefixes value may exhaust memory or context; a rare language, malformed record, stale source, or cancelled client may invalidate assumptions. Admission should reject or split before expensive work, and the reason must be observable. If a dependency times out, preserve the deadline and return an unavailable state rather than retrying forever. If work may have reached an external system, query its receipt before replay. These transitions are different from model uncertainty and should have different metrics and runbooks.
+Privacy and tenancy are part of cache design. A globally keyed entry can leak one customer’s policy or retrieved facts into another request. Use tenant-aware namespaces, access checks before lookup, and deletion propagation across memory, disk, replicas, and provider-managed caches. Test a revoked user and a cross-tenant key collision. The expected result is a miss or denial, not a successful hit with a plausible response.
 
-Multi-tenant operation adds a second axis. Namespaces, ACL filters, quotas, and deletion jobs apply to the cache key and hit record as well as to the visible answer. A cache key, vector, trace, queue item, or temporary file must carry an owner or an explicit public scope. Test a request that has a valid shape but another tenant's identifier; the expected behavior is a denial, not an empty lookup that leaks timing. Test revocation between planning and execution. The worker should observe the new policy at the side-effect boundary.
+Capacity planning should compare saved prefill work with memory, storage, invalidation, and miss overhead. Measure hit ratio by route and tenant, prefix tokens, time to first token, cache age, eviction, memory pressure, queue delay, and cost per accepted response. Long prefixes may improve reuse while increasing invalidation blast radius. A canary should verify both economics and correctness on protected policy and privacy cases.
 
-Capacity planning should use production-shaped distributions. Measure short and long inputs, cold and warm workers, concurrent tenants, cancellations, and retries. Report p50 and p95 or p99 latency, memory, queue age, cost, and accepted outcome rate. For cacheable prompt prefixes, add a domain metric: page or token fit, cache-page pressure, batch wait, evidence recall, field validity, review agreement, or conversion. Averages hide the cases that drive support tickets. A canary is successful only when protected slices remain inside their thresholds.
+Close a cache change with its key schema, namespace policy, stable-field definition, source and model versions, invalidation trigger, retention rule, and rollback path. Keep fixtures that change one field at a time and show whether the key should hit or miss. During rollout, sample hit payload identity and inspect corrected answers. An operational owner should be able to explain a hit, invalidate a rule, and prove that an expired prefix cannot influence a current request.
 
-Finally, make a change record. State what the source actually establishes, what this integration infers, which baseline was used, and what would trigger rollback. Pin the model or library, schema, policy, and data versions. Keep a small reproducible fixture and a separate protected case. At launch, sample outcomes and inspect corrections; after launch, add every incident to the regression set. The owner should be able to answer what the system saw, which decision it made, why it was allowed, and how to undo it without searching through raw customer payloads.
+### Invalidation as a state transition
+
+Invalidate for a reason, not only because a time-to-live elapsed. A policy correction, tenant access change, model upgrade, source deletion, prompt-template change, or discovered contamination can make a prefix unusable immediately. Record invalidation event, actor, affected namespace, source version, and completion status. A distributed cache may contain replicas or in-flight requests, so the gate should reject an old cache identity even while deletion propagates. This is safer than assuming that a background eviction task finished.
+
+### Testing cache correctness
+
+Build a matrix of expected hit and miss cases. Keep the stable prefix unchanged while changing the request-specific suffix; change one policy field, locale, tool definition, source document, tenant, and model version at a time. Verify that only intended changes preserve a hit. Test cold start, cache outage, replica lag, duplicate fill, concurrent invalidation, and a stale hit after revocation. Compare latency and cost only after the correctness and privacy contract passes.
+
+### Observability
+
+A hit ratio can look excellent while users receive stale or cross-tenant context. Log key version, namespace, hit or miss reason, entry age, source and policy versions, and invalidation state. Avoid raw prompt logging. Alert on stale-hit attempts, unexpected namespace growth, deletion lag, and a change in hit ratio by tenant. Include cache identity in the answer trace so an incident investigator can reproduce which prefix was available at decision time.
 
 ## Real-world application and trade-off analysis
 
-The strongest use case is one in which cacheable prompt prefixes are expensive or difficult to manage manually and the consequence of a wrong result is bounded. Start with read-only or draft work, then add a reviewed transition. Estimate total cost, including retrieval, model work, retries, storage, reviewer time, and corrections. Latency targets should be stated separately for interactive and batch routes. A cheaper or faster implementation is not an improvement if it moves errors into a high-cost downstream queue.
+Prompt caching is valuable when a request family repeats a large, byte-identical prefix and prefill work is a meaningful part of latency or cost. A coding assistant may reuse a stable system policy and repository instructions while varying the user task. Cache only the stable portion, bind it to model and policy versions, and measure whether the saved work improves accepted responses rather than merely increasing hit ratio. Include cache memory, eviction, invalidation, and privacy review in the design.
 
 Longer stable prefixes improve reuse but increase invalidation blast radius and privacy exposure. Short prefixes are safer and fresher but save less prefill work; cache economics must include misses and eviction overhead.
 
 ## Limits and failure modes specific to this concept
 
-Watch for malformed inputs, version drift, resource exhaustion, cross-tenant state, stale artifacts, and silent degraded paths. Test the boundary conditions that are unique to cacheable prompt prefixes: unusually large or rare values, cancellations, duplicate requests, partial dependencies, and adversarial content. A passing happy-path demo says little about tail behavior. Define an escalation owner and rollback artifact before enabling the feature. If the source describes a capability, label it as a fact; claims about production quality, safety, or value are inferences requiring local evidence.
+Caching fails when “same prefix” is treated as “same meaning.” Test a policy edit, model-route change, tenant switch, tokenizer change, malformed prefix, cache eviction during a stream, cancellation, and deletion request. A stale hit can preserve an old permission or instruction even when the live prompt is correct. Record miss and invalidation reasons, entry age, namespace, source versions, and p95 time to first token without logging sensitive prompt text. Validate isolation and deletion independently; neither follows from a successful cache lookup.
 
 ## Runnable low-cost example
 
