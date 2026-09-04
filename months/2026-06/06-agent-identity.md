@@ -147,6 +147,16 @@ Recheck the report after incident remediation and key rotation.
 
 Include recovery drills in quarterly operations practice: revoke a run, rotate a signing key, replay a queued message, and reconcile an external receipt. Record elapsed time, failed assumptions, and the owner for each remediation. Repeated drills turn identity controls into practiced operations rather than documentation that is only consulted after a breach.
 
+### Identity across queues and retries
+
+An asynchronous queue is an authorization boundary, not merely a transport. The message should carry a signed reference to the run, tenant, intended audience, and operation, plus an idempotency key; it should not carry a reusable provider token. On dequeue, the worker resolves the reference, checks cancellation and expiry, obtains a fresh capability, and records the message ID in a replay store. A retry may reuse the operation identity but must not silently broaden its resource or action. If the original resource version has changed, the worker should return a conflict for review rather than applying an old plan to new state.
+
+Identity records also need a clear ownership model. The user is the requester, the orchestrator is the delegating service, and the worker is the executor. A policy decision can authorize the worker without claiming that the model itself is a principal. This distinction matters during incident review: investigators can ask whether the user requested the task, whether the orchestrator narrowed it correctly, and whether the worker enforced the final boundary. Keep these answers in structured audit fields instead of inferring them from names in a prompt.
+
+### Measuring identity control health
+
+Track token issuance latency, denied requests by rule, expired capabilities, replay attempts, child-scope violations, cancellation lag, and time from revocation to the last rejected effect. Pair volume metrics with sampled audit inspection. A low denial count may mean healthy traffic or a policy bypass; a sudden rise in break-glass use can indicate that normal scopes are unusable. Review effective permissions after provider or tool changes because an adapter can accidentally turn a narrow internal action into a broad external credential.
+
 ## Build it locally
 
 ```python

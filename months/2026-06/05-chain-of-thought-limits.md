@@ -156,6 +156,16 @@ Track whether the mitigation improves both user outcomes and reviewer confidence
 
 Include this comparison in the release review.
 
+### Designing observable substitutes
+
+When a team removes hidden reasoning text from logs, it still needs enough evidence to debug behavior. Define an external decision record for each tool attempt: normalized request, selected policy rule, retrieved evidence identifiers, verifier result, tool arguments after validation, receipt, and final state. The record can say that a constraint failed without retaining private intermediate text. For a multi-step task, connect records with a run ID and step number, then make the state transition explicit: proposed, checked, dispatched, acknowledged, reconciled, or failed. This gives an investigator a causal trail that is more stable than a prose explanation produced after the fact.
+
+Evaluate explanations as explanations. Ask whether the stated reason is consistent with the recorded inputs and whether an independent replay reaches the same policy outcome. A plausible rationale that cites evidence never used by the system is a faithfulness failure. Conversely, a terse “blocked by rule R17” can be operationally excellent if the rule, input fields, and remediation path are inspectable. Keep user-facing explanations separate from privileged diagnostic records, and apply access controls to both.
+
+### Prompt and transcript retention
+
+Retention should be decided by incident value and sensitivity. Store a short-lived redacted transcript only when it supports a defined debugging purpose; store durable hashes and structured events for correlation. Never treat model-generated chain-of-thought as the canonical account of why an external effect occurred. If a provider changes its internal reasoning behavior, the receipt and policy record should remain comparable. This separation also reduces the temptation to expose private prompts or hidden safeguards merely to make an audit look complete.
+
 ## Build it locally
 
 ```python

@@ -201,6 +201,16 @@ print(run({"output": 4, "seconds": 3, "bytes": 20}, 4, policy))
 
 **When are stronger boundaries needed?** Use microVMs or restricted runtimes when code is hostile, multi-tenant, sensitive, or has access to valuable infrastructure.
 
+### Sandbox escape assumptions
+
+Isolation is a layered risk reduction, not proof that generated code is safe. A container may share a kernel, mounted socket, credentials, package cache, or network route with the host. Start from a deny-by-default profile: no host filesystem, no cloud credentials, no privileged device, no arbitrary network, bounded processes, bounded memory, no uncontrolled disk growth, and a read-only base image. Add one capability only when the experiment requires it and document the reason.
+
+The broker must treat filenames, environment variables, output logs, and exit codes as untrusted. Generated code can print a prompt injection aimed at a reviewer or smuggle a payload through an artifact. Keep control messages separate from candidate output, escape logs in dashboards, and scan artifacts before they cross the boundary. Return typed states for policy denial, timeout, crash, resource exhaustion, and successful completion.
+
+### Reproducible execution
+
+Pin the interpreter, dependency lockfile, base-image digest, fixture digest, locale, clock policy, and random seed where possible. Capture command, working directory, limits, and exit state. A successful run without this manifest may be impossible to reproduce after a package update. Keep network-dependent tests separate from deterministic tests and label their evidence accordingly.
+
 ## Glossary
 
 **Sandbox:** Isolated environment with bounded permissions and resources for untrusted execution.

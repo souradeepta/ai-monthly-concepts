@@ -203,6 +203,16 @@ print(budget)
 
 **What is a good cost metric?** Cost per accepted, safe outcome with latency, correction, review, and protected-slice context—not raw tokens alone.
 
+### Budget allocation policy
+
+Allocate a reserve for uncertainty instead of spending the entire allowance during admission. Retrieval may return too many candidates, a verifier may need a second pass, and human escalation may add queue time. Reserve budgets can be released when a stage completes, but they should not be treated as free capacity until the ledger records the release. This prevents concurrent tasks from each assuming the same contingency pool.
+
+Budgets should reflect value and risk. A low-risk formatting task may have a strict token cap and no tool reserve; a safety investigation may justify more analysis while still forbidding external mutation. Define per-stage ceilings, total ceilings, and hard stop conditions. The supervisor should explain which limit ended a run: `tokens_exhausted`, `deadline`, `tool_calls_exhausted`, `review_queue_full`, or `effect_not_authorized`.
+
+### Fairness and admission
+
+When a shared system is saturated, first-come-first-served can let one tenant consume the reserve. Use tenant quotas, priority classes, aging, and maximum leases. Admission should estimate worst-case cost and reject work that cannot finish within its deadline. Track queue age and abandoned reservations; otherwise a budget may look healthy while users experience starvation.
+
 ## Glossary
 
 **Budget:** Enforced allowance for resources, time, or effects.

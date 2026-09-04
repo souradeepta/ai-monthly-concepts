@@ -34,25 +34,25 @@ Labels may encode policy mistakes; optimizing one metric can degrade safety or e
 
 ## SDE2 primer and prerequisites
 
-This lesson is about **feedback learning** as a production systems problem. A language model is only one stage: an ingress service accepts work, a data layer supplies evidence, an orchestrator keeps state, a policy layer decides what may happen, and an operator or downstream system observes the result. Students should know HTTP, JSON, functions, and basic databases. SDE2 readers should also know queues, authentication, structured logs, metrics, retries, and service-level objectives (SLOs). The central habit is to label what the February source actually reports separately from a recommendation derived from it.
+This lesson treats **feedback learning** as a governed data loop. Users expose failures, annotators create labels, adjudicators resolve disagreement, and an evaluation gate decides whether a correction can influence a model. Students should know HTTP, JSON, functions, and basic databases. For SDE2 work, add sampling, metrics, privacy, versioned datasets, and service-level objectives (SLOs). Keep source observations separate from improvements that need controlled experiments.
 
 The useful boundary for feedback learning is **outcome label, reviewer agreement, counterfactual, replay set, drift slice, and rollback**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
 
 ## February source reading: fact before inference
 
-The primary February event is **OpenAI Frontier, published February 5, 2026**. Frontier says built-in evaluation and optimization should show human managers and agents what works, and that feedback helps improve work over time. That is the February product framing. A production team still has to define labels, sampling, privacy, and release gates; the source does not establish that raw interaction logs are training truth. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
+For feedback learning, read the February source through its own claim boundary. The cited February event is **OpenAI Frontier, published February 5, 2026**. Frontier says built-in evaluation and optimization should show human managers and agents what works, and that feedback helps improve work over time. That is the February product framing. A production team still has to define labels, sampling, privacy, and release gates; the source does not establish that raw interaction logs are training truth. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
 
-The engineering inference in this lesson is that building a closed loop from an observed business outcome to a controlled change. Write that inference as a testable contract: state the accepted inputs, expected transitions, forbidden outcomes, and evidence needed to review a decision. If a test fails, improve the system or narrow the intended use; do not silently reinterpret a source claim as a guarantee.
+For feedback learning, the engineering inference is narrower: turn the cited capability into an operational contract with topic-specific inputs, states, evidence, and failure ownership. Test that contract against ordinary, adversarial, stale, and interrupted work. A source can motivate this design; it cannot guarantee the resulting reliability or safety.
 
 ## Historical baseline and problem boundary
 
-Before this month's event, a team could make a convincing prototype with a synchronous request, a prompt, one model call, and a small script around an API. That baseline remains appropriate for drafting or a read-only experiment. It becomes unsafe or unreliable when a request crosses systems, waits, changes durable data, or must be explained later. The failure is not merely that the model can be wrong. It is that the surrounding software may have no place to record authority, version, evidence, retries, or recourse.
+The useful feedback baseline is a manual bug report or a small hand-labeled dataset. That supports local fixes, but it loses the distribution of user corrections and makes learning changes hard to attribute. A feedback loop adds provenance, sampling, adjudication, and protected evaluation before labels influence a model.
 
-For **improving a support-routing agent from resolved tickets instead of thumbs-up counts**, draw the boundary before choosing a model. Identify the human or service principal, the records allowed into context, the actions proposed by the model, the component that validates them, and the owner who handles an ambiguous result. Decide which operations are reads, reversible writes, irreversible writes, or merely recommendations. A useful rule is that an untrusted string may influence a proposal but may never create a permission, erase an audit event, or bypass a state transition.
+For **feedback learning**, the feedback learning boundary names feedback learning evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-A deployable design has a control path and a data path. The control path versions configuration, policy, model adapters, schemas, evaluation sets, and rollout cohorts. The data path receives a request, authenticates it, retrieves bounded evidence, invokes the model, validates a typed proposal, executes an allowed action, and records an outcome. The feedback learning boundary sits between the proposal and the observable outcome; it should be visible in traces and owned by a team.
+The feedback learning path starts with its own feedback learning evidence admission check, then records topic state, invokes only the needed processor, and finishes at a feedback learning outcome gate for **feedback learning**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to feedback learning, not a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -66,13 +66,13 @@ flowchart LR
   class A,C,X,L data; class I,B control; class M risk
 ```
 
-Use separate fields for user text, retrieved facts, policy instructions, tool output, and generated proposal. This prevents an instruction hidden in a document or tool result from acquiring the authority of a system rule. Every record should carry a tenant or project key where relevant. Cache keys must include authorization scope and source version. Logs should retain enough structured evidence to explain a decision while redacting secrets and unnecessary free text.
+Keep user correction, annotator label, adjudication, sampling metadata, and training inclusion as separate records. A complaint is evidence about a failure, not automatically a target label. Bind example ID, rubric revision, annotator role, cohort, and snapshot to each transition; redact content before it enters shared analytics.
 
-A minimal run record is: `run_id`, `request_id`, actor, tenant, purpose, model/version, policy/version, context references, proposal hash, action, decision, timestamps, attempts, effect IDs, and final status. For this topic add outcome label, reviewer agreement, counterfactual, replay set, drift slice, and rollback. Do not put an unbounded transcript in the primary operational table; store a redacted pointer with a retention policy.
+For feedback learning, record a run identifier, actor, purpose, outcome label, reviewer agreement, counterfactual, replay set, drift slice, and rollback, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
-The happy path is only one transition. A request may be malformed, missing evidence, denied, awaiting a reviewer, interrupted after a remote commit, or invalidated by a policy change. Model states explicitly: `received`, `validated`, `proposed`, `blocked`, `pending`, `running`, `succeeded`, `failed`, and `cancelled`. Guard transitions with a run version or compare-and-swap so two workers cannot both advance the same work.
+Feedback state should distinguish collected, label_conflict, adjudicated, accepted, quarantined, included, and superseded. A late correction must not mutate a model snapshot already used for evaluation without a new manifest. Preserve disagreement so the learner cannot turn uncertainty into a clean target.
 
 ```mermaid
 sequenceDiagram
@@ -92,7 +92,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-Persist the proposal before a side effect. On retry, reuse the same idempotency key or proof artifact rather than asking the model to invent a new action. A timeout is a state of knowledge, not proof that nothing happened. For a reversible operation, record the compensating action; for an irreversible operation, stop and escalate. For this lesson, the most important transition is the one that prevents **improving a support-routing agent from resolved tickets instead of thumbs-up counts** from becoming an unreviewed or untraceable effect.
+On retry, reuse the feedback learning idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
 ## Topic mechanics: Feedback learning
 
@@ -100,33 +100,33 @@ Persist the proposal before a side effect. On retry, reuse the same idempotency 
 
 Feedback becomes useful only after an outcome is defined. For support routing, distinguish “the agent suggested the right queue,” “the issue was resolved,” “the customer reopened it,” and “a reviewer approved the explanation.” Store the label source, reviewer role, policy version, task slice, and timestamp. A thumbs-up is a noisy preference; a resolved ticket after seven days is a delayed operational label. Sample hard and easy cases, and measure reviewer agreement before using labels for tuning. Keep a frozen replay set so a change that improves billing tickets cannot silently degrade safety escalations. Counterfactual evaluation asks what would have happened under the old router, but it cannot recover unobserved outcomes without assumptions. Separate prompt/configuration fixes from model-training changes and release them behind the same gate. Watch for reward hacking: an agent can reduce escalations by closing difficult tickets or improve apparent satisfaction by making promises. Require a quality floor, a safety floor, and an abstention metric. Frontier's statement that agents learn what good looks like motivates this loop; it does not make raw logs ground truth. A feedback service should make it possible to delete a label, correct a policy mistake, and roll back a learned behavior.
 
-The first implementation question is what the system can know at each stage. At ingress, it knows an authenticated actor and a request, but not whether the request is well-formed or authorized. During retrieval, it can establish source IDs, freshness, and access filters, but similarity is not truth. During model generation, it can ask for a schema and bounded plan, but the output is still untrusted. At the boundary, deterministic code can enforce limits. After execution, only a receipt, read-after-write check, or independent artifact establishes what happened. This epistemic separation keeps **outcome label, reviewer agreement, counterfactual, replay set, drift slice, and rollback** from collapsing into one prompt.
+Ask what **feedback learning** can establish at each transition. The request establishes intent only; the feedback learning evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **feedback learning**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
 Feedback loops must version the label rubric, sampling rule, annotator guidance, model or prompt candidate, and training snapshot. Store those identifiers beside each correction so an apparent improvement can be separated from a changed population or an easier labeling policy.
 
 Feedback systems need limits on annotation load, replay volume, label frequency, and training-data intake. Route ambiguous or sensitive corrections to review instead of allowing an automated learner to amplify them. Keep `label_pending`, `sample_rejected`, and `training_snapshot_locked` distinct in the pipeline.
 
-For **feedback learning**, instrument label agreement, accepted-resolution rate, false escalation, slice regressions, and time from feedback to safe release. Break down every metric by task slice, tenant, model version, policy version, and outcome class. An aggregate success number can improve while a small high-risk slice becomes worse. Pair capability metrics with reliability metrics and safety metrics; never use one as a proxy for the others.
+Break feedback learning metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
 
 
 ## Feedback learning: focused design workshop
 
-The distinctive design choice for this lesson is **approved outcomes and replay sets**. Model the core record as a typed object with `outcome, reviewer, slice, evidence_id, label_version`. Keep user prose outside that object; prose can explain intent, but code must decide whether the object is complete, authorized, fresh, and safe to execute. The invariant is: **a label records its reviewer, evidence, policy version, and task slice**. Emit an event whenever the invariant is checked, including the result, version, actor, and evidence reference. This makes a failure diagnosable without replaying an unconstrained model call.
+In feedback learning, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. feedback learning code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
 
-Consider a concrete **feedback learning** run. The ingress validator rejects missing identifiers and normalizes timestamps. The context builder retrieves only records permitted by tenant and purpose. The model receives a bounded view and returns a proposal, never a bearer credential or an opaque instruction. The topic-specific boundary then checks `outcome, reviewer, slice, evidence_id, label_version`. If the check passes, the effect owner commits or queues work and returns a receipt. If it fails, the system returns a structured denial or asks for evidence. A reviewer can inspect the event sequence and distinguish bad input, missing authority, stale state, and a remote failure.
+For feedback learning, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the feedback learning artifact and the decision that moved it between states.
 
 Test feedback-specific races. A label may be corrected after it enters a training snapshot, or a sampling rule may change while an experiment is running. Record the rubric and snapshot at ingestion, and quarantine late corrections for the next revision. Preserve `label_conflict` and `snapshot_locked` instead of silently choosing the newest annotation.
 
-For operations, partition metrics by `approved outcomes and replay sets` and by model, policy, tenant, and outcome. Track the invariant violation directly, plus useful completion, latency, cost, and human override. A single aggregate can hide a catastrophic slice: one customer, one high-risk action, one rare theorem class, or one overloaded region. Set a release floor for the topic-specific safety metric before optimizing throughput.
+For feedback learning, slice feedback learning evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare feedback learning failure carries the largest consequence.
 
-The mini design exercise is **prevent a noisy thumbs-up from entering the training set**. Implement it with an in-memory store first, then add a failure injection at every boundary. Expected behavior should be deterministic even if the proposal generator is not. Save the failing input as a regression fixture only after removing secrets and identifying the policy version that governed it.
+Save a failing feedback learning input as a regression fixture only after redaction, classification, and capture of the governing version.
 
 
 ## Applications and operational constraints
 
-The strongest first application is **improving a support-routing agent from resolved tickets instead of thumbs-up counts** because it has a bounded workflow and a domain owner. A team might begin in shadow mode, where the system produces a proposal but performs no effect. Next, allow a canary cohort and only low-risk actions. Require an explicit launch review before expanding scope. The useful outcome is not “the model answered”; it is a completed task that meets quality, latency, cost, privacy, and policy constraints.
+Start feedback learning in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Other plausible applications include support routing, document review, code maintenance, and quality inspection. Each has a different bottleneck. A support system values queue age and consistent escalation; an operations system values correctness and rollback; research values evidence and uncertainty; security values time to detect and false-positive capacity. Data residency, tenant isolation, secrets, rate limits, procurement, and human availability can dominate model latency. Document those constraints in the service contract rather than in an informal prompt.
+Beyond **feedback learning**, feedback learning applies to workflows where feedback learning evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan feedback capacity around labelers, adjudicators, storage, and retraining windows. When annotation falls behind, preserve unreviewed examples and lower learner scope rather than silently training on partial labels. A delayed feedback loop should be visible in model-release status and not masquerade as fresh learning.
 
@@ -136,13 +136,13 @@ Feedback loops fail through biased sampling, label leakage, rubric drift, and re
 
 Feedback metrics can be gamed by collecting easy labels, discarding disagreement, or optimizing agreement with a biased annotator. Require protected slices, correction impact, and label-audit coverage alongside loss or preference scores. A smoother training curve is not evidence that users receive better outcomes.
 
-The February source also has scope limits. Frontier says built-in evaluation and optimization should show human managers and agents what works, and that feedback helps improve work over time. That is the February product framing. A production team still has to define labels, sampling, privacy, and release gates; the source does not establish that raw interaction logs are training truth. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+For feedback learning, the February source has a bounded claim. The February source also has scope limits. Frontier says built-in evaluation and optimization should show human managers and agents what works, and that feedback helps improve work over time. That is the February product framing. A production team still has to define labels, sampling, privacy, and release gates; the source does not establish that raw interaction logs are training truth. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
 
 ## Evaluation and change management
 
-Build a fixture set from ordinary, ambiguous, malformed, adversarial, slow, stale, and partially completed cases. Include a golden expected state and the invariants that must never break. Run the set against a pinned model and a deterministic baseline. Review failures by category, not just a total score. Keep hidden cases to detect overfitting, and sample production traces only after removing secrets.
+Build feedback fixtures for disagreement, ambiguous intent, label correction, subgroup undercoverage, poisoned examples, and delayed feedback. Freeze a protected slice and label provenance. Compare candidate learning changes against a fixed baseline, then inspect whether corrections improve real task outcomes rather than only annotator agreement.
 
-Release gates should include a quality floor, a policy-violation ceiling, a reliability budget, a cost budget, and an evidence-completeness check. Roll out to a small cohort, compare with shadow results, and retain a kill switch that disables risky effects without destroying diagnostic reads. On rollback, record which version was disabled and whether external effects require remediation.
+Promote a feedback or learner change only when protected-slice quality, label audit coverage, privacy handling, and correction impact meet floors. Run shadow labeling against the prior policy, retain the previous snapshot for rollback, and identify which model outputs were influenced by the new labels.
 
 ## February primary-source evidence
 
@@ -150,17 +150,17 @@ The source fact is bounded: **Frontier says built-in evaluation and optimization
 
 ## Mini exercise extension
 
-Create six fixtures for **improving a support-routing agent from resolved tickets instead of thumbs-up counts**: a normal request, missing evidence, an adversarial instruction, a policy denial, a timeout or interrupted run, and a successful outcome. For each fixture record the expected state, the allowed effect, and the evidence a reviewer should see. Add one version change and prove that the old event retains its original version. Your acceptance criterion is not a polished answer; it is a correct boundary, an explainable decision, and a safe recovery path.
+Create six fixtures for **feedback learning** using the feedback learning vocabulary: a feedback learning evidence omission, a stale or contradictory feedback learning evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior feedback learning records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Define dataclasses for `Request`, `Context`, `Proposal`, `Decision`, `Event`, and `Outcome`; require a run ID and version fields.
-2. Write a deterministic boundary function for **outcome label, reviewer agreement, counterfactual, replay set, drift slice, and rollback**; deny unknown actions and malformed arguments.
-3. Add a fake model that returns one valid and two invalid proposals, including an instruction hidden in retrieved text.
-4. Add a fake downstream service with a timeout, an idempotency map, and a read-after-write reconciliation method.
-5. Persist redacted JSON Lines events and implement replay without invoking a live model.
-6. Run the six fixtures, assert the security invariant, and calculate label agreement, accepted-resolution rate, false escalation, slice regressions, and time from feedback to safe release.
-7. Change one policy or schema version, rerun the fixtures, and inspect the diff in evidence and state transitions.
+1. Construct a feedback learning test record with actor, request, feedback learning evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
+2. Implement the feedback learning boundary as a pure function. It must inspect feedback learning evidence, return a typed state, and refuse an unrecognized or incomplete transition.
+3. Create a deterministic feedback learning generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
+4. Simulate the feedback learning dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
+5. Write an event stream containing feedback learning states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
+6. Measure feedback learning correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
+7. Change the feedback learning schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
 
 ## Runnable low-cost example
 
@@ -170,29 +170,29 @@ trainable = [r for r in rows if r["approved"] and r["outcome"] == "resolved" and
 print([r["id"] for r in trainable])
 ```
 
-This example is intentionally small and deterministic. It demonstrates the lesson's boundary and its invariant; it does not claim production-grade authentication, durability, isolation, or domain correctness. Extend it with the numbered build steps and failure fixtures before drawing operational conclusions.
+This label-comparison example demonstrates disagreement handling only. It does not establish ground truth, representativeness, privacy, or learning improvement; add protected slices and adjudication fixtures before changing a model.
 
 ## Interview Q&A
 
-**Q: What is the difference between a source fact and an engineering inference?** A: The fact is what a dated publisher says it released, measured, or observed. The inference is a design recommendation derived from that fact and other knowledge; it needs local validation.
+**Q: Why protect a holdout slice?** A: Enforce the feedback learning rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: Why separate model output from the boundary?** A: Model output is probabilistic and can be manipulated by input. The boundary is deterministic, attributable code that can enforce authorization, schemas, budgets, and state transitions.
+**Q: Why separate feedback from ground truth?** A: Enforce the feedback learning rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: Which metric would you put on the dashboard first?** A: A useful outcome metric plus a failure metric specific to the topic—label agreement, accepted-resolution rate, false escalation, slice regressions, and time from feedback to safe release. Pair it with slices so an aggregate cannot hide a critical regression.
+**Q: Which metric would you put on the dashboard first?** A: Track feedback learning evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the feedback learning risk classes.
 
-**Q: When should the system abstain?** A: When evidence is missing or stale, the policy is ambiguous, the budget is exhausted, or an external effect has an unknown status. Escalate with evidence instead of fabricating confidence.
+**Q: When should learning pause?** A: Enforce the feedback learning rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: What should happen during rollout?** A: Pin versions, start in shadow or canary mode, limit high-risk effects, monitor quality/reliability/safety separately, and keep an audited rollback path.
+**Q: How should feedback learning be released?** A: Pin feedback learning evidence and the governing versions, begin with shadow or reversible work, and require the feedback learning invariant before widening effects.
 
 ## Glossary
 
 - **Outcome Label**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: a stable identifier joining request, context, decisions, attempts, and effects.
-- **Idempotency**: repeating a request produces one logical effect rather than duplicates.
-- **Provenance**: evidence describing origin, version, and transformations.
-- **SLO**: a measurable service target such as latency or successful completion.
-- **Abstention**: an explicit refusal or escalation when evidence or authority is insufficient.
-- **Inference**: an engineering conclusion drawn from facts, not a quotation or guarantee from a source.
+- **Run ID**: the correlation key that joins one feedback learning attempt to its actor, feedback learning evidence, decisions, and recovery evidence.
+- **Idempotency**: the feedback learning guarantee that a retry does not create a second logical result or duplicate effect.
+- **Provenance**: origin, version, and transformation evidence attached to a feedback learning input or artifact.
+- **SLO**: an explicit feedback learning service target, such as freshness, verification latency, queue age, or availability.
+- **Abstention**: the feedback learning state used when evidence, authority, or dependency health is insufficient for a stronger claim.
+- **Inference**: an engineering recommendation about feedback learning derived from source facts rather than presented as a source guarantee.
 
 ## References
 

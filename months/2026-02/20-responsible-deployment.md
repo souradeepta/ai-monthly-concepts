@@ -34,25 +34,25 @@ Monitoring misses novel behavior; rollback may not undo effects; policy can lag 
 
 ## SDE2 primer and prerequisites
 
-This lesson is about **responsible deployment** as a production systems problem. A language model is only one stage: an ingress service accepts work, a data layer supplies evidence, an orchestrator keeps state, a policy layer decides what may happen, and an operator or downstream system observes the result. Students should know HTTP, JSON, functions, and basic databases. SDE2 readers should also know queues, authentication, structured logs, metrics, retries, and service-level objectives (SLOs). The central habit is to label what the February source actually reports separately from a recommendation derived from it.
+This lesson treats **responsible deployment** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is responsible deployment evidence and state: the service must preserve it across responsible deployment and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
 
 The useful boundary for responsible deployment is **intended-use statement, release gate, risk register, monitoring, recourse, kill switch, and incident review**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
 
 ## February source reading: fact before inference
 
-The primary February event is **OpenAI's February 25, 2026 malicious-use report and February 5, 2026 Frontier announcement**. Frontier says agents need shared context, onboarding, feedback, and identity, permissions, and boundaries. OpenAI's February 25 report says misuse commonly combines AI with traditional tools and can span platforms and models. These are separate company-reported facts; the lifecycle of assessment, staged release, monitoring, and recourse is the engineering synthesis. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
+For responsible deployment, read the February source through its own claim boundary. The cited February event is **OpenAI's February 25, 2026 malicious-use report and February 5, 2026 Frontier announcement**. Frontier says agents need shared context, onboarding, feedback, and identity, permissions, and boundaries. OpenAI's February 25 report says misuse commonly combines AI with traditional tools and can span platforms and models. These are separate company-reported facts; the lifecycle of assessment, staged release, monitoring, and recourse is the engineering synthesis. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
 
-The engineering inference in this lesson is that connecting capability, controls, evidence, and human recourse into one release process. Write that inference as a testable contract: state the accepted inputs, expected transitions, forbidden outcomes, and evidence needed to review a decision. If a test fails, improve the system or narrow the intended use; do not silently reinterpret a source claim as a guarantee.
+For responsible deployment, the engineering inference is narrower: turn the cited capability into an operational contract with topic-specific inputs, states, evidence, and failure ownership. Test that contract against ordinary, adversarial, stale, and interrupted work. A source can motivate this design; it cannot guarantee the resulting reliability or safety.
 
 ## Historical baseline and problem boundary
 
-Before this month's event, a team could make a convincing prototype with a synchronous request, a prompt, one model call, and a small script around an API. That baseline remains appropriate for drafting or a read-only experiment. It becomes unsafe or unreliable when a request crosses systems, waits, changes durable data, or must be explained later. The failure is not merely that the model can be wrong. It is that the surrounding software may have no place to record authority, version, evidence, retries, or recourse.
+The useful deployment baseline is a model demo judged by capability and adoption. That is insufficient when intended use, affected groups, monitoring, recourse, or rollback remain undefined. Responsible deployment turns those concerns into launch evidence, operating limits, and accountable review.
 
-For **staging an agent for customer operations with a clear owner, audit trail, and appeal path**, draw the boundary before choosing a model. Identify the human or service principal, the records allowed into context, the actions proposed by the model, the component that validates them, and the owner who handles an ambiguous result. Decide which operations are reads, reversible writes, irreversible writes, or merely recommendations. A useful rule is that an untrusted string may influence a proposal but may never create a permission, erase an audit event, or bypass a state transition.
+For **responsible deployment**, the responsible deployment boundary names responsible deployment evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-A deployable design has a control path and a data path. The control path versions configuration, policy, model adapters, schemas, evaluation sets, and rollout cohorts. The data path receives a request, authenticates it, retrieves bounded evidence, invokes the model, validates a typed proposal, executes an allowed action, and records an outcome. The responsible deployment boundary sits between the proposal and the observable outcome; it should be visible in traces and owned by a team.
+The responsible deployment path starts with its own responsible deployment evidence admission check, then records topic state, invokes only the needed processor, and finishes at a responsible deployment outcome gate for **responsible deployment**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to responsible deployment, not a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -66,13 +66,13 @@ flowchart LR
   class A,C,X,L data; class I,B control; class M risk
 ```
 
-Use separate fields for user text, retrieved facts, policy instructions, tool output, and generated proposal. This prevents an instruction hidden in a document or tool result from acquiring the authority of a system rule. Every record should carry a tenant or project key where relevant. Cache keys must include authorization scope and source version. Logs should retain enough structured evidence to explain a decision while redacting secrets and unnecessary free text.
+Keep intended use, evidence package, affected-group result, mitigation, monitoring signal, decision, and incident record separate. A launch narrative must not become its own safety evidence. Bind release scope, owner, model/data revision, open findings, and rollback trigger to the decision while limiting sensitive user data.
 
-A minimal run record is: `run_id`, `request_id`, actor, tenant, purpose, model/version, policy/version, context references, proposal hash, action, decision, timestamps, attempts, effect IDs, and final status. For this topic add intended-use statement, release gate, risk register, monitoring, recourse, kill switch, and incident review. Do not put an unbounded transcript in the primary operational table; store a redacted pointer with a retention policy.
+For responsible deployment, record a run identifier, actor, purpose, intended-use statement, release gate, risk register, monitoring, recourse, kill switch, and incident review, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
-The happy path is only one transition. A request may be malformed, missing evidence, denied, awaiting a reviewer, interrupted after a remote commit, or invalidated by a policy change. Model states explicitly: `received`, `validated`, `proposed`, `blocked`, `pending`, `running`, `succeeded`, `failed`, and `cancelled`. Guard transitions with a run version or compare-and-swap so two workers cannot both advance the same work.
+Deployment state should distinguish assessed, pilot, monitored, expanded, paused, rolled_back, and under_remediation. Recheck open findings and monitoring coverage at each expansion gate. A rollback is incomplete until affected users, data, and downstream effects have been assessed.
 
 ```mermaid
 sequenceDiagram
@@ -92,7 +92,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-Persist the proposal before a side effect. On retry, reuse the same idempotency key or proof artifact rather than asking the model to invent a new action. A timeout is a state of knowledge, not proof that nothing happened. For a reversible operation, record the compensating action; for an irreversible operation, stop and escalate. For this lesson, the most important transition is the one that prevents **staging an agent for customer operations with a clear owner, audit trail, and appeal path** from becoming an unreviewed or untraceable effect.
+On retry, reuse the responsible deployment idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
 ## Topic mechanics: Responsible deployment
 
@@ -100,33 +100,33 @@ Persist the proposal before a side effect. On retry, reuse the same idempotency 
 
 Responsible deployment is a release system with a feedback loop. An intended-use statement names users, tasks, data, allowed actions, exclusions, and recourse. A risk register assigns owners and controls to misuse, privacy, security, reliability, and domain harms. Evaluation must include ordinary and adversarial cases, while launch gates set floors for quality and safety. Staged rollout begins with shadow or draft mode, then a constrained cohort, then broader use only when monitoring and support are ready. Every effect needs an audit reference and every user needs a path to correct or appeal a consequential outcome. A kill switch should stop risky writes without erasing evidence. Incident response must handle effects already committed; rollback of the model is not rollback of the world. Frontier's February 5 framing names shared context, onboarding, feedback, and identity/permissions/boundaries. The February 25 report adds the observation that misuse combines AI with traditional tools and crosses platforms and models. These are separate source facts. The synthesis is to connect capability, policy, monitoring, evidence, and recourse rather than treating safety as a final prompt review. Measure safe useful completion, incidents, appeal outcomes, and time to disable.
 
-The first implementation question is what the system can know at each stage. At ingress, it knows an authenticated actor and a request, but not whether the request is well-formed or authorized. During retrieval, it can establish source IDs, freshness, and access filters, but similarity is not truth. During model generation, it can ask for a schema and bounded plan, but the output is still untrusted. At the boundary, deterministic code can enforce limits. After execution, only a receipt, read-after-write check, or independent artifact establishes what happened. This epistemic separation keeps **intended-use statement, release gate, risk register, monitoring, recourse, kill switch, and incident review** from collapsing into one prompt.
+Ask what **responsible deployment** can establish at each transition. The request establishes intent only; the responsible deployment evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **responsible deployment**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
 Responsible deployment requires versioned risk assessment, intended-use scope, model and data release, mitigations, monitoring plan, and sign-off. Preserve the package used at launch; a later policy revision may narrow operation, but it should not erase why the earlier release was accepted.
 
 Responsible deployment needs gates on release scope, affected users, monitoring coverage, incident load, and unresolved review findings. Pause expansion when evidence is incomplete or harms exceed the agreed threshold. Record `pilot_limited`, `monitoring_gap`, and `rollback_required` as governance states, not ordinary model errors.
 
-For **responsible deployment**, instrument critical incidents, policy violations, rollback time, appeal outcomes, monitoring coverage, and safe useful completion. Break down every metric by task slice, tenant, model version, policy version, and outcome class. An aggregate success number can improve while a small high-risk slice becomes worse. Pair capability metrics with reliability metrics and safety metrics; never use one as a proxy for the others.
+Break responsible deployment metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
 
 
 ## Responsible deployment: focused design workshop
 
-The distinctive design choice for this lesson is **release gates and recourse**. Model the core record as a typed object with `intended_use, risk, cohort, owner, rollback, appeal`. Keep user prose outside that object; prose can explain intent, but code must decide whether the object is complete, authorized, fresh, and safe to execute. The invariant is: **a launch is incomplete without an owner, monitor, rollback, and appeal path**. Emit an event whenever the invariant is checked, including the result, version, actor, and evidence reference. This makes a failure diagnosable without replaying an unconstrained model call.
+In responsible deployment, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. responsible deployment code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
 
-Consider a concrete **responsible deployment** run. The ingress validator rejects missing identifiers and normalizes timestamps. The context builder retrieves only records permitted by tenant and purpose. The model receives a bounded view and returns a proposal, never a bearer credential or an opaque instruction. The topic-specific boundary then checks `intended_use, risk, cohort, owner, rollback, appeal`. If the check passes, the effect owner commits or queues work and returns a receipt. If it fails, the system returns a structured denial or asks for evidence. A reviewer can inspect the event sequence and distinguish bad input, missing authority, stale state, and a remote failure.
+For responsible deployment, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the responsible deployment artifact and the decision that moved it between states.
 
 Test deployment races. A pilot can reveal harm while expansion is queued, or a mitigation can be absent from the artifact being promoted. Recheck scope, monitoring, and open findings at the promotion gate. Preserve `rollback_required` and `evidence_incomplete`; neither should be counted as an ordinary release failure.
 
-For operations, partition metrics by `release gates and recourse` and by model, policy, tenant, and outcome. Track the invariant violation directly, plus useful completion, latency, cost, and human override. A single aggregate can hide a catastrophic slice: one customer, one high-risk action, one rare theorem class, or one overloaded region. Set a release floor for the topic-specific safety metric before optimizing throughput.
+For responsible deployment, slice responsible deployment evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare responsible deployment failure carries the largest consequence.
 
-The mini design exercise is **roll back new writes while preserving evidence for already committed effects**. Implement it with an in-memory store first, then add a failure injection at every boundary. Expected behavior should be deterministic even if the proposal generator is not. Save the failing input as a regression fixture only after removing secrets and identifying the policy version that governed it.
+Save a failing responsible deployment input as a regression fixture only after redaction, classification, and capture of the governing version.
 
 
 ## Applications and operational constraints
 
-The strongest first application is **staging an agent for customer operations with a clear owner, audit trail, and appeal path** because it has a bounded workflow and a domain owner. A team might begin in shadow mode, where the system produces a proposal but performs no effect. Next, allow a canary cohort and only low-risk actions. Require an explicit launch review before expanding scope. The useful outcome is not “the model answered”; it is a completed task that meets quality, latency, cost, privacy, and policy constraints.
+Start responsible deployment in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Other plausible applications include enterprise agents, security products, research assistants, public-facing support, and regulated workflows. Each has a different bottleneck. A support system values queue age and consistent escalation; an operations system values correctness and rollback; research values evidence and uncertainty; security values time to detect and false-positive capacity. Data residency, tenant isolation, secrets, rate limits, procurement, and human availability can dominate model latency. Document those constraints in the service contract rather than in an informal prompt.
+Beyond **responsible deployment**, responsible deployment applies to workflows where responsible deployment evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan deployment capacity around monitoring, support, incident response, review, and rollback—not inference throughput alone. If evidence collection or response staffing is saturated, freeze expansion and preserve pilot scope. A limited rollout must be visible as a governance state, not reported as ordinary production success.
 
@@ -136,13 +136,13 @@ Responsible deployment fails when intended use expands silently, monitoring miss
 
 Deployment metrics can improve by narrowing the pilot, undercounting affected users, or declaring incidents resolved before remediation is verified. Pair adoption with harm reports, subgroup outcomes, monitoring coverage, rollback readiness, and unresolved findings. A successful launch is a governed outcome, not a rising usage graph.
 
-The February source also has scope limits. Frontier says agents need shared context, onboarding, feedback, and identity, permissions, and boundaries. OpenAI's February 25 report says misuse commonly combines AI with traditional tools and can span platforms and models. These are separate company-reported facts; the lifecycle of assessment, staged release, monitoring, and recourse is the engineering synthesis. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+For responsible deployment, the February source has a bounded claim. The February source also has scope limits. Frontier says agents need shared context, onboarding, feedback, and identity, permissions, and boundaries. OpenAI's February 25 report says misuse commonly combines AI with traditional tools and can span platforms and models. These are separate company-reported facts; the lifecycle of assessment, staged release, monitoring, and recourse is the engineering synthesis. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
 
 ## Evaluation and change management
 
-Build a fixture set from ordinary, ambiguous, malformed, adversarial, slow, stale, and partially completed cases. Include a golden expected state and the invariants that must never break. Run the set against a pinned model and a deterministic baseline. Review failures by category, not just a total score. Keep hidden cases to detect overfitting, and sample production traces only after removing secrets.
+Build deployment fixtures for intended use, prohibited use, subgroup harm, monitoring gaps, incident escalation, rollback, and appeal. Assert that open findings block scope expansion and that the release package names an owner. Keep adverse cases protected and inspect redacted pilot evidence rather than relying on launch self-reporting.
 
-Release gates should include a quality floor, a policy-violation ceiling, a reliability budget, a cost budget, and an evidence-completeness check. Roll out to a small cohort, compare with shadow results, and retain a kill switch that disables risky effects without destroying diagnostic reads. On rollback, record which version was disabled and whether external effects require remediation.
+Expand deployment only when intended-use evidence, subgroup outcomes, monitoring coverage, incident response, and rollback readiness meet the agreed floors. Start with a bounded pilot, retain a scope-reduction switch, and document affected users, open findings, and remediation after rollback.
 
 ## February primary-source evidence
 
@@ -150,17 +150,17 @@ The source fact is bounded: **Frontier says agents need shared context, onboardi
 
 ## Mini exercise extension
 
-Create six fixtures for **staging an agent for customer operations with a clear owner, audit trail, and appeal path**: a normal request, missing evidence, an adversarial instruction, a policy denial, a timeout or interrupted run, and a successful outcome. For each fixture record the expected state, the allowed effect, and the evidence a reviewer should see. Add one version change and prove that the old event retains its original version. Your acceptance criterion is not a polished answer; it is a correct boundary, an explainable decision, and a safe recovery path.
+Create six fixtures for **responsible deployment** using the responsible deployment vocabulary: a responsible deployment evidence omission, a stale or contradictory responsible deployment evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior responsible deployment records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Define dataclasses for `Request`, `Context`, `Proposal`, `Decision`, `Event`, and `Outcome`; require a run ID and version fields.
-2. Write a deterministic boundary function for **intended-use statement, release gate, risk register, monitoring, recourse, kill switch, and incident review**; deny unknown actions and malformed arguments.
-3. Add a fake model that returns one valid and two invalid proposals, including an instruction hidden in retrieved text.
-4. Add a fake downstream service with a timeout, an idempotency map, and a read-after-write reconciliation method.
-5. Persist redacted JSON Lines events and implement replay without invoking a live model.
-6. Run the six fixtures, assert the security invariant, and calculate critical incidents, policy violations, rollback time, appeal outcomes, monitoring coverage, and safe useful completion.
-7. Change one policy or schema version, rerun the fixtures, and inspect the diff in evidence and state transitions.
+1. Construct a responsible deployment test record with actor, request, responsible deployment evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
+2. Implement the responsible deployment boundary as a pure function. It must inspect responsible deployment evidence, return a typed state, and refuse an unrecognized or incomplete transition.
+3. Create a deterministic responsible deployment generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
+4. Simulate the responsible deployment dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
+5. Write an event stream containing responsible deployment states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
+6. Measure responsible deployment correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
+7. Change the responsible deployment schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
 
 ## Runnable low-cost example
 
@@ -170,29 +170,29 @@ required = {"owner", "risk_review", "monitor", "rollback", "appeal"}
 print("ready" if required <= release.keys() else "blocked")
 ```
 
-This example is intentionally small and deterministic. It demonstrates the lesson's boundary and its invariant; it does not claim production-grade authentication, durability, isolation, or domain correctness. Extend it with the numbered build steps and failure fixtures before drawing operational conclusions.
+This rollout sketch checks a small evidence gate only. It does not evaluate subgroup harm, monitoring coverage, legal obligations, or incident readiness; add adverse-use and rollback fixtures before expanding scope.
 
 ## Interview Q&A
 
-**Q: What is the difference between a source fact and an engineering inference?** A: The fact is what a dated publisher says it released, measured, or observed. The inference is a design recommendation derived from that fact and other knowledge; it needs local validation.
+**Q: What blocks responsible expansion?** A: Enforce the responsible deployment rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: Why separate model output from the boundary?** A: Model output is probabilistic and can be manipulated by input. The boundary is deterministic, attributable code that can enforce authorization, schemas, budgets, and state transitions.
+**Q: What is a responsible release gate?** A: Pin responsible deployment evidence and the governing versions, begin with shadow or reversible work, and require the responsible deployment invariant before widening effects.
 
-**Q: Which metric would you put on the dashboard first?** A: A useful outcome metric plus a failure metric specific to the topic—critical incidents, policy violations, rollback time, appeal outcomes, monitoring coverage, and safe useful completion. Pair it with slices so an aggregate cannot hide a critical regression.
+**Q: Which metric would you put on the dashboard first?** A: Track responsible deployment evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the responsible deployment risk classes.
 
-**Q: When should the system abstain?** A: When evidence is missing or stale, the policy is ambiguous, the budget is exhausted, or an external effect has an unknown status. Escalate with evidence instead of fabricating confidence.
+**Q: When should expansion stop?** A: Enforce the responsible deployment rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: What should happen during rollout?** A: Pin versions, start in shadow or canary mode, limit high-risk effects, monitor quality/reliability/safety separately, and keep an audited rollback path.
+**Q: How should responsible deployment be released?** A: Pin responsible deployment evidence and the governing versions, begin with shadow or reversible work, and require the responsible deployment invariant before widening effects.
 
 ## Glossary
 
 - **Intended-Use Statement**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: a stable identifier joining request, context, decisions, attempts, and effects.
-- **Idempotency**: repeating a request produces one logical effect rather than duplicates.
-- **Provenance**: evidence describing origin, version, and transformations.
-- **SLO**: a measurable service target such as latency or successful completion.
-- **Abstention**: an explicit refusal or escalation when evidence or authority is insufficient.
-- **Inference**: an engineering conclusion drawn from facts, not a quotation or guarantee from a source.
+- **Run ID**: the correlation key that joins one responsible deployment attempt to its actor, responsible deployment evidence, decisions, and recovery evidence.
+- **Idempotency**: the responsible deployment guarantee that a retry does not create a second logical result or duplicate effect.
+- **Provenance**: origin, version, and transformation evidence attached to a responsible deployment input or artifact.
+- **SLO**: an explicit responsible deployment service target, such as freshness, verification latency, queue age, or availability.
+- **Abstention**: the responsible deployment state used when evidence, authority, or dependency health is insufficient for a stronger claim.
+- **Inference**: an engineering recommendation about responsible deployment derived from source facts rather than presented as a source guarantee.
 
 ## References
 

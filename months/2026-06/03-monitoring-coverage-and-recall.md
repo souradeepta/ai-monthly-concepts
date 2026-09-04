@@ -146,6 +146,16 @@ Publish a short weekly report with coverage, matured recall, pending labels, top
 
 Keep the report linked to the runbook and review date so ownership never becomes ambiguous. Include an explicit escalation contact for critical findings and a documented response deadline for every alert class.
 
+### A worked slice calculation
+
+Suppose a coding agent handled 1,000 jobs during a canary. The trace collector received complete stage events for 940 jobs, so stage coverage is 94 percent. A review sample of 120 matured jobs contains 18 unsafe or incorrect outcomes; the detector identified 15, giving 83.3 percent recall for that reviewed population. Those denominators answer different questions: the first concerns visibility over all traffic, while the second concerns detection among labeled cases. Do not multiply them into a single monitoring score. Report the 60 jobs with incomplete traces and the three missed failures as separate queues because each requires a different repair.
+
+The same calculation becomes misleading when the sample is selected by existing alerts. Alert-selected cases estimate confirmation quality, not recall, because undetected failures have no chance to enter the sample. Preserve a random sample, a risk-stratified sample, and incident-derived cases as separate cohorts. A reviewer can then see whether a detector finds ordinary mistakes, rare severe mistakes, or only incidents that humans already suspected.
+
+### Review questions for a monitor change
+
+Before shipping a new detector, ask which failure it can observe, which failure it cannot observe, and what evidence makes a label mature. Verify that the query survives schema evolution and that a late event is not counted as an immediate miss. Ask whether an operator can act within the stated response window and whether the action itself is authorized. Finally, run the detector against a frozen corpus containing near misses, benign unusual cases, and known failures. The review result should include false-negative examples, not only a headline recall percentage.
+
 ## Build it locally
 
 ```python

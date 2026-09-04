@@ -196,6 +196,16 @@ print(claim(task, "worker-b", 10))
 
 **When is a handoff complete?** When the permitted step has a verified result, required evidence, and an authoritative receipt or terminal decision.
 
+### Handoff compatibility
+
+A receiver should declare the state versions and capabilities it understands. The sender can project richer state into a smaller contract, or explicitly return `incompatible` when projection would lose a safety-critical fact. Never silently drop pending approvals, denied actions, expiry times, or uncertainty labels. These fields determine what the next agent is allowed to do.
+
+Use a state digest and monotonic revision for concurrency. The receiver acknowledges the exact revision it consumed; a late sender update cannot overwrite a newer human decision. If two agents update independent fields, merge only under a declared policy. If they update the same claim or external-effect intent, pause for adjudication. This is a transactional protocol, not merely passing a conversational summary.
+
+### Recovery drills
+
+Test handoffs with delayed delivery, duplicate messages, out-of-order revisions, expired leases, missing attachments, and receiver restart. Intentionally kill the sender after an external call but before acknowledgement. The receiver must reconcile the effect receipt before retrying. Record whether the state becomes resumable, safely abortable, or review-required; “the agent will remember” is not a recovery plan.
+
 ## Glossary
 
 **Handoff:** Durable transfer of task state and responsibility between workers or people.

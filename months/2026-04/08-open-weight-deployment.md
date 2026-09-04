@@ -143,6 +143,14 @@ An update may change refusal behavior, latency, or output structure. Maintain a 
 
 Untracked conversions, fine-tunes, datasets, or runtime packages can create legal and security uncertainty. Keep provenance, license review, and SBOM records with the deployment manifest. Stop promotion when required provenance is missing.
 
+## Deployment acceptance record
+
+An open-weight rollout needs an acceptance record that is more specific than “the server started.” Capture the exact artifact digest, conversion or quantization operation, tokenizer, serving image, accelerator, request limits, policy configuration, and evaluation environment. Then record separate results for capability, reliability, and safety. A local benchmark may show that generation is fast; it does not establish that the endpoint handles overload, refuses prohibited requests, or preserves tenant isolation.
+
+Test the deployment under the traffic shape it will actually receive. Mix short and long prompts, concurrent requests, cancellations, retries, and malformed payloads. Measure queue wait, time to first token, completion tail latency, memory pressure, error classes, and fallback behavior. For a model loaded on several workers, verify that every worker reports the same artifact and runtime identity. A single stale or differently quantized worker can create difficult-to-reproduce behavior that a fleet average hides.
+
+Local deployment also changes the incident boundary. The application team now owns image patching, accelerator health, admission control, secrets, logs, and the path to a safe fallback. The model card can inform the review, but the acceptance record must state what was measured locally and what remains unknown. Keep a documented disable route that does not depend on a successful model response; a policy gateway or feature flag should be able to divert traffic to a manual or previously approved route.
+
 ## Mini exercise (15–30 min)
 
 Create two local manifest dictionaries for the same model: one approved and one with a changed tokenizer digest. Write a loader that verifies all required fields before entering `serving`. Add fixtures for an out-of-memory result, malformed output, and policy denial. Demonstrate that a changed digest is rejected even when the filename is unchanged.

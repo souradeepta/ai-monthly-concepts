@@ -44,3 +44,11 @@ For each article:
 ## Communication rules
 
 Do not use persistent goals or unattended loops. Work in meaningful batches, suppress raw console output, and report factual outcomes: files or batch changed, checks passed/failed, remaining blocker, and next batch.
+
+## Agent-review handoff
+
+- Terra review completed for January–August. Priority findings: February and March need source-first rebuilds because similarity failures are systemic; May lessons 15–20 are stubs; several April, June, July, and August lessons need word-count, source, or status cleanup.
+- Luna repairs verified in April (seven under-target lessons) and June (lessons 03–06). A May repair agent expanded several lessons but left 15–20 incomplete and the month audit failing. A March repair agent handled 04–18 but left residual similarity findings.
+- February lessons have received multiple local and Luna rewrite batches. Validators pass, but the month similarity audit still reports broad near-duplicate prose; do not mark February complete.
+- The orchestration runtime currently reports a one-subagent capacity. Completed agents must be explicitly closed to release slots; a fresh session may be required if the scheduler retains stale records. The repository has no setting that controls this limit.
+- When agent capacity is available, run Terra read-only review first, then Luna repair on disjoint month paths. Agents must not commit or push; the main session integrates and validates their work.

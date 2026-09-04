@@ -195,6 +195,18 @@ assert draft["parent"] == source["digest"]
 
 **How does provenance help incidents?** It identifies affected derivatives, transformations, versions, and reviewers so teams can correct or revoke a specific lineage.
 
+### Provenance granularity
+
+Choose the smallest useful provenance unit. A whole-document digest proves that a file existed but does not identify which passage supported a claim. A sentence-level citation improves inspection but can be brittle when a source is reflowed. Store both a stable source identifier and a locator such as page, section, timestamp, or byte range, then retain a normalized excerpt digest for change detection. The excerpt is evidence for review, not a replacement for the licensed source.
+
+For generated media, provenance has at least three layers: source assets, the transformation graph, and the published representation. A resized image may preserve source identity while losing editing metadata; a composite may have several parents; a language-model response may combine retrieved passages with generated transitions. Record parent edges and transformation parameters rather than claiming that the final artifact is wholly generated or wholly sourced.
+
+### Operational verification
+
+Verification should run at ingestion, transformation, and publication. Ingestion checks signatures, repository or URL identity, and license metadata. Transformation records the actor, tool version, input digests, and output digest. Publication checks that required notices, rights restrictions, and review states travel with the asset. If a parent disappears or its license changes, mark descendants affected and route them for review instead of silently serving stale attribution.
+
+Treat provenance as an availability problem as well as a truth problem. A source outage should produce `provenance-unavailable`, not a fabricated citation. A claim may remain visible only if policy permits an uncertainty label and a reviewer accepts the degraded evidence state.
+
 ## Glossary
 
 **Content provenance:** Evidence about an artifact’s source, transformations, identity, and handling history.

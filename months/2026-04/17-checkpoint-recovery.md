@@ -156,6 +156,14 @@ For data-producing jobs, record output partitions and side-effect receipts along
 
 Recovery often crosses teams: platform staff restore infrastructure, ML engineers assess lineage and metrics, security approves credentials, and a domain owner accepts residual risk. Define the handoff data and decision rights before an outage. The operator should see the candidate checkpoint, evidence status, known limitations, and rollback route. Do not make a responder infer safety from a filename or a green process monitor. A clear handoff reduces recovery time without encouraging an unverified resume.
 
+## Recovery semantics for distributed jobs
+
+Distributed training makes “last checkpoint” ambiguous. Workers can finish different microbatches, asynchronous updates can be in flight, and an object-store listing can expose shards from more than one attempt. Define the recovery point in terms of a committed global step or transaction boundary, not the newest file timestamp. A manifest should list every expected shard, the worker topology assumptions, the data cursor semantics, and whether an update was acknowledged by the aggregation layer.
+
+For decoupled or asynchronous training, record the version or age of each worker’s parameters at synchronization. A restart may legally resume from a common model snapshot while discarding uncommitted local updates; that is different from exact continuation. Report the choice in the run metadata so a later comparison does not mistake a recovery fork for a reproducible continuation. If stale updates can still arrive after a restore, fence the old workers with an epoch token before admitting the new group.
+
+Recovery should be safe for downstream consumers too. A training job may publish a candidate model, a data pipeline may write features, and an evaluation service may cache results. Restore the producer state only after checking which side effects already committed. Use epoch-scoped or idempotent output keys and reconcile receipts before replaying. The April distributed-training source motivates decoupling computation from synchronization; the operational consequence is that recovery must make synchronization and publication boundaries visible.
+
 ## Mini exercise (15–30 min)
 
 Create a local checkpoint directory with a model file and manifest. Write a completion marker only after checksums match. Simulate a partial file and a changed runtime version, then make the loader quarantine both. Add an idempotent restore record and a smoke-test result before marking the checkpoint active.

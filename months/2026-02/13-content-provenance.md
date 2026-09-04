@@ -33,25 +33,25 @@ Valid provenance does not prove factual correctness; unsigned legacy content rem
 
 ## SDE2 primer and prerequisites
 
-This lesson is about **content provenance** as a production systems problem. A language model is only one stage: an ingress service accepts work, a data layer supplies evidence, an orchestrator keeps state, a policy layer decides what may happen, and an operator or downstream system observes the result. Students should know HTTP, JSON, functions, and basic databases. SDE2 readers should also know queues, authentication, structured logs, metrics, retries, and service-level objectives (SLOs). The central habit is to label what the February source actually reports separately from a recommendation derived from it.
+This lesson treats **content provenance** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is content provenance evidence and state: the service must preserve it across content provenance and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
 
 The useful boundary for content provenance is **lineage, content hash, transformation manifest, signer, assertion, chain of custody, and verification**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
 
 ## February source reading: fact before inference
 
-The primary February event is **OpenAI's February 25, 2026 report, Disrupting malicious uses of AI**. OpenAI's February report emphasizes that malicious activity can cross AI models, platforms, websites, and social accounts. That makes evidence continuity a timely operational problem, but the report does not endorse C2PA or W3C PROV. Those standards provide a vocabulary for implementing the inference that investigators need a machine-readable history. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
+For content provenance, read the February source through its own claim boundary. The cited February event is **OpenAI's February 25, 2026 report, Disrupting malicious uses of AI**. OpenAI's February report emphasizes that malicious activity can cross AI models, platforms, websites, and social accounts. That makes evidence continuity a timely operational problem, but the report does not endorse C2PA or W3C PROV. Those standards provide a vocabulary for implementing the inference that investigators need a machine-readable history. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
 
-The engineering inference in this lesson is that carrying verifiable history through ingestion, model transformation, export, and investigation. Write that inference as a testable contract: state the accepted inputs, expected transitions, forbidden outcomes, and evidence needed to review a decision. If a test fails, improve the system or narrow the intended use; do not silently reinterpret a source claim as a guarantee.
+For content provenance, the engineering inference is narrower: turn the cited capability into an operational contract with topic-specific inputs, states, evidence, and failure ownership. Test that contract against ordinary, adversarial, stale, and interrupted work. A source can motivate this design; it cannot guarantee the resulting reliability or safety.
 
 ## Historical baseline and problem boundary
 
-Before this month's event, a team could make a convincing prototype with a synchronous request, a prompt, one model call, and a small script around an API. That baseline remains appropriate for drafting or a read-only experiment. It becomes unsafe or unreliable when a request crosses systems, waits, changes durable data, or must be explained later. The failure is not merely that the model can be wrong. It is that the surrounding software may have no place to record authority, version, evidence, retries, or recourse.
+The useful provenance baseline is a filename, author field, or upload timestamp. Those hints are easy to copy and rarely survive editing or remixing. Content provenance makes source, transformation, attribution, and withdrawal evidence explicit for each artifact and its derivatives.
 
-For **preserving the origin and edits of an image or report used in an incident review**, draw the boundary before choosing a model. Identify the human or service principal, the records allowed into context, the actions proposed by the model, the component that validates them, and the owner who handles an ambiguous result. Decide which operations are reads, reversible writes, irreversible writes, or merely recommendations. A useful rule is that an untrusted string may influence a proposal but may never create a permission, erase an audit event, or bypass a state transition.
+For **content provenance**, the content provenance boundary names content provenance evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-A deployable design has a control path and a data path. The control path versions configuration, policy, model adapters, schemas, evaluation sets, and rollout cohorts. The data path receives a request, authenticates it, retrieves bounded evidence, invokes the model, validates a typed proposal, executes an allowed action, and records an outcome. The content provenance boundary sits between the proposal and the observable outcome; it should be visible in traces and owned by a team.
+The content provenance path starts with its own content provenance evidence admission check, then records topic state, invokes only the needed processor, and finishes at a content provenance outcome gate for **content provenance**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to content provenance, not a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -65,13 +65,13 @@ flowchart LR
   class A,C,X,L data; class I,B control; class M risk
 ```
 
-Use separate fields for user text, retrieved facts, policy instructions, tool output, and generated proposal. This prevents an instruction hidden in a document or tool result from acquiring the authority of a system rule. Every record should carry a tenant or project key where relevant. Cache keys must include authorization scope and source version. Logs should retain enough structured evidence to explain a decision while redacting secrets and unnecessary free text.
+Keep source artifact, transformation record, attribution claim, rights decision, derivative, and publication status separate. A filename or generated description cannot stand in for lineage. Bind artifact ID, parent hash, transformation version, owner, and withdrawal state to the manifest while limiting private content in audit storage.
 
-A minimal run record is: `run_id`, `request_id`, actor, tenant, purpose, model/version, policy/version, context references, proposal hash, action, decision, timestamps, attempts, effect IDs, and final status. For this topic add lineage, content hash, transformation manifest, signer, assertion, chain of custody, and verification. Do not put an unbounded transcript in the primary operational table; store a redacted pointer with a retention policy.
+For content provenance, record a run identifier, actor, purpose, lineage, content hash, transformation manifest, signer, assertion, chain of custody, and verification, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
-The happy path is only one transition. A request may be malformed, missing evidence, denied, awaiting a reviewer, interrupted after a remote commit, or invalidated by a policy change. Model states explicitly: `received`, `validated`, `proposed`, `blocked`, `pending`, `running`, `succeeded`, `failed`, and `cancelled`. Guard transitions with a run version or compare-and-swap so two workers cannot both advance the same work.
+Provenance state should distinguish ingested, transformed, attributed, disputed, published, withdrawn, and lineage_incomplete. Gate publication on complete parent links and preserve correction records for distributed copies. A hash mismatch needs investigation, not silent replacement.
 
 ```mermaid
 sequenceDiagram
@@ -91,7 +91,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-Persist the proposal before a side effect. On retry, reuse the same idempotency key or proof artifact rather than asking the model to invent a new action. A timeout is a state of knowledge, not proof that nothing happened. For a reversible operation, record the compensating action; for an irreversible operation, stop and escalate. For this lesson, the most important transition is the one that prevents **preserving the origin and edits of an image or report used in an incident review** from becoming an unreviewed or untraceable effect.
+On retry, reuse the content provenance idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
 ## Topic mechanics: Content provenance
 
@@ -99,33 +99,33 @@ Persist the proposal before a side effect. On retry, reuse the same idempotency 
 
 A provenance record is a graph of entities and transformations, not a decorative badge. On ingest, hash the bytes, record source URI and acquisition time, and assign an asset ID. Each model or human transform consumes one or more assets and emits a new asset with tool version, parameters, operator or service identity, and output hash. A signed assertion authenticates who made a statement about the graph; it does not prove that the content is true. C2PA can carry creator and edit assertions, while W3C PROV supplies a general entity/activity/agent vocabulary. For an incident image, preserve the original, a normalized copy, an OCR result, a model summary, and every export as separate nodes. Verify signatures and hashes before using provenance in a trust or ranking decision. Metadata stripping and screenshots create gaps; represent “unknown” rather than inventing lineage. Key rotation, offline verification, and legacy unsigned content need explicit policy. The February malicious-use report makes this relevant because evidence can cross platforms and models; it does not itself prescribe a provenance standard. Measure reconstruction time and missing-link rate, not the number of badges displayed.
 
-The first implementation question is what the system can know at each stage. At ingress, it knows an authenticated actor and a request, but not whether the request is well-formed or authorized. During retrieval, it can establish source IDs, freshness, and access filters, but similarity is not truth. During model generation, it can ask for a schema and bounded plan, but the output is still untrusted. At the boundary, deterministic code can enforce limits. After execution, only a receipt, read-after-write check, or independent artifact establishes what happened. This epistemic separation keeps **lineage, content hash, transformation manifest, signer, assertion, chain of custody, and verification** from collapsing into one prompt.
+Ask what **content provenance** can establish at each transition. The request establishes intent only; the content provenance evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **content provenance**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
 Content provenance needs versioned source identifiers, transformation steps, model or editor attribution, hashes, and disclosure policy. Preserve the chain for each published artifact; correcting a source should create a traceable revision rather than silently changing the provenance of an already distributed copy.
 
 Provenance capture should cap transformation depth, artifact fan-out, hash work, and publication queue age. Block release when a derivative loses its parent reference rather than emitting an apparently complete record. Distinguish `source_missing`, `chain_incomplete`, and `publication_blocked` in the audit stream.
 
-For **content provenance**, instrument verified-asset rate, missing-manifest rate, hash mismatches, signer-key failures, and time to reconstruct lineage. Break down every metric by task slice, tenant, model version, policy version, and outcome class. An aggregate success number can improve while a small high-risk slice becomes worse. Pair capability metrics with reliability metrics and safety metrics; never use one as a proxy for the others.
+Break content provenance metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
 
 
 ## Content provenance: focused design workshop
 
-The distinctive design choice for this lesson is **lineage graphs and signed assertions**. Model the core record as a typed object with `asset_id, parent_hash, transform, signer, output_hash`. Keep user prose outside that object; prose can explain intent, but code must decide whether the object is complete, authorized, fresh, and safe to execute. The invariant is: **a valid signature authenticates an assertion but does not prove truth**. Emit an event whenever the invariant is checked, including the result, version, actor, and evidence reference. This makes a failure diagnosable without replaying an unconstrained model call.
+In content provenance, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. content provenance code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
 
-Consider a concrete **content provenance** run. The ingress validator rejects missing identifiers and normalizes timestamps. The context builder retrieves only records permitted by tenant and purpose. The model receives a bounded view and returns a proposal, never a bearer credential or an opaque instruction. The topic-specific boundary then checks `asset_id, parent_hash, transform, signer, output_hash`. If the check passes, the effect owner commits or queues work and returns a receipt. If it fails, the system returns a structured denial or asks for evidence. A reviewer can inspect the event sequence and distinguish bad input, missing authority, stale state, and a remote failure.
+For content provenance, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the content provenance artifact and the decision that moved it between states.
 
 Test provenance races. A derivative may publish while its parent is being withdrawn, or a transformation may finish without recording one intermediate artifact. Require parent availability and chain completeness at publication. Preserve `source_revoked` and `lineage_incomplete`; a hash alone cannot prove provenance.
 
-For operations, partition metrics by `lineage graphs and signed assertions` and by model, policy, tenant, and outcome. Track the invariant violation directly, plus useful completion, latency, cost, and human override. A single aggregate can hide a catastrophic slice: one customer, one high-risk action, one rare theorem class, or one overloaded region. Set a release floor for the topic-specific safety metric before optimizing throughput.
+For content provenance, slice content provenance evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare content provenance failure carries the largest consequence.
 
-The mini design exercise is **detect a changed image and represent missing legacy metadata as unknown**. Implement it with an in-memory store first, then add a failure injection at every boundary. Expected behavior should be deterministic even if the proposal generator is not. Save the failing input as a regression fixture only after removing secrets and identifying the policy version that governed it.
+Save a failing content provenance input as a regression fixture only after redaction, classification, and capture of the governing version.
 
 
 ## Applications and operational constraints
 
-The strongest first application is **preserving the origin and edits of an image or report used in an incident review** because it has a bounded workflow and a domain owner. A team might begin in shadow mode, where the system produces a proposal but performs no effect. Next, allow a canary cohort and only low-risk actions. Require an explicit launch review before expanding scope. The useful outcome is not “the model answered”; it is a completed task that meets quality, latency, cost, privacy, and policy constraints.
+Start content provenance in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Other plausible applications include journalism, incident response, synthetic-media review, training-data governance, and legal discovery. Each has a different bottleneck. A support system values queue age and consistent escalation; an operations system values correctness and rollback; research values evidence and uncertainty; security values time to detect and false-positive capacity. Data residency, tenant isolation, secrets, rate limits, procurement, and human availability can dominate model latency. Document those constraints in the service contract rather than in an informal prompt.
+Beyond **content provenance**, content provenance applies to workflows where content provenance evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan provenance capacity around hashing, transformation tracking, artifact storage, and withdrawal propagation. If the lineage service is delayed, block publication or label the artifact pending provenance; do not emit a clean attribution record from partial data. A pointer to an unfinished chain is not a completed disclosure.
 
@@ -135,13 +135,13 @@ Provenance fails when a derivative loses its parent, a transformation is omitted
 
 Provenance metrics can improve by recording hashes without usable lineage, labeling only cooperative sources, or counting an upload as attributed before review. Pair coverage with chain completeness, withdrawal success, attribution correction, and downstream propagation. More manifests do not establish trustworthy provenance when parent links are missing.
 
-The February source also has scope limits. OpenAI's February report emphasizes that malicious activity can cross AI models, platforms, websites, and social accounts. That makes evidence continuity a timely operational problem, but the report does not endorse C2PA or W3C PROV. Those standards provide a vocabulary for implementing the inference that investigators need a machine-readable history. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+For content provenance, the February source has a bounded claim. The February source also has scope limits. OpenAI's February report emphasizes that malicious activity can cross AI models, platforms, websites, and social accounts. That makes evidence continuity a timely operational problem, but the report does not endorse C2PA or W3C PROV. Those standards provide a vocabulary for implementing the inference that investigators need a machine-readable history. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
 
 ## Evaluation and change management
 
-Build a fixture set from ordinary, ambiguous, malformed, adversarial, slow, stale, and partially completed cases. Include a golden expected state and the invariants that must never break. Run the set against a pinned model and a deterministic baseline. Review failures by category, not just a total score. Keep hidden cases to detect overfitting, and sample production traces only after removing secrets.
+Build provenance fixtures for original uploads, edits, remixing, missing parents, withdrawn sources, copied artifacts, and disputed attribution. Assert immutable IDs, complete parent chains, and publication blocking when evidence is absent. Keep adversarial transformations hidden and inspect redacted lineage traces.
 
-Release gates should include a quality floor, a policy-violation ceiling, a reliability budget, a cost budget, and an evidence-completeness check. Roll out to a small cohort, compare with shadow results, and retain a kill switch that disables risky effects without destroying diagnostic reads. On rollback, record which version was disabled and whether external effects require remediation.
+Publish a provenance change only when parent-chain completeness, attribution evidence, withdrawal propagation, and artifact integrity meet floors. Canary manifests, block release for missing links, and retain a prior manifest format for rollback. Enumerate distributed derivatives that need correction.
 
 ## February primary-source evidence
 
@@ -149,17 +149,17 @@ The source fact is bounded: **OpenAI's February report emphasizes that malicious
 
 ## Mini exercise extension
 
-Create six fixtures for **preserving the origin and edits of an image or report used in an incident review**: a normal request, missing evidence, an adversarial instruction, a policy denial, a timeout or interrupted run, and a successful outcome. For each fixture record the expected state, the allowed effect, and the evidence a reviewer should see. Add one version change and prove that the old event retains its original version. Your acceptance criterion is not a polished answer; it is a correct boundary, an explainable decision, and a safe recovery path.
+Create six fixtures for **content provenance** using the content provenance vocabulary: a content provenance evidence omission, a stale or contradictory content provenance evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior content provenance records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Define dataclasses for `Request`, `Context`, `Proposal`, `Decision`, `Event`, and `Outcome`; require a run ID and version fields.
-2. Write a deterministic boundary function for **lineage, content hash, transformation manifest, signer, assertion, chain of custody, and verification**; deny unknown actions and malformed arguments.
-3. Add a fake model that returns one valid and two invalid proposals, including an instruction hidden in retrieved text.
-4. Add a fake downstream service with a timeout, an idempotency map, and a read-after-write reconciliation method.
-5. Persist redacted JSON Lines events and implement replay without invoking a live model.
-6. Run the six fixtures, assert the security invariant, and calculate verified-asset rate, missing-manifest rate, hash mismatches, signer-key failures, and time to reconstruct lineage.
-7. Change one policy or schema version, rerun the fixtures, and inspect the diff in evidence and state transitions.
+1. Construct a content provenance test record with actor, request, content provenance evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
+2. Implement the content provenance boundary as a pure function. It must inspect content provenance evidence, return a typed state, and refuse an unrecognized or incomplete transition.
+3. Create a deterministic content provenance generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
+4. Simulate the content provenance dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
+5. Write an event stream containing content provenance states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
+6. Measure content provenance correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
+7. Change the content provenance schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
 
 ## Runnable low-cost example
 
@@ -172,29 +172,29 @@ manifest = {"asset":"out-1", "parent":source, "output":output, "transform":"crop
 print(manifest["parent"] == digest("original image"))
 ```
 
-This example is intentionally small and deterministic. It demonstrates the lesson's boundary and its invariant; it does not claim production-grade authentication, durability, isolation, or domain correctness. Extend it with the numbered build steps and failure fixtures before drawing operational conclusions.
+This provenance sketch checks a parent hash in memory. It does not prove authorship, preserve a distributed chain, or propagate withdrawal; add edit, remix, and missing-parent fixtures before publication.
 
 ## Interview Q&A
 
-**Q: What is the difference between a source fact and an engineering inference?** A: The fact is what a dated publisher says it released, measured, or observed. The inference is a design recommendation derived from that fact and other knowledge; it needs local validation.
+**Q: Does a content hash prove authorship?** A: Enforce the content provenance rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: Why separate model output from the boundary?** A: Model output is probabilistic and can be manipulated by input. The boundary is deterministic, attributable code that can enforce authorization, schemas, budgets, and state transitions.
+**Q: What does provenance establish?** A: Enforce the content provenance rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: Which metric would you put on the dashboard first?** A: A useful outcome metric plus a failure metric specific to the topic—verified-asset rate, missing-manifest rate, hash mismatches, signer-key failures, and time to reconstruct lineage. Pair it with slices so an aggregate cannot hide a critical regression.
+**Q: Which metric would you put on the dashboard first?** A: Track content provenance evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the content provenance risk classes.
 
-**Q: When should the system abstain?** A: When evidence is missing or stale, the policy is ambiguous, the budget is exhausted, or an external effect has an unknown status. Escalate with evidence instead of fabricating confidence.
+**Q: When should publication stop?** A: Enforce the content provenance rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: What should happen during rollout?** A: Pin versions, start in shadow or canary mode, limit high-risk effects, monitor quality/reliability/safety separately, and keep an audited rollback path.
+**Q: How should content provenance be released?** A: Pin content provenance evidence and the governing versions, begin with shadow or reversible work, and require the content provenance invariant before widening effects.
 
 ## Glossary
 
 - **Lineage**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: a stable identifier joining request, context, decisions, attempts, and effects.
-- **Idempotency**: repeating a request produces one logical effect rather than duplicates.
-- **Provenance**: evidence describing origin, version, and transformations.
-- **SLO**: a measurable service target such as latency or successful completion.
-- **Abstention**: an explicit refusal or escalation when evidence or authority is insufficient.
-- **Inference**: an engineering conclusion drawn from facts, not a quotation or guarantee from a source.
+- **Run ID**: the correlation key that joins one content provenance attempt to its actor, content provenance evidence, decisions, and recovery evidence.
+- **Idempotency**: the content provenance guarantee that a retry does not create a second logical result or duplicate effect.
+- **Provenance**: origin, version, and transformation evidence attached to a content provenance input or artifact.
+- **SLO**: an explicit content provenance service target, such as freshness, verification latency, queue age, or availability.
+- **Abstention**: the content provenance state used when evidence, authority, or dependency health is insufficient for a stronger claim.
+- **Inference**: an engineering recommendation about content provenance derived from source facts rather than presented as a source guarantee.
 
 ## References
 

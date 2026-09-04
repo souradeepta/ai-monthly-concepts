@@ -153,6 +153,14 @@ Explain the evaluation to clinicians and patients in terms they can act on: what
 
 An AI outage or protocol pause must leave a functioning manual route. Test disablement during peak workload.
 
+## Protocol execution and clinical workflow
+
+Prospective evaluation is an operational protocol, not merely a before-and-after score. Freeze the eligibility rule, exposure definition, comparator, outcome window, and safety-event process before enrollment. At the point of care, record whether the system was available, what version produced the suggestion, whether a clinician saw it, and what action followed. “Not used” can mean unavailable, ignored, overridden, or withheld by policy; those states have different interpretations and should not be collapsed.
+
+The clinical workflow also needs a clean separation between assistance and care delivery. A co-pilot may summarize records, surface a differential, or suggest a next question, but a licensed professional remains responsible for the decision path defined by the protocol. Present evidence and uncertainty with the suggestion, make the manual route usable, and capture edits without implying that acceptance equals correctness. If the source’s reported system is tested in a particular setting, treat that setting as a bounded fact; generalization to another specialty, site, or population is an inference requiring new evidence.
+
+Analyze workflow burden alongside patient outcomes. A useful suggestion that adds an unmanageable review queue can worsen care indirectly. Track time to review, alert volume, override reasons, missing follow-up, subgroup exposure, and escalation completion. Define stop rules that can pause the AI route while preserving ordinary care. The evaluation should be able to answer both “did the measured outcome change?” and “could this team safely operate the process that generated the result?”
+
 ## Mini exercise (15–30 min)
 
 Draft a prospective pilot protocol for a synthetic documentation co-pilot. Define population, comparator, primary outcome, safety events, protected slices, reviewer roles, stop rules, and missing-data policy. Build a ten-case ledger with accepted, edited, rejected, unavailable, and escalated proposals. Calculate rates using explicit denominators.

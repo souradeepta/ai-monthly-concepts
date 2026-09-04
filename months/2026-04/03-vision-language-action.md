@@ -128,6 +128,14 @@ For capacity, bound concurrent plans and reserve controller bandwidth for safety
 
 **False success:** the controller finished a trajectory but the task did not complete. Use independent post-action predicates and retry limits.
 
+## Action representation and controller handoff
+
+The most useful interface between a VLA and a robot controller is not a sentence and not a raw tensor. It is a typed action proposal whose geometry and authority are explicit. For a pick, store the object track, candidate grasp frame, approach direction, allowable position and orientation error, maximum speed, contact force class, and the observation age. For a navigation step, store a waypoint or symbolic goal, the traversability evidence, the map revision, and the forbidden regions. This makes a proposal inspectable without pretending that the model solved the entire control problem.
+
+Separate proposal validity from execution validity. A proposal can be semantically valid—“pick object 17”—while failing geometric validation because the object is behind a barrier. It can pass geometry but fail authorization because the tool is restricted. It can be accepted by the controller and still fail at the physical outcome. Emit these as separate states and preserve their timestamps. A dashboard that reports only task completion cannot distinguish a perception problem from a controller or workcell problem.
+
+For April’s embodied-reasoning direction, a reasonable integration is a high-level model selecting among named skills while the skill server owns its preconditions and postconditions. `pick_from_bin` can require a bin ID, object track, payload limit, and clear approach corridor. It should return a receipt containing the actual trajectory ID and sensor evidence, not a prose claim that the pick succeeded. The skill server can then expose a compact result to the reasoning model while retaining detailed evidence for operators.
+
 ## Build it locally
 
 Save as `vla_gate.py` and run `python3 vla_gate.py`. It demonstrates a proposal boundary, not robot control.

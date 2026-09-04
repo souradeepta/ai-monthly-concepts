@@ -157,6 +157,14 @@ Do not include raw prompts, training examples, or secrets in a general attestati
 
 During a migration, old and new artifacts may serve simultaneously. Route by explicit release ID, keep feature and tokenizer compatibility visible, and compare results on a controlled shadow set. If a downstream consumer expects a schema, validate it before traffic is admitted. When the migration completes, drain old workers and verify that no queue or cache still points to a retired artifact. Record the retirement event so later traces remain interpretable.
 
+## Provenance graph in practice
+
+Model provenance is a graph, not a single parent pointer. A released service may depend on base weights, a fine-tuning dataset, an adapter, a tokenizer, a conversion tool, a compiler, a container, a policy bundle, and an evaluation set. Record edges with a relationship such as `derived_from`, `converted_by`, `packaged_with`, `evaluated_against`, or `approved_under`. This lets an incident query find every deployment affected by a revoked base artifact or a vulnerable image.
+
+Separate identity from endorsement. A digest proves which bytes were observed; a signature identifies who attested to them; an approval states that an accountable reviewer accepted a use under a policy. None of these alone proves quality. Require the deployment gate to check all three where the risk warrants it, and preserve the decision even when promotion is denied. A later operator should be able to understand why an artifact was rejected rather than downloading it again and repeating the review.
+
+The model-card source is useful as release documentation, but it is not a complete local provenance record. Add the deployment’s actual hardware, runtime flags, adapter selection, prompt contract, and data handling route. When a serving worker reports a response, attach immutable release and policy IDs to the trace. That binding turns a vague “model regression” report into a query over the exact artifact and processing path that produced the result.
+
 ## Mini exercise (15–30 min)
 
 Create a local artifact record for a text file representing weights. Hash it, record a parent and runtime, and build an approval gate that rejects changed bytes or missing license review. Add a derived artifact with a transformation parameter and show that its digest and lineage differ from the parent.

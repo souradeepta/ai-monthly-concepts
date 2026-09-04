@@ -155,6 +155,14 @@ Change one major dependency at a time when possible. If a model, tokenizer, came
 
 Use the suite before shadow deployment, during canary, and after rollback. A candidate that passes offline tests can still encounter traffic mix, resource pressure, or sensor timing not represented in the fixtures. Capture new incidents and near misses from each stage and add governed reproductions. If a critical regression appears, route to the prior manifest or a safe manual mode, then preserve the candidate output and environment for investigation. Rollback is an operational state, not deletion of the failed release.
 
+## Building a fixture taxonomy
+
+Fixture coverage should describe the conditions that can change a decision, not merely count files. For a robotics episode, dimensions include camera placement, lighting, object material, occlusion, speed, payload, human proximity, and controller mode. For speech, include endpointing, packet loss, overlap, accent, microphone, language, and interruption point. For a clinical or industrial image, include acquisition device, protocol, artifact quality, population slice, and the consequence of a wrong result. Store these dimensions in the manifest so protected-set reports can explain what is covered and what is absent.
+
+Use paired fixtures to isolate causes. Keep the same instruction and object while changing only lighting; keep the same frames while changing the policy; keep the same model while changing frame sampling. Pairing reduces the chance that a score difference is attributed to the wrong component. Add metamorphic assertions where a simple transformation should preserve or predictably change behavior—for example, a timestamp-preserving crop may retain object identity while a time reversal should invalidate a causal action decision.
+
+The April robotics evaluation context makes fixture conditions part of the claim. If a result depends on multiple views, the manifest must state view count, synchronization, calibration, and missing-view behavior. A candidate that succeeds only when an unavailable camera is silently substituted has not passed the same test. Review fixture changes as code: require an owner, reason, diff, and approval, and keep retired versions available for reproducing historical release decisions.
+
 ## Mini exercise (15–30 min)
 
 Create five synthetic multimodal episode manifests with text, image metadata, timestamps, expected state, and safety assertions. Run a fake system through them. Add one stale-frame and one policy-violation case; make the release gate fail on either. Store fixture and system digests in the report.

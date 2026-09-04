@@ -48,3 +48,9 @@
 - Apply tables when they materially clarify comparisons, state transitions, trade-offs, or decisions; avoid decorative tables.
 - Keep July active until articles 01–20 pass mechanics and similarity checks; May remains parked.
 - User allows a modest word-count shortfall when the lesson is substantively complete; still target 2,400 and retain required sections/checks.
+
+## Tooling lesson: Claude-style Git isolation
+
+- Claude Code’s documented parallel workflow uses Git worktrees, each with its own checkout and branch while sharing repository history and remote; subagents can be isolated the same way.
+- Worktrees prevent concurrent file collisions but do not remove the need for write access to shared Git metadata. In this environment, `.git` is read-only by default, so staging and committing require elevated or persistent Git permission.
+- If future runs need to push, check Git metadata permissions early and request the narrow `git add`/`git commit` elevation rather than treating the repository as broken.

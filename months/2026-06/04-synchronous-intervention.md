@@ -130,6 +130,16 @@ Keep model context bounded. Send the model a sanitized indication that intervent
 
 Document ownership during handoff. The agent owns preparation, the gate owns authorization, the operator owns the accepted decision, and the worker owns execution evidence. State this division in the runbook and console. Clear ownership prevents a person from assuming the system already stopped, or a worker from assuming a human’s approval remains valid after the task changed. It also makes post-incident interviews factual: each event has an actor, a state, and a receipt.
 
+### Choosing the intervention deadline
+
+The deadline should come from the effect, not from a generic interface timeout. A production deployment may wait ten minutes because the artifact remains available and the change is reversible. A robot collision brake cannot wait for a remote reviewer; its local controller must intervene in milliseconds. An account-recovery decision may wait several minutes, but it should expire before the evidence becomes stale. Store the deadline, its reason, and the fallback state in the action record so operators can distinguish a deliberate safe pause from a broken queue.
+
+Measure the complete intervention path: proposal-to-queue latency, time until a reviewer sees the packet, decision time, revalidation time, and execution delay. A low average can hide a tail in which high-risk actions wait past their useful window. Partition measurements by risk class and reviewer role. If the queue approaches its deadline budget, stop accepting new consequential work or route it to a trained backup role; silently approving because the queue is full turns an availability problem into an authorization failure.
+
+### Making review packets decision-ready
+
+A useful packet contains the exact action, target resource, intended effect, evidence references, policy checks, expiration, and a reversible alternative. It should not require the reviewer to reconstruct state from a model transcript. Show changes as a structured diff for configuration or records, and show sensor age and workspace ownership for physical actions. The reviewer’s response should be an enumerated decision with an optional reason, never an arbitrary command string. This keeps the human in the control loop without giving the interface a second untested execution language.
+
 ## Build it locally
 
 ```python

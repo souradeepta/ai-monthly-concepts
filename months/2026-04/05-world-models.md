@@ -123,6 +123,14 @@ When a prediction is wrong, retain it as evaluation data rather than immediately
 
 Set ownership explicitly: one team owns model quality, one owns policy and controller integration, and both share an incident process. An action should remain disabled whenever its verification path, rollback path, or on-call owner is missing.
 
+## Designing useful prediction targets
+
+A world model is easier to operate when its target is narrow. “Predict the whole future video” is difficult to validate and may not help a decision. A manipulation planner might instead predict whether a grasp will remain stable for the next two seconds, whether a container will cross a boundary, or whether a requested placement predicate will hold after one skill. Each target needs a tolerance and a decision threshold. The threshold belongs to the workflow owner: a small position error may be acceptable for a visual inspection and unacceptable near a human hand.
+
+Represent multi-step planning as a tree of short hypotheses. Reuse the current observed state only while its validity window is open, branch on uncertain object identity or contact outcome, and stop expanding a branch when it violates a hard constraint. After one real action, compare the observation with the branch prediction and discard descendants of a divergent state. This limits compounding error and keeps the planner from treating an attractive long rollout as evidence that every intermediate step is safe.
+
+The source’s embodied planning context makes this distinction practical: a high-level reasoner can propose or compare plans, while a world model supplies forecasts and a controller supplies measured state. Store the forecast beside its input snapshot and outcome label. Over time, evaluate calibration by condition, not just average error. If predictions are accurate in empty test cells but poor with reflective objects or moving people, authority should be reduced for those slices even when the aggregate score looks good.
+
 ## Build it locally
 
 This dependency-free example keeps a predicted and observed position separate, then rejects a rollout when the difference exceeds a task threshold.

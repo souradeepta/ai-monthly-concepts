@@ -168,6 +168,18 @@ Pick a non-sensitive engineering question, such as whether a cache configuration
 
 **What is a useful success metric?** Reviewer-validated evidence quality and useful, discriminating experiments—not the raw count of generated hypotheses.
 
+### Hypothesis portfolio operations
+
+Do not ask a generator for one “best” hypothesis and immediately schedule it. Maintain a portfolio with different mechanisms, populations, and levels of risk. Deduplicate only when the proposed causal path, required measurement, and predicted result are materially the same. Two hypotheses can share a topic while requiring different experiments; collapsing them loses useful disagreement.
+
+Rank candidates on more than novelty. A practical intake score can include evidence coverage, falsifiability, expected information gain, resource demand, safety exposure, and dependency risk. These are triage signals, not scientific truth. Keep the raw dimensions so a reviewer can reverse a ranking when a high-risk proposal looks attractive because it is easy to measure.
+
+The generator should also produce a “why this may be wrong” field. Ask for the strongest alternative explanation, the observation that would distinguish it, and the result that would cause abandonment. This turns fluent speculation into an inspectable proposal. A hypothesis that cannot name a disconfirming result is a question for exploration, not a ready experiment.
+
+### Review handoff
+
+Before an experiment enters a queue, emit a compact packet: hypothesis ID, causal diagram, evidence links, assumptions, predicted observations, controls, sample plan, stopping rule, safety classification, owner, and budget. Reviewers should be able to reject a proposal without reading the entire generation trace. Preserve the trace behind an access-controlled link for later audit.
+
 ## Glossary
 
 - **Confounder:** a variable that can create a misleading association between observed variables.

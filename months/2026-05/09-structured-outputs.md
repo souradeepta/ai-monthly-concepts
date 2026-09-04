@@ -200,6 +200,16 @@ print(validate(msg, state))
 
 **Why separate proposal from execution?** A generated object can be syntactically valid but still require approval, reconciliation, or a different authority before changing state.
 
+### Schema evolution
+
+A structured-output contract is an API, so changing it needs compatibility rules. Adding an optional field is usually backward compatible; renaming a field or changing a string into an object is not. Give each schema a version and validate both producer and consumer expectations. During migration, accept the old version at the boundary, normalize internally, and emit the new version only after downstream consumers have been tested.
+
+Do not confuse syntactic validity with semantic validity. A response can satisfy JSON Schema while naming a nonexistent user, using an expired permission, or putting a negative quantity in a field that is technically numeric. Follow parsing with domain invariants, authorization checks, and state checks. Return separate errors for malformed syntax, unsupported schema version, invalid domain value, and policy rejection; this makes retries and incident analysis safer.
+
+### Production observability
+
+Measure valid-output rate, semantic rejection rate, repair attempts, token overhead, latency, and downstream correction. Break results down by model version, prompt version, schema version, locale, and input class. Store a digest and redacted validation errors rather than raw confidential payloads by default. A rising repair rate is a contract-health signal, even if final success remains high because a hidden repair loop is consuming latency and cost.
+
 ## Glossary
 
 **Structured output:** Model or service response conforming to a defined machine-readable shape.
