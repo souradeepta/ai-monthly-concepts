@@ -14,7 +14,7 @@
 
 ## Active
 
-- [ ] July 2026 — Create and expand source-backed articles 01–20; mechanics and similarity audit complete; substantive review required.
+- [x] July 2026 — Create and expand source-backed articles 01–20; mechanics, similarity, and Terra substantive review complete.
 - [x] July 01 — Robot task orchestration: expansion and mechanics pass complete; substantive review remains.
 - [x] July 02 — Video understanding: expansion and mechanics pass complete; substantive review remains.
 - [x] July 03 — Closed-loop control: expansion and mechanics pass complete; substantive review remains.

@@ -1,6 +1,6 @@
 # July 2026 — embodied agents and frontier operations
 
-Review status: substantive review required; this month is not complete.
+Review status: complete; Terra substantive review approved on 2026-09-07.
 
 Primary starting point: [Google DeepMind’s news archive](https://deepmind.google/blog/), which covers July robotics, cyber, and model developments. Use the direct linked release before making a factual claim about a specific product.
 
