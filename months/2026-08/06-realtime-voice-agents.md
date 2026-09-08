@@ -1,10 +1,14 @@
 # Realtime voice agents
-Status: draft — substantive review pending
-Sources: [OpenAI Developer Community — announcements](https://community.openai.com/c/announcements/6)
+Status: emerging
+Sources: [OpenAI — 2026-08-04](https://deploymentsafety.openai.com/gpt-live), [OpenAI — 2026-07-08](https://openai.com/index/introducing-gpt-live/)
 
 ## In one sentence
 
 A realtime voice agent is a streaming system that must coordinate audio capture, turn detection, model inference, tool calls, and audio playback quickly enough that people can speak naturally and interrupt it safely.
+
+## Prerequisites
+
+You need a working picture of a client/server API, a persistent connection, queues, and asynchronous state. A **stream** is an ordered sequence of small messages that can be consumed before the producer has finished. **Backpressure** prevents a fast producer, such as a microphone or model, from overwhelming a slower consumer. You should also know that a network retry can duplicate a message and that a timeout does not prove an external operation failed. Those distributed-systems facts explain why a voice session needs event IDs, sequence numbers, cancellation, and reconciliation. Finally, distinguish a model suggestion from an authorized side effect: an audio response can be provisional, while a calendar booking or payment must pass a separate policy boundary.
 
 ## Background: what existed before
 
@@ -14,7 +18,7 @@ Human conversation is not turn-based in that way. People begin responding before
 
 The original architecture also separated modalities strictly. Speech recognition produced text, a text system decided an answer, and speech synthesis produced audio. That remains a valid design, especially when transcript retention, deterministic prompts, or a specialized language model matter. Modern realtime systems may combine some stages, but the systems problem remains: audio is an ordered time series, network connections are unreliable, model output is incremental, and external tools have much longer and less predictable latency than a single audio packet.
 
-The August source queue includes realtime voice-agent announcements. That is a release-specific pointer to an active product area, not proof that every voice model achieves low latency, accurate transcription, or safe tool use. The durable engineering change is that voice is increasingly treated as a bidirectional streaming interface rather than a batch transcription feature.
+OpenAI’s July 8 GPT-Live release describes a full-duplex voice model that can listen and respond continuously. Its August 4 system-card update records a concrete operational lesson: a safety evaluation had been run with a backend configuration that did not match the final release, so the evaluation was rerun and corrected values were published. The August source is evidence for two engineering requirements: voice systems need modality-specific safety tests, and those tests must be tied to the exact deployed configuration. It is not evidence that every voice agent has the same latency or safety performance.
 
 ## What changed and why now
 
@@ -72,6 +76,12 @@ sequenceDiagram
     C->>O: barge-in event
     O-->>P: cancel output by generation ID
     O-->>C: acknowledge new turn
+    rect rgb(219, 234, 254)
+    Note over U,O: media and conversation events
+    end
+    rect rgb(254, 243, 199)
+    Note over O,T: policy and tool boundary
+    end
 ```
 
 Barge-in is the feature that lets a user interrupt. It is not enough to mute playback on the client. The client should send an interruption event with the current generation ID; the orchestrator cancels future generation and tool plans that are safe to cancel; the playback queue discards buffered frames for that ID; and the transcript marks the assistant response as interrupted rather than complete. If audio output leaks after a barge-in, users may speak over stale instructions and the following model turn receives a confusing mixed context.
@@ -95,6 +105,16 @@ The useful rule is: stream conversation, gate consequences. It is acceptable to 
 The source announcement channel is the factual basis for placing realtime voice agents in this monthly queue. The detailed architecture here is an engineering inference: teams adopting agent voice interfaces need event-oriented session design, interruption semantics, latency measurements, and the same authorization boundaries expected for text agents. The novelty is not only a model speaking; it is making a live audio conversation reliable around slower, stateful software systems.
 
 ## Engineering consequence
+
+### Session correctness at audio speed
+
+The session protocol needs an explicit ownership model for partial results. Audio frames can be delivered late or twice, and a transcript update can arrive after the user has already interrupted the response it produced. Assign every event a session ID, sequence number, and server acknowledgment. The receiver may discard an old frame, but it should not silently treat a late tool result as belonging to the new turn. Generation IDs make this distinction concrete: playback for generation 12 can be cancelled while generation 13 continues, even if packets from both are briefly in flight.
+
+Turn detection should expose uncertainty instead of forcing a binary decision too early. A short pause may be a natural hesitation, a network gap, or the end of a turn. Use a small endpointing window, allow the user to resume the same turn, and distinguish `speech_started`, `speech_stopped`, `turn_committed`, and `turn_cancelled`. The model may consume partial audio for responsiveness, but effectful intents should be created only from a committed turn or an explicit confirmation event. This protects against the common failure in which an early transcript prefix is mistaken for the final request.
+
+Backpressure is a user-experience and reliability control. If the playback buffer grows while the network is slow, the client should prefer dropping stale provisional audio over playing an old answer after the caller has moved on. If the microphone queue grows, the system should report degraded capture or reduce processing rather than silently increasing latency. Bound every queue, measure its age, and choose a deliberate policy for loss: media can often be dropped, but authorization decisions and tool receipts must be persisted or reconciled.
+
+Safety evaluation must follow the same session state machine as production. The August system-card correction is a reminder that evaluating a different backend configuration can produce misleading evidence. Pin the model, tools, voice configuration, moderation path, and policy version in each test run. Include interruption and tool-call cases, not only isolated audio prompts. A voice agent can pass a transcript safety test while failing when a user interrupts halfway through a sensitive answer or changes the requested account after the first partial transcript.
 
 Start with a session event schema. Include `session_id`, `event_id`, monotonic sequence number, media timestamp, event type, and a generation ID for every assistant response. Persist only the events necessary to resume or audit a session; raw high-frequency frames are costly and sensitive. Separate ephemeral media routing from durable business state, such as a pending appointment confirmation. On reconnect, reissue only the durable state and require a fresh audio stream rather than trying to replay every lost frame.
 
@@ -157,6 +177,10 @@ assert session.play_next() is None
 3. Add a `session_id` and sequence number to each queued chunk.
 4. Add a `pending_tool` field and decide which simulated tools can be cancelled versus reconciled.
 5. Write a test for an interruption that arrives after a tool has created an external draft.
+
+## Mini exercise (15–30 min)
+
+Extend the simulation with an event log containing `session_id`, `sequence`, `event_type`, and `generation_id`. Feed it a normal turn followed by an interruption, then assert that playback events from the cancelled generation are ignored while the next generation is accepted. Write down which fields would be persisted for reconnect recovery and which audio data would be discarded for privacy.
 
 ## Interview Q&A
 

@@ -1,10 +1,14 @@
 # Web-to-agent tools
-Status: draft — substantive review pending
-Sources: [OpenAI Developer Community — announcements](https://community.openai.com/c/announcements/6)
+Status: emerging
+Sources: [OpenAI — 2026-08-25](https://openai.com/webmcp-challenge/)
 
 ## In one sentence
 
 Web-to-agent tools expose a website's useful operations as typed, permissioned actions so an agent can request a reliable effect without trying to operate a visual interface like a person.
+
+## Prerequisites
+
+You should be comfortable with HTTP requests, JSON schemas, authentication versus authorization, database transactions, and the difference between a read and a state-changing command. You do not need prior knowledge of WebMCP. The important prerequisite is a systems habit: treat model-generated arguments as untrusted input and let the website remain authoritative about identity, resource ownership, business rules, and whether an effect happened.
 
 ## Background: what existed before
 
@@ -18,7 +22,11 @@ The historical baseline matters because agents are often tempted to use the most
 
 ## What changed and why now
 
-The August announcement queue calls attention to WebMCP and related web-to-agent patterns. The source is an announcement channel, so it establishes that a vendor community is discussing the integration direction; it does not independently prove a universal standard or a security property of every implementation. The engineering change is the growing expectation that websites can describe actions to agents in a machine-readable form rather than requiring visual imitation.
+On August 25, OpenAI published the WebMCP Challenge page describing WebMCP as an experimental open standard in which websites expose structured tools that agents can use directly. The page sets an August 25 registration and submission opening date and invites developers to build applications that become better when people and agents use the same site together. This is a publisher-reported release-specific fact: it establishes a concrete August developer push and the proposed interface shape, but it does not prove that WebMCP is a finished standard, that every browser supports it, or that a tool implementation is safe by default.
+
+That timing matters because the proposed surface is not merely a new model function-calling format. The website becomes an active participant in describing its own operations. A site can expose a search operation, a draft-producing operation, or a mutation with a confirmation boundary while continuing to serve its human UI. The agent client can discover the available operation at the page or site boundary, but the service still has to decide whether the current principal can invoke it. Discovery improves reachability; it does not grant authority.
+
+The August challenge also makes an important product distinction visible: people and agents can work together on the same live page. A user may ask an agent to find candidate records, inspect the result, change a field, and then approve a final action. That is different from handing an agent a background API key and asking it to impersonate the user without a visible review point. The design opportunity is collaborative delegation, with explicit state shared between the UI, tool client, and domain service.
 
 For an application team, this changes the integration question from “Can the model use our site?” to “Which precise capabilities should our site delegate, under which authenticated principal, with what evidence and recovery path?” That is a healthier question because it starts from effects and risk. A hotel site might safely expose availability search and a cancellation quote, while an actual cancellation requires a fresh confirmation, a specific reservation ID, and a policy check performed by the booking service.
 
@@ -63,6 +71,7 @@ sequenceDiagram
     participant Tool as Website tool service
     participant Policy as Domain policy
     participant DB as Order system
+    rect rgb(219, 234, 254)
     User->>Agent: Prepare a return for order 1842
     Agent->>Tool: get_return_options(order_1842)
     Tool->>Policy: verify delegated identity and ownership
@@ -71,13 +80,18 @@ sequenceDiagram
     DB-->>Tool: options and expiry
     Tool-->>Agent: typed options; no side effect
     Agent-->>User: show selected items and fee
+    end
+    rect rgb(254, 243, 199)
     User->>Agent: Confirm option B
     Agent->>Tool: create_return_draft(option_B, idempotency_key)
     Tool->>Policy: verify current eligibility and confirmation
     Policy-->>Tool: allow
+    end
+    rect rgb(220, 252, 231)
     Tool->>DB: create one draft transaction
     DB-->>Tool: return ID and receipt
     Tool-->>Agent: draft_created
+    end
 ```
 
 ## Real-world applications and constraints
@@ -109,6 +123,14 @@ Make tool schemas explicit and versioned. Use enumerated values for business sta
 Give users a meaningful confirmation for consequential effects. The confirmation should identify the website, target resources, result, price or irreversible consequence, and any data shared. Bind that confirmation to the exact request with a short expiration. Otherwise an agent can obtain consent for a generic plan and later substitute a more expensive or wider action. For accessibility, expose the same receipt and control state through text, not only a visual modal.
 
 Observability should connect an agent run to normal website operations. Include a correlation ID in the tool request, policy decision, domain event, and final receipt. Monitor calls by tool version, error class, tenant, and principal type. Review unusually high denied-call rates, repeated confirmation failures, and sudden growth in broad search queries; each may indicate a broken planner, a misleading description, or abuse. Retain enough structured metadata to investigate while minimizing customer content in logs.
+
+The contract should also describe freshness and consistency. A search result is a snapshot, not a promise that the item is still available when the user confirms it. Return an `expires_at` value or a version token with a candidate result, then have the mutation re-read current state and compare the token. If inventory, price, or eligibility changed, return a typed conflict such as `stale_selection` with a new preview. This is safer than allowing the model to repeat an old argument until the server accepts it. It also gives the UI a precise recovery action: refresh, choose again, or abandon the draft.
+
+Tool discovery creates a new cache and compatibility problem. A client may cache a tool description while the service has already removed a field, tightened a limit, or changed a confirmation requirement. Put a version, expiry, and owner in the discovery response. The server must still reject unknown or unsafe combinations, but an explicit version error helps the agent recover without guessing. Contract tests should exercise old and new descriptions against the same policy cases so a documentation change cannot quietly widen authority.
+
+The safest return type is a domain state machine rather than a paragraph. For the return example, `options_available` means the service performed a read; `confirmation_required` means the service has computed a possible next action; `draft_created` means a database transaction produced an identifier; and `unknown` means the client lost contact after an attempted effect. These states make retries and user messaging different on purpose. A language model can turn the states into natural language, but it should not collapse them into “done.”
+
+Multi-tenant systems need an additional boundary around discovery itself. If a tool catalog is generated from the current page, it may reveal operation names or fields that the current user is not allowed to use. Prefer a catalog filtered by server-side capability policy, and treat the per-call check as mandatory because the user's role or resource scope can change. The catalog is a convenience for planning, not an access-control list. Log denied discovery and denied invocation separately so operators can distinguish an unavailable feature from an attempted policy bypass.
 
 ## Limits and failure modes
 
@@ -158,8 +180,19 @@ def create_return_draft(request: ReturnRequest) -> dict:
 
 
 request = ReturnRequest("user-7", "order-1842", "item-a", "mail", "run-101")
-print(create_return_draft(request))
-print(create_return_draft(request))
+first = create_return_draft(request)
+print(first)
+assert first["state"] == "draft_created"
+second = create_return_draft(request)
+print(second)
+assert second == {"state": "draft_created", "return_id": first["return_id"], "replayed": True}
+
+assert create_return_draft(
+    ReturnRequest("user-8", "order-1842", "item-a", "mail", "run-102")
+)["state"] == "denied"
+assert create_return_draft(
+    ReturnRequest("user-7", "order-1842", "item-a", None, "run-103")
+)["state"] == "needs_confirmation"
 ```
 
 1. Save the example as `web_tool_demo.py` and run `python3 web_tool_demo.py`.
@@ -167,6 +200,10 @@ print(create_return_draft(request))
 3. Set `confirmed_option` to `None` and observe the non-effectful `needs_confirmation` state.
 4. Run the identical request twice; verify that the second call returns the original draft instead of creating another one.
 5. Add a `region` property to the order and require it to match an authenticated user region before creating a draft.
+
+## Mini exercise (15–30 min)
+
+Extend the demo with a `price_cents` field and a short-lived preview token. Make `get_return_options` return the price, an expiry timestamp, and a token; make `create_return_draft` reject an expired token and a token whose price no longer matches the server value. Add assertions for a valid preview, a stale preview, and a replay with the same idempotency key. The exercise demonstrates why a typed tool needs freshness and effect semantics in addition to JSON validation.
 
 ## Interview Q&A
 
@@ -189,7 +226,8 @@ print(create_return_draft(request))
 
 ## References
 
-- [OpenAI Developer Community announcements](https://community.openai.com/c/announcements/6) — primary announcement channel for the month’s web-to-agent topic.
+- [OpenAI WebMCP Challenge](https://openai.com/webmcp-challenge/) — primary August 25, 2026 source describing the experimental WebMCP direction and challenge dates.
+- [Using site tools in the ChatGPT desktop app](https://help.openai.com/en/articles/20001423-using-site-tools-in-the-chatgpt-desktop-app) — official help documentation describing site-tool discovery, permissions, and availability limits.
 - [OWASP Top 10 for LLM Applications](https://genai.owasp.org/llm-top-10/) — practitioner guidance on LLM application risks.
 - [RFC 9457: Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457) — standard error-response shape useful for tool APIs.
 
@@ -197,7 +235,8 @@ print(create_return_draft(request))
 
 | Claim | Source | Fact or inference |
 |---|---|---|
-| The August queue includes agent-facing web integration announcements. | OpenAI Developer Community announcements | Release-specific fact |
+| OpenAI announced an August 25 WebMCP Challenge around websites exposing structured tools to agents. | [OpenAI WebMCP Challenge](https://openai.com/webmcp-challenge/) | Publisher-reported release-specific fact |
+| WebMCP is described by OpenAI as experimental rather than a finished universal standard. | [OpenAI WebMCP Challenge](https://openai.com/webmcp-challenge/) | Publisher-reported release-specific fact |
 | Typed, narrow operations are easier to authorize and test than arbitrary form submission. | This lesson’s system design | Engineering inference |
 | Backend authorization must not rely on arguments proposed by a model. | This lesson’s system design | Engineering inference |
 | Idempotency and reconciliation are needed for reliable effectful tool calls. | Distributed-systems practice applied here | Engineering inference |

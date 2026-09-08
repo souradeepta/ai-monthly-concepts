@@ -1,6 +1,6 @@
 # Quantized open models
-Status: draft — substantive review pending
-Sources: [Hugging Face Blog](https://huggingface.co/blog)
+Status: emerging
+Sources: [Hugging Face — 2026-08-19](https://huggingface.co/blog/LiquidAI/qad), [Hugging Face — 2026-08-25](https://huggingface.co/blog/MultiverseComputingCAI/quantization-aware-healing)
 
 ## In one sentence
 
@@ -14,7 +14,7 @@ Quantization represents some values with fewer bits, often eight, six, four, or 
 
 The baseline alternative was simple but expensive: choose a smaller model, rent a larger accelerator, or accept slow CPU inference. Those are still valid choices. Quantization is not a magic compression setting; it changes errors, kernel compatibility, latency distribution, and sometimes safety behavior. A model that produces plausible text after a four-bit conversion may still regress on code generation, multilingual tokens, long contexts, rare factual questions, or structured-output tasks. The relevant question is not “does it run?” but “does it meet this product’s workload and operational budget?”
 
-The August source queue identifies quantized open models as a relevant topic through the Hugging Face engineering ecosystem. That source establishes a practical open-model context, not a universal claim that one precision level is best. This lesson focuses on the durable systems decisions around deploying a lower-precision artifact.
+Two August Hugging Face articles make the topic concrete. Liquid AI described Q4_0 checkpoints produced with quantization-aware distillation, while Multiverse Computing described a quantization-aware healing result for a compressed GPT-OSS 120B derivative. These are publisher-reported release-specific claims about the named artifacts and evaluations, not proof that every model benefits equally or that a lower-bit checkpoint is safer or faster in every runtime. This lesson uses them as current examples while focusing on the durable systems decisions around deploying a lower-precision artifact.
 
 ## What changed and why now
 
@@ -68,6 +68,15 @@ sequenceDiagram
     end
     R->>E: record artifact, latency, outcome signal
     R-->>C: response with request ID
+    rect rgb(219, 234, 254)
+    Note over C,G: request and admission path
+    end
+    rect rgb(254, 243, 199)
+    Note over R,L: artifact selection and execution
+    end
+    rect rgb(220, 252, 231)
+    Note over R,E: measurement and rollback signal
+    end
 ```
 
 Batching is another trade-off. Combining requests can increase accelerator utilization, but a large batch delays the first token and increases tail latency. Continuous batching admits new requests between generation steps, yet it competes for KV-cache memory. Quantization may free enough weight memory to permit more cache, but the correct concurrency setting still depends on request length and service-level objectives. Benchmark short interactive prompts and long document tasks separately.
@@ -91,6 +100,16 @@ The model’s output quality is therefore an end-to-end property. A small loss i
 The queue’s Hugging Face source is the release-specific context for discussing open-model quantization this month. The architecture recommendations are engineering inferences: teams should version quantized artifacts, calculate memory including caches, test representative task slices, and retain a fallback path. The meaningful change is the availability of deployment choices, not a guarantee that a lower-bit model is equivalent to the original.
 
 ## Engineering consequence
+
+### Evaluating numerical change as a product change
+
+A quantized artifact should enter the release pipeline like a code change. Begin with a frozen baseline: exact model revision, tokenizer, prompt template, decoding settings, runtime, and hardware. Then run the same inputs through the baseline and candidate, recording outputs and operational measurements. If a result differs, classify the difference rather than treating every mismatch as failure. A paraphrase may be acceptable for a draft, while a changed JSON field, code syntax error, or unsafe refusal can be a release blocker. The acceptance rule belongs to the task owner.
+
+Calibration data deserves the same care as evaluation data. A quantizer that observes only short English prompts may preserve that distribution while degrading long-context retrieval, code, minority languages, or tool arguments. Keep a description and digest of calibration material, restrict access when it contains customer-like data, and test whether the calibration set overlaps with the evaluation set. The goal is not to make the low-bit model look good on a narrow sample; it is to reduce predictable numerical error on the inputs the service will actually receive.
+
+Memory planning must include concurrency. Raw weight bytes are the obvious saving, but the server also needs scales, temporary buffers, tokenizer state, runtime workspaces, and one KV-cache allocation per active sequence. A four-bit artifact may fit at one request and fail at twenty long contexts. Admission should reserve memory before starting generation, account for the largest permitted output, and reclaim cache entries after cancellation. Measure peak resident memory and fragmentation during bursts, not only the steady state of a single prompt.
+
+Open-model deployment also changes update governance. A model hub tag can move, a conversion script can change its interpretation of a format, and a runtime can silently select a different kernel. Pin artifact digests, conversion versions, and runtime images; keep a manifest that identifies the tokenizer and quantization configuration; and verify it at startup. When the candidate fails a quality slice, rollback must restore the complete previous tuple, not only replace the weight file. This is why quantization belongs in the model supply chain and in incident evidence.
 
 Build a small evaluation set before converting or adopting a quantized artifact. Include the language, context length, tool schema, structured output, and failure cases that matter to your product. Compare the candidate against a baseline with fixed prompts, decoding settings, tokenizer, and runtime. Record exact match for parsable outputs, human rating for drafts, task success for workflows, first-token latency, tokens per second, peak memory, and failure modes. Averages hide important regressions, so segment by task and input length.
 
@@ -142,6 +161,10 @@ assert estimate_memory(parameters, 4, 2.0) < estimate_memory(parameters, 8, 2.0)
 4. Add an estimated KV-cache field per concurrent request, then reject a request when capacity would be exceeded.
 5. Record the assumptions beside a real benchmark instead of treating this calculation as a performance guarantee.
 
+## Mini exercise (15–30 min)
+
+Create a small comparison table for one baseline and one quantized artifact. Include model hash, runtime, precision, prompt set, output limit, peak memory, time to first token, tokens per second, structured-output validity, and task accuracy. Mark each result as measured or estimated, then choose a rollback threshold before looking at the numbers.
+
 ## Interview Q&A
 
 **Why can quantization speed up inference?** Smaller weights often reduce memory bandwidth pressure. The result depends on a compatible low-bit kernel, batching, and the hardware bottleneck.
@@ -163,7 +186,8 @@ assert estimate_memory(parameters, 4, 2.0) < estimate_memory(parameters, 8, 2.0)
 
 ## References
 
-- [Hugging Face Blog](https://huggingface.co/blog) — primary engineering ecosystem source for the monthly topic.
+- [Liquid AI / Hugging Face — 2026-08-19](https://huggingface.co/blog/LiquidAI/qad) — Q4_0 checkpoints produced with quantization-aware distillation.
+- [Multiverse Computing / Hugging Face — 2026-08-25](https://huggingface.co/blog/MultiverseComputingCAI/quantization-aware-healing) — quantization-aware healing case study.
 - [Hugging Face Transformers quantization documentation](https://huggingface.co/docs/transformers/main/en/quantization/overview) — framework documentation on quantization approaches.
 - [MLPerf Inference](https://mlcommons.org/benchmarks/inference-datacenter/) — benchmark context for inference measurements.
 
@@ -171,7 +195,8 @@ assert estimate_memory(parameters, 4, 2.0) < estimate_memory(parameters, 8, 2.0)
 
 | Claim | Source | Fact or inference |
 |---|---|---|
-| The month’s source queue includes quantized open models. | Hugging Face Blog | Release-specific fact |
+| Liquid AI published Q4_0 checkpoints made with quantization-aware distillation on 2026-08-19. | Liquid AI / Hugging Face — 2026-08-19 | Release-specific fact |
+| Multiverse Computing published a quantization-aware healing case study on 2026-08-25. | Multiverse Computing / Hugging Face — 2026-08-25 | Release-specific fact |
 | Lower-bit weights reduce the raw bytes required to store parameters. | Numeric representation | Engineering fact |
 | End-to-end quality must be evaluated on product tasks after conversion. | This lesson’s system design | Engineering inference |
 | KV-cache and runtime overhead affect serving capacity beyond raw weight size. | This lesson’s system design | Engineering inference |
