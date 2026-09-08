@@ -1,5 +1,7 @@
 # July 2026 — embodied agents and frontier operations
 
+Review status: substantive review required; this month is not complete.
+
 Primary starting point: [Google DeepMind’s news archive](https://deepmind.google/blog/), which covers July robotics, cyber, and model developments. Use the direct linked release before making a factual claim about a specific product.
 
 | # | Concept | What an SDE should understand | Build / interview lens |
@@ -14,24 +16,28 @@ Primary starting point: [Google DeepMind’s news archive](https://deepmind.goog
 | 8 | **Inference efficiency** | Batching, quantization, speculative decoding, caching, and routing reduce cost but can change latency/quality behavior. | Measure p50/p95 and quality slices after an optimization. |
 | 9 | **Long-running tasks** | Durable agents need checkpoints, resumable state, deadlines, idempotent effects, and operator takeover. | Explain exactly-once ambition versus practical idempotency. |
 | 10 | **Human-robot handoff** | Physical systems need clear stop conditions, safe states, explanations, and a human takeover path. | Define an operator UI for uncertain actions. |
-- [11 — Robot fleet scheduling](11-robot-fleet-scheduling.md) — draft expansion in progress
-- [12 — UI state grounding](12-ui-state-grounding.md) — draft expansion in progress
-
 ## Lessons
 
-- [01 — Robot task orchestration](01-robot-task-orchestration.md) — draft expansion in progress.
-- [02 — Video understanding](02-video-understanding.md) — draft expansion in progress.
-- [03 — Closed-loop control](03-closed-loop-control.md) — draft expansion in progress.
-- [04 — Computer use](04-computer-use.md) — draft expansion in progress.
-- [05 — Cybersecurity evaluation](05-cybersecurity-evaluation.md) — draft expansion in progress.
-- [06 — Red teaming](06-red-teaming.md) — draft expansion in progress.
-- [07 — Model weight security](07-model-weight-security.md) — draft expansion in progress.
-- [08 — Inference efficiency](08-inference-efficiency.md) — draft expansion in progress.
-- [09 — Long-running tasks](09-long-running-tasks.md) — draft expansion in progress
-- [10 — Human–robot handoff](10-human-robot-handoff.md) — draft expansion in progress
-- [13 — Browser sandboxing](13-browser-sandboxing.md) — draft expansion in progress.
-- [14 — Cyber ranges](14-cyber-ranges.md) — draft expansion in progress.
-- [15 — Model artifact signing](15-model-artifact-signing.md) — draft expansion in progress.
+- [01 — Robot task orchestration](01-robot-task-orchestration.md) — substantive review required.
+- [02 — Video understanding](02-video-understanding.md) — substantive review required.
+- [03 — Closed-loop control](03-closed-loop-control.md) — substantive review required.
+- [04 — Computer use](04-computer-use.md) — substantive review required.
+- [05 — Cybersecurity evaluation](05-cybersecurity-evaluation.md) — substantive review required.
+- [06 — AI-assisted vulnerability discovery](06-red-teaming.md) — substantive review required.
+- [07 — AI patch provenance and artifact security](07-model-weight-security.md) — substantive review required.
+- [08 — Inference efficiency](08-inference-efficiency.md) — substantive review required.
+- [09 — Long-running tasks](09-long-running-tasks.md) — substantive review required.
+- [10 — Human–robot handoff](10-human-robot-handoff.md) — substantive review required.
+- [11 — Multi-robot collaboration coordination](11-robot-fleet-scheduling.md) — substantive review required.
+- [12 — UI state grounding](12-ui-state-grounding.md) — substantive review required.
+- [13 — WebDriver session isolation](13-browser-sandboxing.md) — substantive review required.
+- [14 — Cybersecurity benchmark harnesses](14-cyber-ranges.md) — substantive review required.
+- [15 — Model artifact signing](15-model-artifact-signing.md) — planned/rebuild-needed; substantive review required.
+- [16 — Secret scanning](16-secret-scanning.md) — planned/rebuild-needed; substantive review required.
+- [17 — Speculative decoding](17-speculative-decoding.md) — planned/rebuild-needed; substantive review required.
+- [18 — Inference batching](18-inference-batching.md) — planned/rebuild-needed; substantive review required.
+- [19 — Durable execution](19-durable-execution.md) — planned/rebuild-needed; substantive review required.
+- [20 — Operator takeover](20-operator-takeover.md) — substantive review required.
 
 ## Capstone prompt
 

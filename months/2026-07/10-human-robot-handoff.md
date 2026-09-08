@@ -2,11 +2,15 @@
 
 Status: emerging
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (issue discovery context); [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) (governance context); [ROS 2 documentation](https://docs.ros.org/en/rolling/) (robot-software context)
+Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/)
 
 ## In one sentence
 
 A safe human–robot handoff is a deliberate transfer of authority, situational state, and recovery responsibility—not simply a robot stopping when a person appears nearby.
+
+## Prerequisites
+
+Know safety-rated stops, finite-state machines, sensor freshness, permissions, leases, and human factors. A handoff transfers authority and situational context; stopping motion alone does not make resumption safe.
 
 ## Background: what existed before
 
@@ -25,6 +29,10 @@ AI-connected robots are moving beyond repeated, preprogrammed cycles toward envi
 The release-specific source fact for this issue is limited to the ongoing public work around robotics and AI capabilities represented by the issue’s source context. The detailed handoff architecture below is an engineering inference, not a claim that any one source released this exact protocol. Its goal is to make capability claims separate from reliability claims: a robot may recognize or plan a task, while a safe handoff additionally requires verified state, permissions, and physical controls.
 
 The practical shift is from a binary autonomous/manual switch to a small protocol. The robot requests a handoff with a reason and safe pose; the system freezes or checkpoints the task; an authorized human accepts it; changes are recorded; and resumption requires validation. This protocol makes interruption observable and reduces the temptation to resume from stale assumptions.
+
+## What changed this month
+
+The July 30 robotics post reports human-proximity behavior that halts a robot when a person is nearby and resumes only once the area is clear. This is a provider-reported capability and benchmark claim, not a substitute for a safety-rated controller. A physical handoff still needs a local safe pose, operator identity, scene invalidation, and a resumption checklist.
 
 ## Impact on current processing and architecture
 
@@ -78,18 +86,24 @@ sequenceDiagram
   participant O as Orchestrator
   participant S as Safety supervisor
   participant H as Human operator
-  R->>O: Request handoff with reason and state
-  O->>S: Command safe pose or hold
-  S-->>O: Hold verified
-  O->>H: Present task, artifacts, and authority scope
-  H->>O: Accept and record intervention
-  alt resume requested
-    O->>R: Re-observe and validate scene
-    R-->>O: State valid or invalidated
-    O->>S: Request permitted motion mode
-    S-->>O: Allow or reject
-  else abandon task
-    O->>R: Remain in safe state
+  rect rgb(254, 226, 226)
+    R->>O: Request handoff with reason and state
+    O->>S: Command safe pose or hold
+    S-->>O: Hold verified
+  end
+  rect rgb(219, 234, 254)
+    O->>H: Present task, artifacts, and authority scope
+    H->>O: Accept and record intervention
+  end
+  rect rgb(220, 252, 231)
+    alt resume requested
+      O->>R: Re-observe and validate scene
+      R-->>O: State valid or invalidated
+      O->>S: Request permitted motion mode
+      S-->>O: Allow or reject
+    else abandon task
+      O->>R: Remain in safe state
+    end
   end
 ```
 
@@ -104,6 +118,20 @@ Treat the handoff payload as an API contract. It should be structured and versio
 Build operator interfaces for decision quality, not just observation. Show the current safety mode, active reservation, a simple before/after visual, and the exact permission the operator will exercise. Require confirmation for high-impact steps and show what will happen after confirmation. Avoid burying emergency actions next to routine controls. Record a reason code for overrides; this improves later evaluation and highlights repeated product gaps.
 
 Test at the boundaries. Simulate a network loss after a human accepts but before the robot receives the message. Simulate a person moving an object while the robot is held. Simulate stale camera data, a revoked operator session, and an emergency stop during revalidation. The success criterion is not merely that the UI displays a message; it is that the robot cannot resume with incorrect ownership or stale physical assumptions.
+
+## Designing the physical transfer boundary
+
+The handoff boundary should be defined in terms of physical consequences, not interface labels. “Manual mode” can mean several things: a person may jog one joint, select an approved recovery motion, carry an object, or merely acknowledge a warning. Those modes have different hazards and permissions. Model them separately so an operator cannot accidentally receive more authority than the intervention requires. A useful payload names the controlled mechanism, protected zone, held object, allowed speed, and whether the robot is expected to remain stationary while the person works.
+
+The sender and receiver also need a common reference frame. A robot should report the last confirmed pose, the scene timestamp, the object or tool identity, and the next unfinished action. A human should be able to correct each field explicitly. If the person moved a bin, removed a gripper, or changed a fixture, the system should create a new scene version rather than silently overwriting the old one. On resume, perception compares the new observation with the expected task state and either proves the assumptions still hold or routes the task to a new plan.
+
+Authority should be exclusive at the moment motion is enabled. A physical pendant, remote console, and autonomous planner may all be healthy while still issuing incompatible commands. Use an explicit controller token or lease, show its owner, and require the previous owner to yield it. Lease expiry should enter a safe hold, not transfer control to whichever client sends the next message. If the network partitions, the robot should rely on local safety behavior and the operator console should show that remote authority is unavailable. Reconnection must perform a fresh ownership handshake instead of replaying buffered motion commands.
+
+The acceptance screen should be a compact safety case for this particular intervention. It should answer: what happened, what the robot has already done, what the person is being asked to do, what motion will be enabled afterward, and what evidence will be collected. Do not overload the operator with every camera frame. Show the few artifacts needed to identify the object and workcell, plus a clear uncertainty or sensor-health warning. A confirmation button is meaningful only when the person can understand its scope.
+
+Operational metrics should separate delay from quality. A long safe hold may indicate a staffing problem; a fast handoff followed by repeated invalidation may indicate poor perception or an unclear interface. Track the reason for the request, time to reach safe hold, time to assign an owner, number of scene changes, rejected resumes, emergency stops, and tasks abandoned. Review near misses with the same seriousness as completed tasks. These measurements help teams improve the physical workflow without treating a low handoff rate as proof that autonomy is safe.
+
+This is deliberately narrower than software-agent arbitration. Lesson 20 concerns which operator may authorize a software action and how an evidence console resumes an agent run. This lesson concerns a physical workspace in which a person and machine share objects, force, and space. The safety supervisor must therefore remain effective even if the task record, model, or network is unavailable. That separation is an architectural requirement, not merely a naming preference.
 
 ## Limits and failure modes
 
@@ -154,7 +182,22 @@ def resume(task: Task, observed_scene: int) -> str:
 
 task = Task("pick-17", mode=Mode.SAFE_HOLD)
 accept_handoff(task, "operator-3")
-print(resume(task, observed_scene=1))
+assert resume(task, observed_scene=1) == "resume permitted after validation"
+assert task.mode is Mode.RESUMING
+
+unauthorized = Task("pick-18", mode=Mode.AUTONOMOUS)
+try:
+    accept_handoff(unauthorized, "operator-4")
+except ValueError as error:
+    assert "safe hold" in str(error)
+else:
+    raise AssertionError("autonomous task accepted an unsafe handoff")
+
+stale = Task("pick-19", mode=Mode.SAFE_HOLD, scene_version=7)
+accept_handoff(stale, "operator-5")
+assert resume(stale, observed_scene=8) == "resume denied: scene changed; plan again"
+assert stale.mode is Mode.REVALIDATING
+print("positive and failure handoff assertions passed")
 ```
 
 1. Save the example as `handoff.py` and run it with `python3 handoff.py`.
@@ -193,15 +236,14 @@ Choose a robot-assisted workflow and list three moments when a person may need t
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context; vendor publication archive.
+- [Google DeepMind — 2026-07-30, Gemini Robotics-ER 2](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) — July source for human-proximity stopping, resumption after clearance, and safety orchestration claims.
 - [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) — governance and risk-management context.
 - [ROS 2 documentation](https://docs.ros.org/en/rolling/) — primary documentation for robot-software concepts.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| Robotics systems use explicit software interfaces, state, and safety-related components. | ROS 2 documentation | Source-context fact |
-| Human–robot handoff should transfer authority and verifiable state. | Lesson synthesis | Engineering inference |
-| AI planning capability alone does not establish physical safety. | Lesson synthesis | Engineering inference |
-| Fresh observation is needed after relevant physical changes. | Lesson synthesis | Engineering inference |
+|---|---|---|
+| The July 30 robotics post describes stopping when a person is nearby and resuming after the area is clear. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| The post introduces a benchmark for safety orchestration, uncertainty resolution, and human intervention. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| ROS 2 provides software interfaces used to compose robot applications. | [ROS 2 — accessed 2026-09-07](https://docs.ros.org/en/rolling/) | Fact; documentation scope |
+| A physical handoff still requires hardware safety, local stop behavior, and fresh scene validation. | This lesson’s architecture | Engineering inference |

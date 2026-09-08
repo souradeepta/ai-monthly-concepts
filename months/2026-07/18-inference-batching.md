@@ -2,11 +2,15 @@
 
 Status: durable
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (issue discovery context); [NVIDIA Triton Inference Server documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html); [Hugging Face continuous batching documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization)
+Sources: [Google — 2026-07-21, official model release](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/); [NVIDIA — publication date not stated, accessed 2026-09-07, Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html); [Hugging Face — publication date not stated, accessed 2026-09-07, optimization documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization)
 
 ## In one sentence
 
 Inference batching combines compatible requests into shared model executions, improving accelerator utilization while requiring explicit controls for queueing, padding, fairness, memory, and tail latency.
+
+## Prerequisites
+
+Know queueing, tokenization, prefill, decode, KV cache, deadlines, cancellation, and p95 latency. Continuous batching changes the active sequence set between decode rounds; it is not merely waiting for N requests before one static call.
 
 ## Background: what existed before
 
@@ -24,9 +28,7 @@ The target of optimization has also broadened. Throughput, measured as tokens pe
 
 ## What changed this month
 
-This month’s concept map treats batching as part of AI application architecture rather than a hidden runtime setting. New agent traffic mixes short interactive turns with long tool or evaluation jobs, so a single FIFO queue no longer describes the service. The scheduler has to understand deadlines, compatibility, cache reservations, and fairness while preserving runtime correctness.
-
-The source-linked serving documentation provides batching primitives; selecting classes and budgets for a deployment is an engineering inference. Record the policy version with every request so a latency regression can be tied to a scheduler change. A measured rollout can compare metrics under identical demand instead of relying on uniform benchmark prompts.
+No exact July 2026 release about continuous batching was verified. Google’s July 21 release makes efficiency and low latency explicit product goals, which is relevant context but not a batching claim. The durable serving sources provide batching primitives; this lesson’s architecture is an engineering design focused on continuous admission, cache reclamation, cancellation, fairness, and queue policy. Record the policy version with every request so a latency regression can be tied to a scheduler change.
 
 ## Impact on current processing and architecture
 
@@ -65,15 +67,21 @@ sequenceDiagram
   U->>Q: Enqueue prompt with deadline
   Q-->>S: Candidate request
   S->>S: Check compatibility, quota, and memory
-  S->>G: Run prefill microbatch
-  G-->>S: KV cache handles
-  loop decode rounds
-    S->>G: Run active sequences
-    G-->>S: Next tokens and finished flags
-    S-->>U: Stream committed tokens
-    S->>Q: Admit waiting request if capacity exists
+  rect rgb(219, 234, 254)
+    S->>G: Run prefill microbatch
+    G-->>S: KV cache handles
+    loop decode rounds
+      S->>G: Run active sequences
+      G-->>S: Next tokens and finished flags
+      S-->>U: Stream committed tokens
+      S->>Q: Admit waiting request if capacity exists
+    end
+    S-->>U: Completion or cancellation reason
   end
-  S-->>U: Completion or cancellation reason
+  rect rgb(254, 226, 226)
+    S->>Q: Expire, cancel, or reject unsafe request
+    Q-->>S: Reclaim cache reservation
+  end
 ```
 
 KV-cache memory often becomes the limiting resource. Cache size grows with context length, layers, heads, and precision. Reserve memory before admission and evict only at a defined boundary. Swapping cache blocks to host memory may prevent failure but adds latency. A request that exceeds its budget should be rejected or truncated explicitly, not allowed to trigger an out-of-memory crash that affects every tenant.
@@ -131,38 +139,80 @@ Incorrect compatibility keys can mix adapters or privacy domains. Cache accounti
 
 Padding waste grows with length variance. Bucketing reduces waste but may increase waiting for a rare shape. Adaptive windows should have a maximum delay. A model update can change memory use and invalidate previous batch limits; capacity tests belong in deployment gates.
 
+## Continuous batching as a control loop
+
+Continuous batching is easiest to reason about as a repeated control loop: observe arrivals and sequence state, choose a compatible active set, reserve or release cache, execute one decode round, then record what changed. The word “continuous” does not mean that every request is mixed with every other request. It means the set can change at a safe boundary between rounds. A request that finishes leaves immediately, while a newly admitted request joins at its current prefill or decode phase. This removes the static-batch assumption that every sequence has the same remaining length.
+
+The safe boundary is important because a sequence’s key-value cache is stateful. A scheduler may not simply replace a row in a batch while a kernel is using its memory. It must wait for the runtime receipt, mark the old sequence terminal or cancelled, free its blocks, and then attach the new sequence with a compatible model, adapter, tokenizer, and privacy domain. The local simulator below treats one token and one cache slot as a round, but a production runtime may allocate many paged blocks. The invariant is the same: allocation, execution, and reclamation are observable transitions.
+
+Deadline enforcement also needs a precise meaning. A request can miss a first-token deadline while still eventually completing, or it can reach a hard completion deadline with tokens remaining. Record both queue-deadline and completion-deadline misses rather than collapsing them into an “error” count. At the hard boundary, the scheduler should stop admitting more decode work for that request, emit a typed timeout, release its cache, and let the API choose a partial response or a retry. Continuing to generate after the deadline may improve one internal metric while violating the user contract.
+
+Cancellation is a resource event, not just a client-facing status. If the browser disconnects, the request must leave the active set and its cache reservation must be reclaimed even if it has not produced a final token. A late runtime result must be ignored using a sequence or generation identifier; otherwise a cancelled request can reappear in a subsequent batch. The simulator includes a cancellation between rounds so the assertion checks resource release, not only list membership.
+
+Fairness should be measured as service received, not merely number of admissions. Track decoded tokens per tenant, class, and priority; queue delay; deadline misses; and the maximum gap between eligible service opportunities. A high-priority interactive queue can legitimately receive more service, but an offline tenant should not receive zero service indefinitely. Weighted fair queuing, aging, or a bounded priority boost are possible policies. Their weights belong in configuration and traces because changing them changes the product’s latency/cost behavior. Fairness also has a memory dimension: one tenant holding long contexts can consume cache while other tenants wait, even if token counts look balanced.
+
+The scheduler therefore needs a policy version on every batch receipt. When p99 latency rises, operators can distinguish a model-kernel regression from a larger batch delay, a changed deadline policy, a cache leak, or a new tenant mix. Test the policy with burst traces containing short interactive requests, long prefills, cancellations, and incompatible adapters. This is the boundary with speculative decoding: this lesson governs admission, active-set changes, deadlines, cache ownership, and fairness; it does not decide whether one sequence’s tokens were proposed by a draft model.
+
 ## Build it locally
 
 This toy scheduler groups requests by model and token budget while respecting a maximum batch size.
 
 ```python
-from collections import defaultdict
+from collections import defaultdict, deque
 
-requests = [
-    {"id": "a", "model": "small", "tokens": 80},
-    {"id": "b", "model": "small", "tokens": 70},
-    {"id": "c", "model": "large", "tokens": 80},
-]
+arrivals = deque([
+    {"id": "a", "arrival": 0, "tenant": "interactive", "remaining": 3, "deadline": 5},
+    {"id": "late", "arrival": 0, "tenant": "offline", "remaining": 5, "deadline": 2},
+    {"id": "b", "arrival": 1, "tenant": "offline", "remaining": 1, "deadline": 4},
+    {"id": "d", "arrival": 1, "tenant": "offline", "remaining": 4, "deadline": 7},
+    {"id": "c", "arrival": 2, "tenant": "interactive", "remaining": 3, "deadline": 9, "cancel_at": 3},
+])
+active, finished, missed, cancelled = [], [], [], []
+service = defaultdict(int)
+cache_in_use = 0
+max_cache = 0
+reclaimed = 0
+admitted = 0
 
-def batches(items, max_items=2, max_tokens=160):
-    groups = defaultdict(list)
-    for item in items:
-        groups[item["model"]].append(item)
-    result = []
-    for model, group in groups.items():
-        current, total = [], 0
-        for item in group:
-            if current and (len(current) == max_items or total + item["tokens"] > max_tokens):
-                result.append((model, current))
-                current, total = [], 0
-            current.append(item)
-            total += item["tokens"]
-        if current:
-            result.append((model, current))
-    return result
+for tick in range(9):
+    while arrivals and arrivals[0]["arrival"] <= tick:
+        item = arrivals.popleft()
+        active.append(item)
+        admitted += 1
+        cache_in_use += 1
+    survivors = []
+    for item in active:
+        if item.get("cancel_at") == tick:
+            cancelled.append(item["id"])
+            cache_in_use -= 1
+            reclaimed += 1
+        elif tick >= item["deadline"] and item["remaining"] > 0:
+            missed.append(item["id"])
+            cache_in_use -= 1
+            reclaimed += 1
+        else:
+            survivors.append(item)
+    active = survivors
+    active.sort(key=lambda item: (item["deadline"], service[item["tenant"]], item["arrival"]))
+    for item in active[:2]:  # one continuous decode round
+        item["remaining"] -= 1
+        service[item["tenant"]] += 1
+        if item["remaining"] == 0:
+            finished.append(item["id"])
+            cache_in_use -= 1
+            reclaimed += 1
+    active = [item for item in active if item["remaining"] > 0]
+    max_cache = max(max_cache, cache_in_use)
+    print("tick", tick, "active", [item["id"] for item in active], "cache", cache_in_use)
 
-for model, batch in batches(requests):
-    print(model, [item["id"] for item in batch])
+total_service = sum(service.values())
+fairness_ratio = min(service.values()) / max(service.values())
+assert "late" in missed                 # hard deadline removed unfinished work
+assert "c" in cancelled                  # cancellation removed a live sequence
+assert {"a", "b", "d"}.issubset(set(finished))
+assert cache_in_use == 0 and reclaimed == admitted
+assert max_cache <= 4 and total_service > 0
+assert set(service) == {"interactive", "offline"} and fairness_ratio > 0
 ```
 
 1. Save as `batch.py` and run `python3 batch.py`.
@@ -177,6 +227,10 @@ for model, batch in batches(requests):
 2. Use command-line timing to compare single requests, static batches, and a short dynamic window.
 3. Capture only local synthetic traffic with Wireshark and verify that cancellation and retry metadata contain no prompt secrets.
 4. Add a Markdown diagram of queue, scheduler, cache, and runtime, then document the latency and throughput trade-off.
+
+## Mini exercise (15–30 min)
+
+Extend the simulator with a fifth request that arrives while `a` is decoding. Track each request’s queue delay, decode rounds, cancellation time, and deadline miss. Compare FIFO with earliest-deadline-first and report whether the policy improved p95 completion time without starving the long request.
 
 ## Interview Q&A
 
@@ -206,14 +260,14 @@ Before enabling a new batching policy, replay a representative trace, verify com
 
 ## References
 
-- [NVIDIA Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html) — serving and batching context.
+- [NVIDIA Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html) — serving and batching context; publication date not stated on the page.
 - [Hugging Face optimization documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization) — inference optimization context.
 - [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| Dynamic batching groups arriving inference requests for shared execution. | Triton documentation | Source-context fact |
-| Continuous batching is useful for variable-length generation. | Serving practice and synthesis | Engineering inference |
-| Queue, cache, and fairness policies are as important as kernel efficiency. | Lesson synthesis | Engineering inference |
+|---|---|---|
+| The July 21 release frames efficiency and low latency as goals for agentic workflows. | [Google — 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) | Fact; provider release claim |
+| Triton documents dynamic batching controls for inference requests. | [NVIDIA — publication date not stated, accessed 2026-09-07](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html) | Fact; documentation scope |
+| Continuous batching is a scheduler behavior for variable-length generation, not merely static grouping. | Serving-systems analysis | Engineering inference |
+| Queue, cache, cancellation, and fairness policies affect useful throughput and tail latency. | This lesson’s architecture | Engineering inference |

@@ -2,11 +2,15 @@
 
 Status: emerging
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (issue discovery context); [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework); [OpenTelemetry documentation](https://opentelemetry.io/docs/)
+Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/); [NIST — publication date not stated, accessed 2026-09-07, AI RMF](https://www.nist.gov/itl/ai-risk-management-framework); [OpenTelemetry — publication date not stated, accessed 2026-09-07, official documentation](https://opentelemetry.io/docs/)
 
 ## In one sentence
 
 Operator takeover is a designed transfer from autonomous execution to accountable human control, with bounded authority, visible state, and a safe path back to automation.
+
+## Prerequisites
+
+Know authenticated leases, command arbitration, safe pause, sequence numbers, revalidation, trace context, and human workload. A takeover is complete only when autonomous authority is paused and the operator has a bounded, inspectable control surface.
 
 ## Background: what existed before
 
@@ -22,7 +26,7 @@ The important shift is from passive oversight to an explicit control lease. The 
 
 ## What changed this month
 
-Operator takeover becomes a first-class state transition for agents and robots. It joins model planning, policy, queues, and telemetry. Capability remains separate from accountability: a model may suggest an action, while a named operator owns an irreversible decision. This distinction makes incidents reviewable and gives teams a concrete way to evaluate whether automation is ready for a wider scope.
+The verified July 30 robotics post reports proactive human intervention when the embodied reasoner is uncertain and describes human teleoperation as part of the robotics system. It does not establish a universal software operator-takeover protocol. The engineering translation is to make that intervention a first-class state transition for agents and robots. It joins model planning, policy, queues, and telemetry. Capability remains separate from accountability: a model may suggest an action, while a named operator owns an irreversible decision. This distinction makes incidents reviewable and gives teams a concrete way to evaluate whether automation is ready for a wider scope.
 
 ## Impact on current processing and architecture
 
@@ -52,7 +56,7 @@ The console should show the task objective, last committed action, pending effec
 
 Takeover requires command arbitration. Use one active controller and an expiring authority lease. Autonomous workers renew only while the state is `AUTONOMOUS`; a lease loss moves them to a safe pause. Human actions use separate credentials and are logged with the target, parameters, and confirmation. The model can receive a sanitized observation that control changed, but it should not be able to reclaim control by issuing a normal tool call.
 
-## Real-world applications
+## Real-world applications and constraints
 
 A coding agent can pause before merging a change that touches production configuration. The operator sees the diff, test receipts, policy reason, and rollback plan. Approval grants merge authority for that revision only; it does not grant unrestricted repository access.
 
@@ -77,13 +81,18 @@ sequenceDiagram
   G->>A: Pause new autonomous commands
   G->>O: Present state, evidence, and scope
   O->>G: Accept lease or decline
-  alt human control
-    O->>A: Issue bounded action
-    A-->>G: Receipt and resulting state
-    O->>G: Request release
-    G->>A: Revalidate before autonomous resume
-  else no operator
-    G->>A: Escalate or remain safely paused
+  rect rgb(220, 252, 231)
+    alt human control
+      O->>A: Issue bounded action
+      A-->>G: Receipt and resulting state
+      O->>G: Request release
+      G->>A: Revalidate before autonomous resume
+    end
+  end
+  rect rgb(254, 226, 226)
+    alt no operator
+      G->>A: Escalate or remain safely paused
+    end
   end
 ```
 
@@ -133,7 +142,21 @@ Finally, set launch gates. Require zero stale-command executions in fault inject
 
 Keep the human interface honest about uncertainty. Show conflicting observations, missing receipts, and policy constraints in plain language. If the operator can only choose among prevalidated actions, label that boundary; if free-form input is accepted, run it through the same authorization and validation path as an autonomous proposal. A takeover should reduce risk by adding accountable judgment, not create a privileged back door around normal controls.
 
-This toy gateway rejects autonomous commands while a human lease is active.
+## Authority handoff protocol
+
+The handoff has two different safety questions: who may issue the next command, and whether the command is still valid in the world described by the evidence. Authentication answers the first question; revalidation answers the second. A correctly identified operator can still be acting on a stale camera frame, an old repository diff, or a lease that expired while the console was offline. Treating identity as sufficient therefore creates a polished version of the same race condition that takeover was meant to control.
+
+Use a monotonic run sequence as a fencing token. Every ownership change increments it, and the gateway rejects a command carrying any older value. A worker that generated a command before the takeover may still deliver that message after the operator accepts control. The stale sequence prevents that delayed message from producing an effect. Sequence checks must occur immediately before the effect adapter, not only when the command is placed on a queue; otherwise a queued command can pass an early check and execute after ownership has changed. The adapter should also receive the lease ID and resource scope so an incorrectly routed command cannot be mistaken for a current one.
+
+Expiry is a safety transition, not a cleanup task. At or after the deadline, the gateway should stop accepting commands under the old lease, mark the run safely paused, and emit an expiry event containing the observed time and sequence. It should not silently transfer authority to the agent, because the operator may have intended to renew or the physical scene may have changed. A new operator can acquire a fresh lease only after the state is known. For robots, the local safety controller may also need to stop motion independently of the network gateway; for software, pending remote effects may require reconciliation before any retry.
+
+Revalidation should name its inputs. A generic boolean called `validated=True` is useful for a toy, but a production release should carry observation timestamp, scene or resource version, policy version, plan hash, and the checks that passed. Compare the version observed by the operator with the current version at release time. If a file changed, a sensor became stale, an account lock appeared, or a tool receipt is unknown, keep the run paused and request another decision. This makes resumption a new authorization boundary rather than an automatic continuation of a conversation.
+
+The operator console should make these fences visible. Show the active lease ID, expiry countdown, sequence, evidence freshness, pending effects, and the exact resources covered by the lease. Disable controls that cannot succeed and explain why, but still enforce the rule at the gateway because a UI can be bypassed or can be out of date. Record both accepted and denied commands. Denials are valuable evidence for detecting stale clients, clock skew, repeated automation races, or an operator trying to exceed scope.
+
+Positive and negative tests must exercise the state machine, not only the happy-path message. Acquire a lease and prove that an agent command is rejected. Send the old sequence after a new lease and prove that it is rejected even when the actor string is otherwise valid. Advance time beyond expiry and prove that the run enters `SAFE_PAUSED`. Change the observed scene after a human action and prove that release is rejected until a fresh observation is supplied. Finally, prove that a valid release changes the sequence and permits only the narrowly defined resume command. These tests are the software equivalent of a physical safety drill and belong in deployment gates.
+
+This toy gateway rejects autonomous commands while a human lease is active, expires the lease, rejects stale sequence numbers, and requires revalidation before release.
 
 ```python
 from dataclasses import dataclass
@@ -142,21 +165,46 @@ from dataclasses import dataclass
 class Gateway:
     owner: str = "agent"
     lease: str | None = None
+    expires_at: int = 0
+    sequence: int = 0
+    state: str = "AUTONOMOUS"
 
-    def acquire(self, operator: str) -> None:
+    def acquire(self, operator: str, now: int, ttl: int = 10) -> None:
         self.lease = operator
-        self.owner = "human"
+        self.owner = operator
+        self.expires_at = now + ttl
+        self.sequence += 1
+        self.state = "HUMAN_CONTROL"
 
-    def command(self, actor: str, action: str) -> str:
+    def command(self, actor: str, action: str, now: int, sequence: int) -> str:
+        if now >= self.expires_at and self.lease is not None:
+            self.state = "SAFE_PAUSED"
+            return "denied: lease expired"
+        if sequence != self.sequence:
+            return "denied: stale sequence"
         if actor != self.owner:
             return "denied: active controller is " + self.owner
         return "accepted: " + action
 
+    def release(self, actor: str, now: int, validated: bool) -> str:
+        if actor != self.owner or now >= self.expires_at or not validated:
+            return "denied: revalidation required"
+        self.owner, self.lease, self.state = "agent", None, "AUTONOMOUS"
+        self.sequence += 1
+        return "released"
+
 g = Gateway()
-print(g.command("agent", "draft"))
-g.acquire("operator-7")
-print(g.command("agent", "publish"))
-print(g.command("operator-7", "approve"))
+g.expires_at = 100
+print(g.command("agent", "draft", 1, 0))
+g.acquire("operator-7", now=10)
+print(g.command("agent", "publish", 11, 0))
+print(g.command("operator-7", "approve", 11, g.sequence))
+assert g.command("agent", "publish", 11, g.sequence - 1).startswith("denied")
+assert g.command("operator-7", "approve", 21, g.sequence).startswith("denied")
+assert g.release("operator-7", 21, validated=True).startswith("denied")
+g = Gateway(); g.acquire("operator-7", now=10)
+assert g.release("operator-7", 11, validated=True) == "released"
+assert g.command("agent", "resume", 12, g.sequence) == "accepted: resume"
 ```
 
 1. Save as `takeover.py` and run `python3 takeover.py`.
@@ -175,6 +223,10 @@ The same review should examine near misses. A denied stale command, an expired l
 2. Use Python and command-line tools to inject duplicate, delayed, and out-of-order commands.
 3. Capture synthetic local traffic with Wireshark and verify that lease credentials are not logged.
 4. Document the state machine and permissions in Markdown with a flow and sequence diagram.
+
+## Mini exercise (15–30 min)
+
+Extend the gateway with a `TAKEOVER_REQUESTED` state and a reason code. Write tests for a duplicate operator acceptance, an expired lease, a stale autonomous sequence, and a release after the scene or tool state changed. Your final assertion should show that resumption is denied until a fresh validation result is attached.
 
 ## Interview Q&A
 
@@ -205,9 +257,9 @@ The same review should examine near misses. A denied stale command, an expired l
 - [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| AI risk management includes governance and accountability considerations. | NIST AI RMF | Source-context fact |
-| Takeover should be a durable state and authority transition. | Lesson synthesis | Engineering inference |
-| Trace IDs connect autonomous proposals, human actions, and receipts. | OpenTelemetry context | Engineering inference |
+|---|---|---|
+| The July 30 robotics post describes seeking human intervention when uncertain and halting near people. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| NIST AI RMF includes governance and accountability considerations. | [NIST — accessed 2026-09-07](https://www.nist.gov/itl/ai-risk-management-framework) | Fact; framework scope |
+| OpenTelemetry documents common observability concepts for traces and context. | [OpenTelemetry — accessed 2026-09-07](https://opentelemetry.io/docs/) | Fact; documentation scope |
+| Software takeover should be a durable authority transition with expiry, sequence rejection, and revalidation. | This lesson’s architecture | Engineering inference |

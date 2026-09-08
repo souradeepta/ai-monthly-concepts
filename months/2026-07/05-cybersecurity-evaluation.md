@@ -1,10 +1,14 @@
 # Cybersecurity evaluation
-Status: draft — expansion pending
-Sources: [Google DeepMind — news archive](https://deepmind.google/blog/), [Frontier Model Forum — emerging security practices for AI agents](https://www.frontiermodelforum.org/issue-briefs/emerging-security-practices-for-ai-agents/)
+Status: emerging
+Sources: [Google DeepMind — 2026-07-21, primary cyber-model release](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/)
 
 ## In one sentence
 
 Cybersecurity evaluation measures what a model or agent can do in authorized, contained environments while preventing the evaluation itself from becoming an unsafe capability tutorial or an uncontrolled path to real systems.
+
+## Prerequisites
+
+Know benchmark design, threat modeling, authorization, isolation, telemetry, and false-positive/false-negative trade-offs. A capability score measures task performance; it is not a deployment permission or a safety case.
 
 ## Background: what existed before
 
@@ -12,13 +16,17 @@ Security teams evaluate systems through threat modeling, code review, scanning, 
 
 AI agents change the evaluation target. An agent may read logs, generate code, use browsers, call APIs, and chain tools over a long task. Evaluating only a text response misses its ability to select actions, persist state, recover from errors, and adapt to tool output. Evaluating it on real internet targets, however, could cause harm or expose third parties. The system therefore needs a contained cyber range, synthetic identities and assets, scoped credentials, egress controls, monitoring, and a way to stop a run immediately.
 
-The July source map identifies cybersecurity evaluation as a frontier-operations concept, with the linked sources providing primary or industry context. They do not establish that every model has the same capability or risk. The durable engineering lesson is that capability measurement and safe evaluation infrastructure must be designed together.
+The July 21 Gemini 3.5 Flash Cyber release is the monthly anchor. It reports evaluation on CyberGym, Big Sleep’s internal evaluation, and a Chrome production commit-scanning pipeline, while also describing a limited-access deployment approach. These are provider-reported results and deployment choices, not an independent safety certification. The lesson’s focus is measurement validity: define the task, harness, permissions, and failure categories so a score says what was tested and what it cannot establish. Red-team finding closure and cyber-range provisioning are separate concerns covered elsewhere in this issue.
 
 ## What changed and why now
 
 Agentic systems can take multiple tool-mediated steps instead of merely describing one. That makes task completion, policy compliance, and containment part of the score. A benchmark should distinguish a model that recognizes a vulnerability from one that can safely explain remediation, from one that can operate a test environment, and from one that attempts to cross its authorization boundary. Collapsing these into one score hides the operational risk.
 
 Use task levels and explicit stop conditions. A low-risk evaluation might ask an agent to identify insecure configuration in a synthetic repository. A contained range might test whether it follows a documented incident workflow using fictional hosts. High-impact or dual-use tasks need additional review, stricter access, and possibly exclusion. The task description, tool permissions, data, network topology, evaluator, and allowed outputs should be versioned so results are reproducible and scope cannot drift silently.
+
+## What changed this month
+
+On July 21, Google described Gemini 3.5 Flash Cyber as a limited-access model paired with CodeMender and reported evaluations including CyberGym. These are provider-described release and benchmark claims, not independent validation. The evaluation lesson is to measure the entire harness—model calls, tools, retries, permissions, containment, and evidence—rather than promoting a narrow score into a deployment permission.
 
 ## Impact on current processing and architecture
 
@@ -46,6 +54,7 @@ Evaluate multiple dimensions. Task outcome asks whether the objective was achiev
 
 ```mermaid
 sequenceDiagram
+    rect rgb(219, 234, 254)
     participant O as Evaluation orchestrator
     participant G as Tool gateway
     participant A as Agent
@@ -59,6 +68,7 @@ sequenceDiagram
     R-->>G: bounded result
     G-->>E: audited event stream
     E-->>O: outcome and compliance result
+    end
 ```
 
 ## Real-world applications and constraints
@@ -125,6 +135,18 @@ For teams integrating this work into a release process, require a signed evaluat
 
 It also gives operations teams a concrete artifact for audits, approvals, rollback planning, and subsequent regression reviews.
 
+## Engineering analysis
+
+The July cyber release combines a model, a code-security workflow, and benchmark results. Those are three separate objects an evaluator must not collapse. A capability score may indicate that the model found or repaired a class of vulnerability under the provider’s setup. It does not show that the model will obey every production policy, that the benchmark environment matches a customer system, or that the patch is safe to merge. A valid evaluation reports the harness configuration alongside the model result.
+
+Start with an evaluation question that has an observable answer. “Can the agent help with vulnerability remediation?” can become: identify the vulnerable component in a synthetic repository, produce a patch in a disposable branch, run the declared tests, and stop before publication. The evaluator can score identification, patch correctness, test preservation, tool authorization, and escalation separately. A run that finds the issue but attempts to read an unrelated secret is both capable and unsafe; a single scalar score hides that distinction.
+
+Control variables are part of the result. Record model version, system instructions, temperature or sampling policy, tool schemas, repository revision, dependency versions, network rules, time budget, retry count, and evaluator version. If a tool gateway filters an action, record the proposed action and the denial rather than pretending the model never attempted it. If a benchmark service fails, classify the run as infrastructure-invalid instead of grading the agent. Reproducibility is not identical output; it is enough information to explain why externally visible behavior differed.
+
+Safety thresholds should be defined before seeing the results. Examples include no production egress, no credential retrieval, no unapproved file publication, and mandatory escalation on ambiguous ownership. A kill switch must be tested, not merely documented. Quotas need to cover API calls, compute, storage, and task duration because an agent can stay within a token budget while producing thousands of tool requests. The evaluation account should be disposable and have no path to customer data.
+
+Interpretation requires negative and positive controls. Run a harmless authorized task to detect over-refusal, an adversarial fixture to test boundary adherence, and a malformed-tool case to test fail-closed behavior. Use multiple seeds and hold out scenario wording so the model cannot pass by memorizing a marker. Review a sample of traces manually, especially near the safety boundary. The July release gives a concrete reason to study cyber-capable models; the evaluator’s job is to turn a provider claim into a scoped, reproducible measurement without turning the test into an attack recipe.
+
 ## Build it locally
 
 This toy policy gate accepts only registered synthetic hosts and records a scope denial. It does not interact with a real system.
@@ -140,6 +162,17 @@ class Request:
     run_id: str
 
 
+def run_gate(request: Request, used: dict[str, int], kill_switch: bool = False) -> str:
+    if kill_switch:
+        return "DENY: kill switch"
+    if used.get(request.run_id, 0) >= 2:
+        return "DENY: action budget"
+    decision = allow(request)
+    if decision.startswith("ALLOW"):
+        used[request.run_id] = used.get(request.run_id, 0) + 1
+    return decision
+
+
 def allow(request: Request) -> str:
     if not request.host.endswith(".range.test"):
         return "DENY: target outside synthetic range"
@@ -151,6 +184,11 @@ def allow(request: Request) -> str:
 print(allow(Request("web-01.range.test", "check_config", "run-7")))
 print(allow(Request("example.com", "read_log", "run-7")))
 assert allow(Request("db-01.range.test", "collect_evidence", "run-8")).startswith("ALLOW")
+budget = {}
+assert run_gate(Request("web-01.range.test", "check_config", "run-9"), budget).startswith("ALLOW")
+assert run_gate(Request("web-01.range.test", "check_config", "run-9"), budget).startswith("ALLOW")
+assert run_gate(Request("web-01.range.test", "check_config", "run-9"), budget).startswith("DENY")
+assert run_gate(Request("web-01.range.test", "check_config", "run-10"), {}, kill_switch=True).startswith("DENY")
 ```
 
 1. Save as `range_policy.py` and run `python3 range_policy.py`.
@@ -181,13 +219,13 @@ Design a synthetic evaluation for finding an intentionally insecure configuratio
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — primary discovery source for the July topic.
+- [Google DeepMind — Introducing Gemini 3.5 Flash Cyber, 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) — primary release and monthly source.
 - [Frontier Model Forum — emerging security practices for AI agents](https://www.frontiermodelforum.org/issue-briefs/emerging-security-practices-for-ai-agents/) — industry security context.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
 |---|---|---|
-| The July concept map includes cybersecurity evaluation as a frontier-operations topic. | Google DeepMind news archive | Source-context fact |
-| A safe agent evaluation needs containment, scoped tools, independent telemetry, and tested stop controls. | This lesson’s systems design | Engineering inference |
-| A narrow benchmark score does not establish general deployment safety. | This lesson’s systems design | Engineering inference |
+| The July release describes Gemini 3.5 Flash Cyber as limited-access and paired with CodeMender. | [Google DeepMind — 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) | Fact; provider release claim |
+| The release reports evaluation on CyberGym and other security tasks. | [Google DeepMind — 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) | Fact; provider evaluation claim |
+| Benchmark scope, harness permissions, and containment must be reported with an evaluation score. | This lesson’s methodology | Engineering inference |
+| A capability score does not by itself establish deployment safety. | This lesson’s methodology | Engineering inference |

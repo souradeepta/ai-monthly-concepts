@@ -1,10 +1,14 @@
 # Computer use
-Status: draft — expansion pending
-Sources: [Google DeepMind — news archive](https://deepmind.google/blog/)
+Status: emerging
+Sources: [Google — 2026-07-21, official model release](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/); [W3C — 2026-07-02, WebDriver Working Draft](https://www.w3.org/TR/2026/WD-webdriver2-20260702/)
 
 ## In one sentence
 
 Computer-use agents operate visual interfaces through screenshots, keyboard input, and pointer actions, so they need explicit state verification, narrow authority, and recovery paths because pixels are a weaker contract than an API.
+
+## Prerequisites
+
+Know HTTP origins, browser navigation, DOM or accessibility trees, authorization, and optimistic concurrency. A page-state hash is a version marker; after a mismatch the system must re-observe and explain what changed.
 
 ## Background: what existed before
 
@@ -12,13 +16,17 @@ People use graphical interfaces by combining perception and context. They read l
 
 Application APIs remain the preferred integration surface when they exist. An API can expose typed arguments, authentication, authorization, idempotency, receipts, rate limits, and versioning. A GUI agent is often necessary only for legacy systems, cross-application work, or human-facing tasks with no supported API. That necessity does not make the GUI safe as a general tool: a page can contain untrusted text, a visually similar button, or an unexpected modal that changes the meaning of the next click.
 
-The July source map treats computer-use and embodied-agent operations as a current learning area, using the Google DeepMind news archive as a primary discovery source. This is not evidence that a specific model can reliably operate every application. The engineering inference is that a capable visual planner must still be contained by browser isolation, a clear action vocabulary, and independent verification of each consequential effect.
+The July 21 Google release is the monthly anchor: it describes computer use as a client-side tool in the Gemini API and reports an OSWorld-Verified result. Those are release-specific capability and provider-evaluation claims, not evidence that an arbitrary GUI workflow is reliable. The engineering boundary for this lesson is the action-policy gateway: it decides whether a proposed interaction is allowed. Semantic target identity belongs to the grounding lesson, and process, profile, and network isolation belong to the sandboxing lesson.
 
 ## What changed and why now
 
 Multimodal models can interpret screenshots and take actions based on natural-language goals, allowing an application to automate work that previously required hand-authored selectors. This expands coverage but also changes the failure mode: the agent may recognize the right intent yet ground it on the wrong visual target, follow an instruction embedded in a page, or act on stale UI state. “Click submit” is not a durable effect specification unless the system also knows which form, account, target, confirmation, and receipt are expected.
 
 Design computer use as a sequence of observe–decide–act–verify steps. Before each action, capture the relevant page state, active origin, window or tab, user identity context, and permitted task scope. Translate the planner’s intent into a typed action such as `navigate_allowed_origin`, `click_element_with_label`, `fill_known_field`, or `request_human_confirmation`. After each action, inspect the DOM, URL, accessibility tree, or server receipt when available. Prefer semantic signals over visual coordinates, even when a model selected the target.
+
+## What changed this month
+
+The verified July 21 update says computer use is a built-in client-side tool in the Gemini API and reports an OSWorld-Verified comparison. That is a provider capability claim, not proof that arbitrary GUI actions are reliable. The engineering change is a clearer boundary: the model proposes an action, the client owns the browser session, and a policy gateway checks origin, page version, target, and effect.
 
 ## Impact on current processing and architecture
 
@@ -46,6 +54,7 @@ The action gateway should reject unsafe plans before the browser receives them. 
 
 ```mermaid
 sequenceDiagram
+    rect rgb(219, 234, 254)
     participant P as Planner
     participant G as UI gateway
     participant B as Browser sandbox
@@ -62,6 +71,7 @@ sequenceDiagram
         H-->>G: approve or stop
     end
     G-->>P: sanitized outcome, not new authority
+    end
 ```
 
 ## Real-world applications and constraints
@@ -116,6 +126,18 @@ That discipline keeps UI automation bounded, debuggable, and replaceable as supp
 
 It also ensures failures produce actionable evidence instead of hidden retries or unexplained user-facing changes.
 
+## Engineering analysis
+
+The July computer-use release is best read as an interface change, not a replacement for application architecture. A client-side tool can expose a model to screenshots and interaction primitives, and the reported OSWorld-Verified result indicates a benchmark capability claim. It does not answer whether a particular purchase, account change, or file upload is authorized. That decision remains with the application that owns the browser session. The clean boundary is planner proposal, client validation, browser execution, and independent postcondition verification.
+
+Typed actions reduce ambiguity. Instead of passing an unconstrained instruction such as “finish checkout,” the planner can request `click` with a semantic target, an expected origin, a page revision, and a risk class. The gateway checks that the target still exists, the user and tenant are unchanged, and the action is within the run’s budget. For a write, it can require a preview and one-time confirmation. The browser controller should return a structured result containing the resulting URL, visible state class, server receipt if available, and an `unknown_outcome` flag for disconnects.
+
+The distinction between observation and authority is easy to lose. A screenshot may display an “administrator” label, but that label is page content, not an authenticated role. A web page may tell the model to upload a file or reveal a secret, but that instruction is untrusted input. The gateway must derive authority from the authenticated session and policy store, not from text returned by the page. Keep the browser profile disposable and broker credentials only for the exact origin and operation that needs them.
+
+Coordinate automation with application semantics. If an API exists, use it for the effect and use the browser only to gather context or display a review. When the GUI is unavoidable, prefer accessibility roles, stable labels, and relationships to coordinates. Re-query just before execution because a modal, redirect, or asynchronous update can change the target. After execution, verify a business-level postcondition—an order ID, changed version, or saved record—not just that the click event was delivered.
+
+Test the gateway as a security component. Include duplicate labels, stale snapshots, cross-origin redirects, disabled controls, expired approvals, and a lost connection immediately after a write. Measure false refusals separately from unsafe approvals; making the agent refuse every action is not useful automation. Record the evidence used for each decision in a redacted trace so an operator can explain why a safe task stopped. The July source demonstrates that computer use is becoming a product capability; the engineering consequence is that the client, not the model, must own session state, permissions, and recovery.
+
 ## Build it locally
 
 This example models the trusted action gateway. It permits only a known origin and requires confirmation for a consequential submit action; it does not attempt to automate a real browser.
@@ -142,9 +164,19 @@ def authorize(action: UiAction) -> str:
     return f"ALLOW: {action.kind} {action.target}"
 
 
+def authorize_against_state(action: UiAction, observed_origin: str, observed_hash: str, expected_hash: str) -> str:
+    if action.origin != observed_origin:
+        return "DENY: observed origin changed"
+    if observed_hash != expected_hash:
+        return "RETRY: page state is stale"
+    return authorize(action)
+
+
 print(authorize(UiAction("https://support.example", "fill_draft", "reply")))
 print(authorize(UiAction("https://support.example", "submit", "reply")))
 assert authorize(UiAction("https://evil.example", "read", "page")).startswith("DENY")
+assert authorize_against_state(UiAction("https://support.example", "fill_draft", "reply"), "https://support.example", "new", "old").startswith("RETRY")
+assert authorize_against_state(UiAction("https://support.example", "fill_draft", "reply"), "https://evil.example", "old", "old").startswith("DENY")
 ```
 
 1. Save it as `ui_gateway.py` and run `python3 ui_gateway.py`.
@@ -175,11 +207,14 @@ Choose a legacy workflow such as creating a ticket. List each visible action, it
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — primary discovery source for the July topic.
+- [Google — 3.6 Flash, 3.5 Flash-Lite, and 3.5 Flash Cyber, 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) — primary release and monthly source.
+- [W3C — WebDriver Working Draft, 2026-07-02](https://www.w3.org/TR/2026/WD-webdriver2-20260702/) — primary browser automation protocol context.
 - [OWASP Top 10 for LLM Applications](https://genai.owasp.org/llm-top-10/) — practitioner security context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| July’s source map includes computer-use concepts. | Google DeepMind news archive | Source-context fact |
-| GUI agents should use browser isolation, verified state, narrow actions, and independent effect gates. | This lesson’s systems design | Engineering inference |
+| The July release describes computer use as a built-in client-side tool via the Gemini API. | [Google — 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) | Fact; provider release claim |
+| The release reports an OSWorld-Verified result for computer use. | [Google — 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) | Fact; provider evaluation claim |
+| A client-side action gateway should validate origin, page state, and effect scope. | This lesson’s architecture | Engineering inference |
+| Browser action policy is distinct from semantic target grounding and process isolation. | Lesson boundary analysis | Engineering inference |

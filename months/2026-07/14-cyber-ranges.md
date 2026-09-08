@@ -1,9 +1,13 @@
-# Cyber ranges
+# Cybersecurity benchmark harnesses
 Status: emerging
-Sources: [NIST — Cybersecurity Framework 2.0](https://www.nist.gov/cyberframework) (primary guidance); [MITRE ATT&CK](https://attack.mitre.org/) (public knowledge base)
+Sources: [Google DeepMind — 2026-07-21, primary cyber-model release](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/); [NIST — 2026-09-07, accessed; Cybersecurity Framework 2.0](https://www.nist.gov/cyberframework); [MITRE — 2026-09-07, accessed; ATT&CK knowledge base](https://attack.mitre.org/)
 
 ## In one sentence
 A cyber range is an isolated, instrumented environment where teams can measure an AI system’s security behavior against realistic scenarios without exposing production systems or publishing harmful operational recipes.
+
+## Prerequisites
+
+Know virtual networks, namespaces, snapshots, synthetic identities, egress controls, telemetry, and scoring. A cyber range is an executable test environment with reset and containment guarantees, not merely a list of benchmark prompts.
 
 ## Background: what existed before
 
@@ -56,7 +60,7 @@ The range has two safety invariants. First, no route should lead from the range 
 
 ## What changed this month
 
-The July learning map adds cyber ranges alongside cybersecurity evaluation and red teaming. The month-specific connection is an engineering inference: agent systems require repeatable environments that test tool use and recovery, not only response text. This article makes no claim that a particular July release introduced a cyber range.
+The verified July 21 cyber-model release reports evaluation with CyberGym and describes a model used with CodeMender. It does not introduce a cyber range product or prove that the cited benchmark is a complete production simulation. The month-specific lesson is therefore narrower: benchmark harnesses need repeatable environments, tool boundaries, and reset evidence when they measure agent behavior. The range architecture below is an engineering design, not a release claim.
 
 ## Engineering consequence
 
@@ -83,7 +87,32 @@ sequenceDiagram
   end
   Sc-->>Q: score, traces, reset status
   Q->>O: destroy run
+  rect rgb(219, 234, 254)
+    Note over Q,O: Provisioning and lifecycle control
+  end
+  rect rgb(220, 252, 231)
+    Note over X,A: Isolated scenario execution
+  end
+  rect rgb(254, 226, 226)
+    Note over O,Sc: Quarantine, scoring, and failure evidence
+  end
 ```
+
+## Range lifecycle: provision, observe, reset, prove
+
+A range is only as trustworthy as its lifecycle controller. Provisioning, execution, reset, and evidence publication should be separate operations with separate permissions. The test runner may request a scenario, but it should not be able to modify the base image or widen the network policy. The agent may use declared tools, but it should not be able to call the orchestrator directly. The scorer may read normalized events, while only the operator can retrieve a quarantined snapshot. This separation prevents a clever test subject from converting an evaluation interface into infrastructure administration.
+
+Provisioning begins with an immutable scenario definition. The definition should name an image digest, fixture version, seed, service graph, identity set, network policy, quotas, and expected cleanup resources. The orchestrator stamps every resource with the run ID and an expiry. That stamp is more than bookkeeping: it gives a cleanup job a principled way to find abandoned containers, queues, buckets, and identities. If a service cannot be labelled or enumerated reliably, it does not belong in an unattended range without an additional containment mechanism.
+
+Isolation is layered because no single layer is perfect. A private virtual network blocks ordinary routes; a tool gateway blocks undeclared operations; a service identity limits what an allowed operation can do; and an outer kill switch stops a run that violates resource or time limits. DNS should be controlled as well as IP routing. Otherwise an agent can use a permitted resolver or an attacker-controlled name to discover services that the scenario never declared. Denied egress should generate an event with destination class and policy version, not simply disappear, because the difference between “the model never tried” and “the gateway stopped it” is important evidence.
+
+Reset is a destructive but necessary test operation. It must remove state created by the run, not just restart the main container. Enumerate queues, scheduled jobs, object prefixes, database rows, service accounts, browser sessions, and event subscriptions. Reset should be idempotent: running it twice produces the same clean result, and a partial failure leaves the run quarantined for operator inspection. A reset receipt should report what was found, what was deleted, and what could not be verified. “Container exited” is not a reset proof if a queue message or cloud identity remains alive.
+
+The scorer should consume evidence after normalization. Keep raw transcripts and infrastructure logs under different retention policies, and give assertions stable event fields such as `run_id`, `principal`, `operation`, `target_class`, `decision`, and `state_after`. An assertion can then test “no confidential label crossed the public-egress gateway” without embedding a real payload in the report. Time matters: a boundary violation at minute one and a violation after the task deadline are not the same operational result. Record monotonic timestamps for durations and wall-clock timestamps for audit correlation.
+
+A range also needs invalid-test handling. If provisioning used the wrong image, a fixture was missing, or telemetry dropped events, mark the run invalid rather than scoring the agent. If the agent exceeded a quota, preserve the evidence and quarantine it before cleanup. If cleanup cannot prove that all resources are gone, do not allocate the same identity or network segment to a new run. These states should be visible in a small lifecycle state machine: `requested`, `provisioning`, `ready`, `running`, `quarantined`, `resetting`, `clean`, or `invalid`.
+
+This lifecycle focus keeps the lesson distinct from evaluation methodology. A benchmark question asks whether behavior meets an assertion; a cyber range supplies the infrastructure that makes the assertion safe and repeatable. The range operator’s success metric is not only model score. It includes provisioning reliability, denied-egress coverage, event completeness, reset duration, leftover-resource rate, and time to quarantine. Those metrics tell an engineering team whether more agent experiments will produce trustworthy evidence.
 
 Use layers of isolation: a separate cloud account or project, deny-by-default network rules, per-run service accounts, resource quotas, and an outer kill switch. The gateway should reject undeclared destinations before DNS resolution where possible. Tool calls should be typed and validated. If a scenario intentionally includes an insecure service, keep it behind a private range address and seed it with non-sensitive data.
 
@@ -147,6 +176,35 @@ trace = [
     Event("escalate", "ticket-2", "queued"),
 ]
 print(score(trace))
+assert score(trace)["safe"] and score(trace)["escalated"]
+
+
+class MockRange:
+    def __init__(self):
+        self.files = {"run-1": {"token": "synthetic"}}
+        self.queue = {"run-1": ["fixture-message"]}
+        self.egress_attempts = []
+
+    def request(self, run_id: str, host: str) -> str:
+        if run_id not in self.files:
+            return "DENY: unknown namespace"
+        if not host.endswith(".range.test"):
+            self.egress_attempts.append((run_id, host))
+            return "DENY: egress policy"
+        return "ALLOW: synthetic gateway"
+
+    def reset(self, run_id: str) -> None:
+        self.files.pop(run_id, None)
+        self.queue.pop(run_id, None)
+
+
+mock = MockRange()
+assert mock.request("run-1", "web.range.test").startswith("ALLOW")
+assert mock.request("run-1", "real.example").startswith("DENY")
+assert mock.egress_attempts == [("run-1", "real.example")]
+mock.reset("run-1")
+assert mock.request("run-1", "web.range.test").startswith("DENY")
+assert "run-1" not in mock.queue and "run-1" not in mock.files
 ```
 
 Numbered implementation steps:
@@ -187,12 +245,9 @@ Numbered implementation steps:
 - [NIST SP 800-115](https://csrc.nist.gov/pubs/sp/800/115/final) — technical security testing guidance.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
 |---|---|---|
-| NIST CSF organizes cybersecurity risk-management outcomes | NIST CSF | Source-context fact |
-| ATT&CK provides a public knowledge base of adversary behaviors | MITRE ATT&CK | Source-context fact |
-| Agent evaluation needs tool and environment state in addition to text | None; system-design analysis | Engineering inference |
-| Scenario manifests improve reproducibility | None; testing practice | Engineering inference |
-| Deny-by-default egress lowers range escape risk | None; defense-in-depth design | Engineering inference |
-| Safety and task completion should be scored separately | None; evaluation design | Engineering inference |
+| The July cyber release reports evaluation using the CyberGym benchmark. | [Google DeepMind — 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) | Fact; provider evaluation claim |
+| The release describes restricted access for the cyber model because of dual-use concerns. | [Google DeepMind — 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) | Fact; provider deployment claim |
+| NIST CSF organizes cybersecurity risk-management outcomes. | [NIST CSF — accessed 2026-09-07](https://www.nist.gov/cyberframework) | Fact; framework scope |
+| A range needs reset, evidence, and denied egress in addition to task scoring. | This lesson’s infrastructure design | Engineering inference |

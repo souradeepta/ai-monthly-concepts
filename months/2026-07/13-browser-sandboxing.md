@@ -1,9 +1,13 @@
-# Browser sandboxing
+# WebDriver session isolation
 Status: emerging
-Sources: [Chromium Security — Site Isolation](https://www.chromium.org/Home/chromium-security/site-isolation/) (primary documentation); [W3C — WebDriver](https://www.w3.org/TR/webdriver2/) (standard)
+Sources: [W3C — 2026-07-02, WebDriver Working Draft](https://www.w3.org/TR/2026/WD-webdriver2-20260702/); [Chromium Security — 2026-09-07, accessed; Site Isolation documentation](https://www.chromium.org/Home/chromium-security/site-isolation/)
 
 ## In one sentence
 Browser sandboxing gives a computer-use agent a constrained, observable browser process whose page content, network access, files, and credentials cannot silently become unrestricted powers.
+
+## Prerequisites
+
+Know browser processes, origins, cookies, network egress, profiles, containers, and least privilege. Isolation limits what a compromised or confused browser session can reach; it does not make page content trustworthy.
 
 ## Background: what existed before
 
@@ -18,6 +22,10 @@ Sandboxing is a collection of boundaries rather than one switch. The browser ren
 The important change is the move from trusted automation to least-privilege browsing. A browser agent needs a disposable profile, a policy-controlled network path, and explicit approval for sensitive actions. The page is now an adversarial input channel. Modern browser security features such as site isolation reduce the damage of renderer compromise, while WebDriver-like interfaces make browser actions explicit enough to audit. These are source-context facts about platform boundaries; the design recommendation that combines them into an agent sandbox is an engineering inference.
 
 A useful sandbox defines three planes. The observation plane exposes pixels, accessibility nodes, and selected page metadata. The control plane accepts a small vocabulary such as navigate, click, type, and upload. The authority plane decides whether a requested action may use a domain, credential, file, or payment instrument. Keeping these planes separate prevents a screenshot from granting permission and prevents a model's natural-language plan from bypassing policy.
+
+## What changed this month
+
+The directly dated July source for this lesson is the W3C WebDriver Working Draft published 2026-07-02. It is standards-track browser-automation context, not a claim that W3C shipped a new sandbox or that every implementation has adopted a new security property. The draft makes the automation interface a precise, inspectable protocol surface. That matters to this lesson because an isolation service can authorize and record protocol-level navigation, browsing-context, and input operations instead of handing a model an opaque browser handle. Chromium’s Site Isolation documentation remains durable platform-security context. The combined recommendation—process/profile/network isolation outside the page—is an engineering design inference, not a July release claim.
 
 ## Impact on current processing and architecture
 
@@ -58,10 +66,6 @@ Think of the browser as a remote, untrusted device. The model is an operator who
 
 The most important distinction is between data and authority. Page text can say “upload your secrets,” but that text has no authority. A button can be labelled “confirm,” but the policy engine must classify the underlying effect. Conversely, a policy may allow a click but deny the resulting navigation if it leaves the approved origin. Model confidence is evidence for triage; it is not an access-control decision.
 
-## What changed this month
-
-The July learning map treats browser sandboxing as a foundational control for computer-use systems. The month-specific connection is an engineering inference from the rise of agents that combine visual observation with tool actions: as the action loop becomes more capable, browser isolation and explicit authority become part of the application architecture rather than an optional test harness. This article does not assert an unverified July product release.
-
 ## Engineering consequence
 
 Define a browser task contract before writing prompts. It should specify origins, methods, data classes, maximum duration, download rules, upload rules, and approval points. Represent each action as a typed object, for example `click(locator, expected_origin, risk_class)`, rather than passing arbitrary JavaScript to the page. Keep JavaScript execution disabled for ordinary tasks; if a specialized task needs it, place it in a separate capability with a distinct approval and audit stream.
@@ -91,7 +95,30 @@ sequenceDiagram
   else denied
     G-->>R: block and retain evidence
   end
+  rect rgb(219, 234, 254)
+    Note over R,G: Request and policy boundary
+  end
+  rect rgb(220, 252, 231)
+    Note over C,B: Isolated execution boundary
+  end
+  rect rgb(254, 226, 226)
+    Note over B,H: Sensitive or denied effect
+  end
 ```
+
+## Isolation is a composition, not a container checkbox
+
+It is tempting to describe a browser sandbox as “run Chromium in a container” and stop there. That sentence names one implementation mechanism but leaves the important authority questions unanswered. A process can be containerized and still inherit a powerful service-account token, a host-mounted directory, a permissive DNS resolver, or a network route to internal administration endpoints. Conversely, a browser may have strong renderer isolation while the account logged into the browser can still alter every customer record. The security property has to be stated as a composition of independently testable boundaries.
+
+The process boundary limits what a renderer compromise can do to the controller host. The profile boundary limits what a new task can learn from an earlier task: cookies, local storage, service workers, extension state, history, and cached downloads should not cross runs. The network boundary limits where the process can send bytes. The filesystem boundary limits which local bytes it can read or write. The identity boundary limits which business operations the web account can perform. These boundaries fail differently, so their tests should fail differently. A test that downloads `/etc/passwd` exercises filesystem exposure; a test that submits an order under the wrong tenant exercises identity scope; a test that calls a private IP exercises network egress.
+
+The controller should also distinguish browser state from policy state. A page can cause a redirect, open a popup, or change the DOM, but it must not be able to mutate the task’s allowlist or approval grant. Store policy in the run service and pass a read-only decision to the controller. When navigation changes the origin, invalidate assumptions derived from the prior page and require a new policy evaluation. This is especially important for federated login: a task may legitimately visit an identity provider, but the identity provider should be an explicit edge in the policy graph rather than an accidental consequence of following a link.
+
+Network isolation needs more than a hostname list. Resolve names through a controlled resolver, reject private and link-local address ranges unless explicitly permitted, and re-check the destination after redirects. A permitted domain can be compromised, can host an open redirect, or can expose a server-side request feature. Egress policy should therefore classify both destination and operation: a GET for a public document is not equivalent to a POST carrying customer data. Log the policy decision and destination class without logging cookies, authorization headers, or full form bodies.
+
+Profile disposal is a lifecycle operation. At task start, create a unique profile and attach an owner and expiry. During execution, record downloads and storage mutations. At completion, revoke brokered credentials, close the browser, delete the profile, and verify that no process remains. If cleanup fails, quarantine the host or worker rather than returning it to a warm pool. A warm browser can save startup latency, but it turns forgotten state into ambient authority. The safe optimization is to reuse an isolated worker image while still creating a fresh profile and network identity per run.
+
+These checks should appear in acceptance tests and in production telemetry. Measure blocked private-network attempts, cross-origin transitions, profile-cleanup failures, credential-broker calls, and unknown outcomes after controller disconnects. A low count of blocked requests does not prove safety; it may mean the tests never attempted prohibited actions. Pair operational metrics with adversarial fixtures that contain redirects, misleading download names, hidden form fields, and instructions asking the model to paste a token. The boundary is successful when those inputs remain data and cannot become authority.
 
 Testing should include hostile page content, unexpected redirects, popups, cross-origin frames, downloads with misleading names, expired sessions, and controller restarts. The test oracle is not merely “the model refused.” It is that the browser had no prohibited capability even when the model requested it. Run these tests against the same container, proxy, and credential configuration used in production.
 
@@ -184,16 +211,13 @@ Numbered implementation steps:
 ## References
 
 - [Chromium Security — Site Isolation](https://www.chromium.org/Home/chromium-security/site-isolation/) — primary platform-security documentation.
-- [W3C — WebDriver](https://www.w3.org/TR/webdriver2/) — standards-track browser automation interface.
+- [W3C — WebDriver Working Draft, 2026-07-02](https://www.w3.org/TR/2026/WD-webdriver2-20260702/) — standards-track browser automation interface and July source context.
 - [OWASP — Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — secondary risk taxonomy for agent systems.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
 |---|---|---|
-| Same-origin policy separates web origins | Chromium Security; W3C | Source-context fact |
-| WebDriver provides a standardized automation boundary | W3C WebDriver | Source-context fact |
-| Agent page content should be treated as untrusted input | OWASP risk taxonomy | Engineering interpretation |
-| A disposable profile reduces ambient credential exposure | None; derived from least privilege | Engineering inference |
-| Action authorization should be checked immediately before execution | None; derived from changing UI state | Engineering inference |
-| Isolation must be paired with account scoping and approval | None; defense-in-depth design | Engineering inference |
+| No exact July 2026 browser-sandboxing release was verified for this lesson. | Source review performed 2026-09-07 | Fact about this editorial pass |
+| Chromium documents Site Isolation as a browser security architecture. | [Chromium Security — accessed 2026-09-07](https://www.chromium.org/Home/chromium-security/site-isolation/) | Fact; documentation scope |
+| WebDriver specifies a standardized browser automation boundary. | [W3C — accessed 2026-09-07](https://www.w3.org/TR/webdriver2/) | Fact; standard scope |
+| Browser process isolation should be paired with scoped accounts, credentials, and deny-by-default egress. | This lesson’s threat model | Engineering inference |

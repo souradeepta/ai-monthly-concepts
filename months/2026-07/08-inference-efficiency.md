@@ -1,10 +1,14 @@
 # Inference efficiency
-Status: draft — expansion pending
-Sources: [Google DeepMind — news archive](https://deepmind.google/blog/)
+Status: durable
+Sources: [Google — 2026-07-21, official model release](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/); [NVIDIA — 2026-09-07, official Triton documentation accessed](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html)
 
 ## In one sentence
 
 Inference efficiency improves the cost, latency, and capacity of model serving through batching, caching, routing, quantization, and decoding strategies—but every optimization must be measured against workload-specific quality and reliability.
+
+## Prerequisites
+
+Know p50/p95 latency, throughput, tokens, queueing, cache memory, batching, quantization, and A/B testing. An optimization is useful only when a representative workload improves the service objective without unacceptable quality or safety regressions.
 
 ## Background: what existed before
 
@@ -12,13 +16,17 @@ Serving a model means more than one matrix multiplication. A request is authenti
 
 The baseline response to capacity pressure is often to add larger accelerators or more replicas. That can work, but it may leave obvious inefficiencies untouched: repeated system prompts, unbounded output length, low batch utilization, poorly routed simple tasks, cold model loads, and retries that regenerate the same response. Efficiency techniques change these bottlenecks, but they also introduce new constraints. Batching can increase throughput while delaying first-token latency; quantization can reduce memory while changing quality; caching can save work while serving stale or unauthorized results if keys are weak.
 
-The July source map includes inference efficiency as an operations concept. This is source context rather than a claim about a particular optimization or model. The durable engineering lesson is that serving improvements are systems changes: measure end-to-end behavior, make routing and cache policy explicit, and retain a safe fallback when an optimization fails.
+The July 21 Google release is the monthly anchor: it presents model variants as a trade-off among token efficiency, latency, cost, and quality, and reports provider measurements such as lower output-token use for 3.6 Flash. That is a release-specific claim, not a universal benchmark result. The engineering lesson is end-to-end experimentation: measure the completed task across model choice, prompt, tool calls, queueing, and retries. Speculative decoding is an algorithmic verification technique in lesson 17; continuous batching is a scheduler design in lesson 18.
 
 ## What changed and why now
 
 As models become part of interactive products and internal workflows, cost and latency are product requirements rather than infrastructure details. Teams can choose from smaller models, quantized bundles, dynamic batching, prefix caching, speculative decoding, request routing, output constraints, and asynchronous queues. The correct combination depends on the request mix and service-level objective, not a generic benchmark.
 
 Start by decomposing latency. Queue time is waiting before a request receives compute. Prefill time processes input tokens. Decode time produces each output token. Tool and network time may dominate an agent workflow. First-token latency affects interactivity; total completion time affects background tasks; p95 and p99 expose contention that averages hide. Record each component with model, runtime, hardware, prompt class, context length, output length, cache state, and routing decision.
+
+## What changed this month
+
+The July 21 model update makes token efficiency, low latency, and cost explicit product objectives for agentic workflows and reports provider measurements for its new models. Those numbers are not portable guarantees. The engineering change is experimental discipline: compare representative prompts, quality slices, queue behavior, safety checks, and cost before and after batching, quantization, caching, routing, or decoding changes.
 
 ## Impact on current processing and architecture
 
@@ -142,11 +150,26 @@ def admit(request: Request, available_tokens: int) -> str:
     return f"ADMIT: reserve {reservation}"
 
 
+def estimate(request: Request, input_ms_per_token: float, output_ms_per_token: float, quality: float) -> dict:
+    reservation = request.input_tokens + request.output_tokens
+    return {
+        "name": request.name,
+        "reservation": reservation,
+        "latency_ms": request.input_tokens * input_ms_per_token + request.output_tokens * output_ms_per_token,
+        "quality": quality,
+        "cost_units": reservation / 1000,
+    }
+
+
 short = Request("chat", 200, 100)
 long = Request("document", 1800, 800)
 print(admit(short, 1000))
 print(admit(long, 1000))
 assert admit(long, 1000).startswith("QUEUE")
+fast = estimate(short, 0.2, 0.4, 0.92)
+slow = estimate(long, 0.2, 0.4, 0.92)
+assert slow["latency_ms"] > fast["latency_ms"]
+assert fast["quality"] == slow["quality"]
 ```
 
 1. Save as `capacity_gate.py` and run `python3 capacity_gate.py`.
@@ -177,11 +200,13 @@ Choose a real request type and define its first-token objective, total completio
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — primary discovery source for the July topic.
+- [Google — 3.6 Flash, 3.5 Flash-Lite, and 3.5 Flash Cyber, 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) — primary release and monthly source.
 - [MLPerf Inference](https://mlcommons.org/benchmarks/inference-datacenter/) — inference benchmark context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| July’s source map includes inference efficiency as an operations topic. | Google DeepMind news archive | Source-context fact |
-| Efficient serving requires workload-specific measurement of latency, capacity, cost, quality, and access controls. | This lesson’s systems design | Engineering inference |
+| The July model release frames token efficiency, latency, and cost as goals for agentic workflows. | [Google — 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) | Fact; provider release claim |
+| The release reports 17% fewer output tokens for 3.6 Flash than 3.5 Flash on the cited index. | [Google — 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) | Fact; provider-reported measurement |
+| Batching, quantization, caching, and routing change different resource and quality variables. | This lesson’s systems analysis | Engineering inference |
+| Optimization decisions require representative latency, cost, quality, and safety slices. | This lesson’s systems analysis | Engineering inference |

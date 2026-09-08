@@ -2,11 +2,15 @@
 
 Status: emerging
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (issue discovery context); [W3C WebDriver specification](https://www.w3.org/TR/webdriver2/) (browser-automation context); [WAI-ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/) (semantic UI context)
+Sources: [Google — 2026-07-21, official model release](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/); [W3C — 2026-07-02, WebDriver Working Draft](https://www.w3.org/TR/2026/WD-webdriver2-20260702/)
 
 ## In one sentence
 
 UI state grounding is the discipline of connecting an agent’s intended action to verified, current interface state before it clicks, types, submits, or claims a task is done.
+
+## Prerequisites
+
+Know DOM and accessibility semantics, browser sessions, selectors, preconditions, and postconditions. Grounding asks which current element means a target; authorization separately asks whether an action may occur.
 
 ## Background: what existed before
 
@@ -188,10 +192,9 @@ Pick a form your team automates. List the identity fields needed to distinguish 
 - [WAI-ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/) — semantic UI source context.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| WebDriver provides a standard browser-automation protocol. | W3C WebDriver | Source-context fact |
-| Accessibility semantics provide useful target identity signals. | WAI-ARIA guidance | Source-context fact |
-| State-changing UI actions should recheck current preconditions. | Lesson synthesis | Engineering inference |
-| Completion needs postcondition evidence, not only a click. | Lesson synthesis | Engineering inference |
+|---|---|---|
+| The July 21 release describes computer use as a built-in client-side tool. | [Google — 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) | Fact; provider release claim |
+| WebDriver specifies a browser automation protocol. | [W3C — accessed 2026-09-07](https://www.w3.org/TR/webdriver2/) | Fact; standard scope |
+| ARIA practices document semantic roles and interaction patterns. | [W3C WAI — accessed 2026-09-07](https://www.w3.org/WAI/ARIA/apg/) | Fact; guidance scope |
+| UI actions should recheck target identity, preconditions, and postconditions. | This lesson’s architecture | Engineering inference |

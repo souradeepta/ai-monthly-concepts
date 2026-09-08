@@ -1,10 +1,14 @@
 # Robot task orchestration
-Status: draft — expansion pending
-Sources: [Google DeepMind — news archive](https://deepmind.google/blog/)
+Status: emerging
+Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/); [Google DeepMind — 2026-07-30, model card](https://deepmind.google/models/model-cards/gemini-robotics-er-2/)
 
 ## In one sentence
 
 Robot task orchestration is the control plane that turns work requests into leased, observable, recoverable assignments for physical machines operating under changing constraints.
+
+## Prerequisites
+
+Know queues, leases, heartbeats, state machines, and idempotency keys. A lease is a time-bounded claim on work; a heartbeat is a liveness signal; an idempotency key lets a retried request map to one intended effect.
 
 ## Background: what existed before
 
@@ -14,7 +18,11 @@ The historical baseline is a centralized job queue with workers that pull the ne
 
 ## What changed and why now
 
-The July source map identifies embodied-agent and robotics developments as a focus area, using the Google DeepMind news archive as the primary discovery source. This is source context, not evidence for a particular fleet claim. The engineering inference is that more capable perception and planning make orchestration more important: a planner can propose a task, but deterministic fleet services still assign authority, reserve resources, detect missed heartbeats, and force safe recovery.
+The July 30 ER 2 release is the direct monthly anchor for this lesson. It describes a high-level robotics model that calls lower-level VLA and navigation tools, reasons while actions are executing, and supports workflows involving more than one robot. The release does not specify a fleet scheduler or prove safe operation. The engineering inference is narrower and useful: as a model can propose more steps and tool calls, a deterministic control plane must own assignment, authority, resource reservations, and recovery rather than treating the model’s plan as a dispatch record.
+
+## What changed this month
+
+The verified July 30 ER 2 release describes a high-level robotics model that plans multi-step tasks, calls low-level control tools, tracks progress from continuous video, and supports collaboration between different robots. These are release-specific capability claims, not evidence of safe or optimal fleet operation. For orchestration, the important boundary is that the model emits a typed proposal while deterministic services own assignment, leases, resource reservations, and effect reconciliation.
 
 ## Impact on current processing and architecture
 
@@ -40,6 +48,7 @@ Use explicit state transitions such as `QUEUED`, `RESERVED`, `DISPATCHED`, `RUNN
 
 ```mermaid
 sequenceDiagram
+    rect rgb(219, 234, 254)
     participant Q as Task queue
     participant S as Scheduler
     participant R as Robot
@@ -54,6 +63,7 @@ sequenceDiagram
     else receipt observed
         R-->>S: completed effect ID
         S-->>Q: commit terminal state
+    end
     end
 ```
 
@@ -113,6 +123,18 @@ Use post-incident reviews to improve the task model. A blocked task caused by an
 
 This feedback cycle should also update training and simulation scenarios. Record environmental conditions, device health, and the operator’s chosen recovery so recurring patterns become testable before the next software release.
 
+## Engineering analysis
+
+The ER 2 release is useful here because it separates a reasoning model from the physical execution layer. A model that can identify steps and track progress is not the same thing as a dispatcher that owns a robot lease. That distinction prevents a common design mistake: treating a generated plan as an assignment. A plan can say “ask robot B to move the tote,” but the control plane must resolve which tote, which robot identity, which route reservation, and which authority window. It must also record what happened if robot B accepted the command but lost connectivity before the tote moved.
+
+Use a task envelope as the contract between probabilistic planning and deterministic orchestration. The envelope should contain a stable task ID, a requested capability, an object reference rather than an unconstrained description, a deadline, a priority class, a maximum number of retries, and the expected evidence of completion. It should not contain a permission to invent a new destination or bypass a safety controller. A planner can propose a change to the envelope, but a policy service should validate that change against the tenant, facility, and current operating mode.
+
+The control plane also needs an explicit ownership model. A queue message says that work is available; a lease says which worker may attempt it; a heartbeat says that the worker still believes it owns the attempt. These are different facts. If the heartbeat stops, the scheduler can recover the lease, but it should first query telemetry and the work system for a possible partial effect. Reassigning a physical task without reconciliation can create duplicate picks, two robots approaching one station, or an operator searching for an item that was already moved. The most important audit record is often the transition to `UNKNOWN_EFFECT`, because it explains why automation paused.
+
+Measure orchestration separately from model quality. Track assignment latency, lease age, heartbeat freshness, resource-conflict rate, recovery time, duplicate-effect rate, and the proportion of tasks requiring human resolution. A high task-completion rate can hide a queue that starves low-priority work or a robot fleet that succeeds only because operators silently repair every exception. Conversely, a conservative system may show more escalations while producing fewer unsafe physical states. The right dashboard joins model proposals to deterministic outcomes without treating either as a complete safety proof.
+
+This boundary is especially important when several model calls participate in one task. One call may identify an object, another may choose a sequence, and a third may summarize progress. Their outputs are observations or proposals, not authoritative state. The orchestrator should store a compact, versioned projection of each output and derive state transitions from receipts and sensors. That makes replay possible, keeps prompt growth bounded, and lets engineers replace a planner without changing the lease and reconciliation semantics that protect the facility.
+
 ## Build it locally
 
 This small example shows a lease gate and a safe response to a stale heartbeat. It models only task state; real fleets also need authenticated telemetry, location validation, and hardware safety controls.
@@ -142,10 +164,26 @@ def check_lease(task: Task, now: int) -> str:
     return f"OK:{task.state}"
 
 
+def reconcile(task: Task, observed_effect: str | None) -> str:
+    if task.state != "UNKNOWN_EFFECT":
+        return "REJECT: reconciliation is not needed"
+    if observed_effect == "completed":
+        task.state = "COMPLETED"
+        return "COMMIT: physical effect confirmed"
+    if observed_effect == "absent":
+        task.state = "QUEUED"
+        task.robot_id = None
+        return "REQUEUE: no physical effect found"
+    return "ESCALATE: evidence is inconclusive"
+
+
 task = Task()
 print(assign(task, "robot-3", now=100))
 print(check_lease(task, now=131))
 assert task.state == "UNKNOWN_EFFECT"
+assert reconcile(task, "inconclusive").startswith("ESCALATE")
+assert reconcile(task, "completed").startswith("COMMIT")
+assert assign(task, "robot-9", now=140).startswith("REJECT")
 ```
 
 1. Save this as `fleet_lease.py` and run `python3 fleet_lease.py`.
@@ -176,12 +214,15 @@ Draw a task graph for one physical workflow: retrieve an item, cross a shared co
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — primary discovery source for the July robotics topic.
+- [Google DeepMind — Gemini Robotics ER 2, 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) — primary product release and monthly source.
+- [Google DeepMind — Gemini Robotics ER 2 model card](https://deepmind.google/models/model-cards/gemini-robotics-er-2/) — primary model documentation.
 - [ROS 2 documentation](https://docs.ros.org/en/rolling/) — robotics middleware context.
 - [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) — risk-management context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| July’s source map covers embodied-agent and robotics developments. | Google DeepMind news archive | Source-context fact |
-| Fleet orchestration needs leases, durable state, telemetry, and reconciliation. | This lesson’s systems design | Engineering inference |
+| ER 2 is described as a high-level robotics model that plans multi-step tasks and hands execution to lower-level action models. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| The July post describes continuous video progress tracking and multi-robot collaboration. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| A deterministic queue should own leases, reservations, and effect reconciliation. | This lesson’s architecture | Engineering inference |
+| Heartbeat loss should enter an unknown-effect path before reassignment. | This lesson’s architecture | Engineering inference |

@@ -2,11 +2,15 @@
 
 Status: durable
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (issue discovery context); [Temporal documentation — Durable Execution](https://docs.temporal.io/what-is-temporal); [AWS Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html)
+Sources: [Temporal — publication date not stated, accessed 2026-09-07, official documentation](https://docs.temporal.io/what-is-temporal); [AWS — publication date not stated, accessed 2026-09-07, Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html)
 
 ## In one sentence
 
 Durable execution records workflow decisions and external effects so an AI process can replay its orchestration after failure without rerunning unsafe side effects blindly.
+
+## Prerequisites
+
+Know event histories, deterministic replay, activities, timers, signals, retries, schema/version compatibility, and idempotent external APIs. Durable execution reconstructs orchestration; it cannot atomically roll back a remote side effect.
 
 ## Background: what existed before
 
@@ -24,7 +28,7 @@ The distinction from a general long-running task article is replay discipline. A
 
 ## What changed this month
 
-The useful design change is to move timers, retries, and branch decisions into a durable history. A worker can restart and reconstruct the workflow without asking a model to remember prior steps. This reduces duplicate calls and makes recovery behavior testable. It does not make an AI plan correct; policy gates, validation, and human review remain separate controls.
+No direct July 2026 release about durable execution was verified. This article is marked planned/rebuild-needed for the July source contract; Temporal and AWS documentation are durable workflow context, not July developments. The useful design change is to move timers, retries, and branch decisions into a durable history. A worker can restart and reconstruct the workflow without asking a model to remember prior steps. This reduces duplicate calls and makes recovery behavior testable. It does not make an AI plan correct; policy gates, validation, and human review remain separate controls.
 
 ## Impact on current processing and architecture
 
@@ -62,17 +66,21 @@ sequenceDiagram
   A->>X: Execute request
   X-->>A: Response or lost response
   A->>H: Record result when known
-  Note over W,H: Worker may restart
-  W->>H: Replay prior events
-  H-->>W: Return recorded result
-  alt result absent
-    W->>A: Retry or reconcile by key
+  rect rgb(219, 234, 254)
+    Note over W,H: Worker may restart
+    W->>H: Replay prior events
+    H-->>W: Return recorded result
+  end
+  rect rgb(254, 226, 226)
+    alt result absent
+      W->>A: Retry or reconcile by key
+    end
   end
 ```
 
 Versioning is a core processing concern. A workflow started under one branch may still be running after code changes. Use a version marker or compatibility route so replay sees the old decision logic for old histories. Change activity behavior behind a versioned contract and retain old deserializers until all runs migrate or finish.
 
-## Real-world applications
+## Real-world applications and constraints
 
 A coding workflow can wait for CI, sleep until a review window, and receive a human signal. The history records the commit revision, test receipt, approval identity, and timer. A restart does not rerun the build merely because the worker was replaced.
 
@@ -134,23 +142,70 @@ Durable history can grow without bound and expose sensitive data. Use retention,
 
 Retries can amplify outages or duplicate side effects. Classify errors, use exponential backoff with a ceiling, and reconcile before retrying uncertain writes. An engine cannot infer semantic correctness from a successful activity status.
 
+## Crash-point matrix and reconciliation
+
+The phrase “exactly once” is dangerous because the workflow engine and the external service usually commit in different systems. Consider the boundary between an API response and the history write. If the API rejects the request, the worker can record a terminal failure. If the API accepts it and the worker records the receipt, replay is straightforward. The difficult case is an accepted remote effect followed by a process crash before the receipt reaches durable history. On restart, the workflow sees an activity without a completion event. A blind retry can create a second email, charge, deployment, or ticket.
+
+The remedy is an application-level protocol. Derive a stable idempotency key from the workflow identity, logical activity name, and business revision. Send that key to an external API that stores it with the result, or place a local idempotency service in front of an API that lacks the feature. On retry, query by key before issuing a new effect. If the remote system cannot search by key, use a domain-specific reconciliation query such as operation ID, transaction reference, or unique business tuple. If no safe query exists, stop in an `UNKNOWN_EFFECT` state and request an operator decision; uncertainty is a state to manage, not permission to repeat.
+
+The key must describe the logical effect, not the worker attempt. A retry counter belongs in telemetry, but changing it in the idempotency key defeats deduplication. Conversely, reusing a key for two genuinely different revisions suppresses a legitimate change. Store the plan hash, resource identifier, intended operation, and policy version alongside the key. Reconciliation should compare those fields before accepting a remote receipt. A response for the wrong resource is not a successful replay result merely because the key lookup returned a row.
+
+Durable history should distinguish scheduling from completion. `activity_scheduled` proves that the workflow intended to run an activity; it does not prove that the external system acted. `effect_observed` or `activity_completed` carries the remote operation ID, status, response hash, and observation time. A worker crash after `effect_observed` but before the local append is different from a timeout before the remote service responded. These distinctions drive different recovery paths and make incident review possible. Keep raw payloads in a restricted artifact store and put only hashes and references in the history when the payload is sensitive.
+
+Replay compatibility has a second axis: code versions. A new worker may read old events and choose a different branch if it does not honor a recorded version marker. For every workflow branch that affects an external effect, test old history fixtures against the new worker. The expected output is a set of commands and decisions, not a second network call. A migration can intentionally change future behavior, but it should add a new version event and explain how in-flight runs cross the boundary.
+
+The local example models the remote service as durable independently of the worker. The injected crash occurs after the remote dictionary is updated and before the history file receives a receipt. Restart then calls reconciliation by idempotency key, appends the recovered receipt, and proves that the effect-call counter remains one. This is a small test, but it exercises the failure ordering that an in-memory memoization example misses. Extend it with a lost response, a mismatched plan hash, an unavailable reconciliation endpoint, and a human escalation; each should have a typed outcome rather than an implicit retry.
+
 ## Build it locally
 
-This toy event loop demonstrates replay: a recorded activity result is reused instead of invoking the side effect twice.
+This dependency-free example persists an event history, simulates a crash after an external effect, and replays the receipt without invoking the effect a second time.
 
 ```python
-events = []
+import json
+from pathlib import Path
 
-def activity(key, result):
-    for event in events:
-        if event["key"] == key:
+history_path = Path("durable-history.json")
+remote_effects = {}          # survives the simulated worker restart
+effect_calls = []
+
+def load_history():
+    return json.loads(history_path.read_text()) if history_path.exists() else []
+
+def persist(event):
+    history = load_history()
+    history.append(event)
+    history_path.write_text(json.dumps(history))
+
+def activity(key, payload, crash_after_effect=False):
+    history = load_history()
+    for event in history:
+        if event["type"] == "receipt" and event["key"] == key:
             return event["result"]
-    events.append({"key": key, "result": result})
+    if key in remote_effects:  # reconcile before retrying an unknown attempt
+        result = remote_effects[key]
+        persist({"type": "receipt", "key": key, "result": result, "reconciled": True})
+        return result
+    effect_calls.append(key)
+    result = f"sent:{len(effect_calls)}"
+    remote_effects[key] = result
+    if crash_after_effect:
+        raise RuntimeError("worker crashed before receipt persistence")
+    persist({"type": "receipt", "key": key, "result": result, "reconciled": False})
     return result
 
-print(activity("email:42", "sent:msg-7"))
-print(activity("email:42", "sent:msg-8"))
-print(events)
+history_path.unlink(missing_ok=True)
+try:
+    activity("email:42", "approval=7", crash_after_effect=True)
+except RuntimeError as error:
+    print(error)
+assert remote_effects == {"email:42": "sent:1"}
+assert load_history() == []              # effect exists; local receipt does not
+
+print(activity("email:42", "approval=7"))  # restart reconciles, no second send
+print(activity("email:42", "changed-payload"))  # replay returns the receipt
+assert effect_calls == ["email:42"]
+assert len(load_history()) == 1 and load_history()[0]["reconciled"] is True
+history_path.unlink(missing_ok=True)
 ```
 
 1. Save as `replay.py` and run `python3 replay.py`.
@@ -158,6 +213,10 @@ print(events)
 3. Add a timer event and a workflow version field.
 4. Model an unknown result and require reconciliation before adding a receipt.
 5. Write a test that two replays produce identical event histories.
+
+## Mini exercise (15–30 min)
+
+Run the JSON-history example, then interrupt it between the simulated external effect and history write by temporarily moving the write into a second function. Add a reconciliation event and show why the same idempotency key prevents a second message. Finish by changing the workflow version and recording which histories use the old branch.
 
 ## Implementation exercises
 
@@ -190,14 +249,14 @@ print(events)
 
 ## References
 
-- [Temporal: What is Temporal?](https://docs.temporal.io/what-is-temporal) — durable workflow concepts.
+- [Temporal: What is Temporal?](https://docs.temporal.io/what-is-temporal) — durable workflow concepts; publication date not stated on the page.
 - [AWS Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html) — state-machine and orchestration context.
 - [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| Durable workflow systems recover progress from persisted execution history. | Temporal documentation | Source-context fact |
-| Orchestration should separate deterministic decisions from side-effecting activities. | Workflow practice | Engineering inference |
-| AI model calls should be versioned, bounded activities with typed results. | Lesson synthesis | Engineering inference |
+|---|---|---|
+| Temporal documents durable execution and recovery from persisted workflow state. | [Temporal — publication date not stated, accessed 2026-09-07](https://docs.temporal.io/what-is-temporal) | Fact; documentation scope |
+| AWS Step Functions documents state-machine workflow orchestration. | [AWS — publication date not stated, accessed 2026-09-07](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html) | Fact; documentation scope |
+| Deterministic workflow code should separate replay-safe decisions from side-effecting activities. | This lesson’s architecture | Engineering inference |
+| Activity keys and receipts reduce duplicate-effect risk but do not prove exactly-once execution. | Distributed-systems analysis | Engineering inference |

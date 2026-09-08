@@ -1,10 +1,14 @@
 # Video understanding
-Status: draft — expansion pending
-Sources: [Google DeepMind — news archive](https://deepmind.google/blog/)
+Status: durable
+Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/); [Google DeepMind — 2026-07-30, model card](https://deepmind.google/models/model-cards/gemini-robotics-er-2/)
 
 ## In one sentence
 
 Video understanding turns an ordered, multimodal stream into time-bounded observations, so a reliable system must preserve temporal evidence, sampling decisions, uncertainty, and the distinction between detection and action.
+
+## Prerequisites
+
+Know frame timestamps, sampling, object detection, tracking, precision/recall, and retention. Event-level recall asks whether the interval containing an event was found, not merely whether some frame was labeled correctly.
 
 ## Background: what existed before
 
@@ -12,13 +16,17 @@ Image classification considers one frame at a time. It can identify an object, s
 
 Traditional video analytics used fixed rules, motion detectors, trackers, and specialized models. A pipeline might sample a feed, detect objects, associate detections across frames, and raise a narrowly defined event. Modern multimodal models can summarize longer clips and answer flexible questions, but they do not remove the need to select the right frames, retain evidence, enforce privacy, and measure temporal accuracy. A fluent summary can be wrong about sequence even when its object labels are individually plausible.
 
-The July source map identifies embodied agents and operations as a focus area through the Google DeepMind news archive. That is source context rather than a claim about a specific video model. The engineering lesson is durable: systems should process video as timestamped evidence, not a sequence of unrelated images.
+The July 30 ER 2 release is a concrete monthly example: it describes continuous-video progress classification and precision moment finding for physical tasks. Those are provider-reported capabilities, not proof of complete video coverage or general scene understanding. The engineering lesson is to preserve the temporal contract around any such capability: which frames were inspected, which interval supports the claim, how uncertainty is represented, and who must verify a consequential decision.
 
 ## What changed and why now
 
 Higher-capability vision-language systems make it easier to ask broad questions over clips: “Did the worker wear required equipment before entering?” or “When did the package leave the staging area?” This changes the interface from fixed detectors to natural-language retrieval and event hypotheses. It also increases the risk of under-specified requests. “Find unsafe behavior” needs a policy definition, a camera scope, a review path, and a threshold; it is not a self-executing model query.
 
 Use a two-stage design. An ingest service records the stream, timestamps, camera identity, access policy, and integrity metadata. A cheap first stage detects motion, scene change, audio cues, or candidate objects. A second stage samples relevant windows, tracks entities, and applies a task-specific classifier or multimodal model. Store short evidence clips and model outputs with time ranges so reviewers can inspect the basis for a result.
+
+## What changed this month
+
+The verified July 30 ER 2 post describes progress classification and moment finding over continuous video, including deciding when a physical step has advanced or completed. The post reports provider evaluation results; it does not establish complete scene coverage. A production pipeline still needs timestamp integrity, an explicit sampling contract, evidence clips, and a policy gate before a temporal observation can cause a consequential action.
 
 ## Impact on current processing and architecture
 
@@ -45,6 +53,7 @@ Entity tracking links observations across time. A detector may see several peopl
 
 ```mermaid
 sequenceDiagram
+    rect rgb(219, 234, 254)
     participant I as Ingest
     participant S as Sampler
     participant M as Video model
@@ -58,6 +67,7 @@ sequenceDiagram
         R->>X: authorized bounded action
     else insufficient evidence
         R-->>S: dismiss or request more context
+    end
     end
 ```
 
@@ -113,6 +123,18 @@ Estimate cost per camera-hour across ingest bandwidth, storage, decode, frame sa
 
 Document the user-visible consequence of every degraded mode. If a stream is analyzed at lower sampling density, label the resulting evidence accordingly. If an event index is delayed, show its processing watermark. Clear freshness and coverage signals let operators avoid making a high-impact decision from a result that looks current but is actually incomplete.
 
+## Engineering analysis
+
+The July ER 2 example makes temporal evidence more concrete than a generic “video-capable model” label. The release describes progress classification and moment finding: the system needs to decide not merely what is visible, but when a physical step begins, changes state, and is complete. That means a result should be represented as an interval with a start, end, camera, sampling policy, and evidence quality. A single confidence number attached to a clip is not enough to tell a reviewer whether the event was observed continuously or inferred across a gap.
+
+Sampling is a systems decision. A camera stream at thirty frames per second may be reduced to one frame per second for inexpensive scene indexing, while a suspected event receives a denser second-stage window. The index must preserve the relationship between source time and sampled time; otherwise a reviewer or downstream actuator may act on a timestamp that is off by several seconds. Variable frame rate video, dropped packets, clock skew, and transcoding all need explicit metadata. When two cameras disagree, the pipeline should retain both observations and represent uncertainty rather than silently selecting the prettier frame.
+
+Temporal models also need a policy for absence. “No event detected” can mean the event did not occur, the relevant camera was unavailable, the object was occluded, the sampler skipped the moment, or the model abstained. Those states have different operational consequences. For workplace safety, an unavailable camera may require a human check; it should not be counted as evidence that a worker complied. For inventory, a low-quality observation may be queued for a closer view. A typed result such as `observed`, `not_observed`, `insufficient_evidence`, or `sensor_gap` is more useful than a binary classifier output.
+
+Evaluation should mirror the temporal contract. Measure event-boundary error, missed intervals, false events caused by one-frame artifacts, identity switches during occlusion, and calibration across camera types. Include negative examples with similar objects and plausible motion, not only empty scenes. Reviewers should see a short clip around the claimed boundary and the metadata used to select it. Store only the minimum retention window needed for the task, and separate personally identifying footage from derived event records through permissions and deletion schedules.
+
+Finally, keep observation and action decoupled. A video model can flag that a pallet appears to have moved, but a warehouse transaction should be confirmed by a barcode, weight change, or system-of-record update before it closes the task. This is where temporal grounding meets architecture: the model narrows the search window, deterministic services validate identity and authority, and a human handles ambiguous evidence. The source demonstrates capability; the production contract must define what evidence is sufficient for each consequence.
+
 ## Build it locally
 
 This dependency-free example groups timestamped detections into an event only when observations persist long enough. It illustrates that one frame is not automatically an event.
@@ -141,6 +163,10 @@ def sustained_event(items: list[Detection], label: str, minimum: int = 3) -> str
 detections = [Detection(10, "forklift", .91), Detection(11, "forklift", .88), Detection(12, "forklift", .92)]
 print(sustained_event(detections, "forklift"))
 assert sustained_event(detections, "forklift") == "EVENT"
+false_event = [Detection(20, "forklift", .95), Detection(22, "forklift", .94)]
+assert sustained_event(false_event, "forklift") == "INSUFFICIENT_EVIDENCE"
+single_frame = [Detection(30, "forklift", .99)]
+assert sustained_event(single_frame, "forklift") == "INSUFFICIENT_EVIDENCE"
 ```
 
 1. Save the code as `video_event.py` and run `python3 video_event.py`.
@@ -171,11 +197,14 @@ Choose a bounded event, such as “a package enters a staging zone.” Define it
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — primary discovery source for the July topic.
+- [Google DeepMind — Gemini Robotics ER 2, 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) — primary product release and monthly source.
+- [Google DeepMind — Gemini Robotics ER 2 model card](https://deepmind.google/models/model-cards/gemini-robotics-er-2/) — primary model documentation.
 - [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) — risk-management context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| July’s source map focuses on embodied-agent and operational concepts. | Google DeepMind news archive | Source-context fact |
-| Video systems need temporal evidence, retention controls, and independent action gates. | This lesson’s systems design | Engineering inference |
+| ER 2 is described as using continuous video for progress classification and moment finding. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| The July post reports progress classification in five percentage bands. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider evaluation claim |
+| The post reports moment finding with 91.3% accuracy and 0.96s mean absolute distance. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider evaluation claim |
+| Sampling and evidence retention must be part of the event contract. | This lesson’s architecture | Engineering inference |

@@ -1,9 +1,13 @@
 # Model artifact signing
 Status: emerging
-Sources: [SLSA — Supply-chain Levels for Software Artifacts](https://slsa.dev/spec/v1.0/) (primary specification); [Sigstore Cosign documentation](https://docs.sigstore.dev/cosign/) (official documentation)
+Sources: [SLSA — 2026-09-07, accessed; current v1.2 specification](https://slsa.dev/spec/v1.2/); [Sigstore — 2026-09-07, accessed; official Cosign documentation](https://docs.sigstore.dev/cosign/)
 
 ## In one sentence
 Model artifact signing binds a particular model file, tokenizer, configuration, and build record to an issuer so deployment systems can reject tampered or unexplained artifacts.
+
+## Prerequisites
+
+Know SHA-256 digests, public-key signatures, identity trust, manifests, provenance, key rotation, revocation, and admission control. A digest identifies bytes; a signature binds those bytes to an issuer under a verifier’s trust policy.
 
 ## Background: what existed before
 
@@ -53,7 +57,7 @@ Think of a signature as a tamper-evident seal plus an issuer label. The digest s
 
 ## What changed this month
 
-The July map includes model artifact signing because agent and inference systems increasingly depend on registries and automated promotion. The month-specific connection is an engineering inference, not a claim about an unverified July release. As models become tools inside longer-lived workflows, a mutable artifact pointer can change behavior between runs; signed immutable references make that change observable.
+No direct July 2026 release about model-artifact signing was verified. This article is marked planned/rebuild-needed for the July source contract; SLSA v1.2 and Sigstore are durable standards context, not a July announcement. As models become tools inside longer-lived workflows, a mutable artifact pointer can change behavior between runs; signed immutable references make that change observable.
 
 ## Engineering consequence
 
@@ -146,6 +150,27 @@ print("verified", hmac.compare_digest(signature, seal(manifest)))
 parts["tokenizer"] = "tokens-tampered"
 changed = make_manifest(parts)
 print("reject_changed", not hmac.compare_digest(signature, seal(changed)))
+assert hmac.compare_digest(signature, seal(manifest))
+assert not hmac.compare_digest(signature, seal(changed))
+
+
+def admit_release(manifest, signature, issuer, now, revoked, max_age=3600):
+    required = {"weights", "tokenizer", "policy", "issued_at"}
+    if not required.issubset(manifest) or issuer != "build-bot":
+        return "DENY: issuer or fields"
+    if issuer in revoked or now - manifest["issued_at"] > max_age:
+        return "DENY: revoked or expired"
+    expected = seal({key: value for key, value in manifest.items() if key != "issued_at"})
+    return "ALLOW" if hmac.compare_digest(signature, expected) else "DENY: signature"
+
+
+policy_manifest = dict(manifest)
+policy_manifest["issued_at"] = 100
+policy_signature = seal({key: value for key, value in policy_manifest.items() if key != "issued_at"})
+assert admit_release(policy_manifest, policy_signature, "build-bot", 200, set()) == "ALLOW"
+assert admit_release(policy_manifest, policy_signature, "unknown", 200, set()).startswith("DENY")
+assert admit_release(policy_manifest, policy_signature, "build-bot", 5000, set()).startswith("DENY")
+assert admit_release(policy_manifest, policy_signature, "build-bot", 200, {"build-bot"}).startswith("DENY")
 ```
 
 Numbered implementation steps:
@@ -186,12 +211,9 @@ Numbered implementation steps:
 - [NIST Secure Software Development Framework](https://csrc.nist.gov/Projects/ssdf) — primary secure-development guidance.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
 |---|---|---|
-| SLSA defines supply-chain provenance concepts | SLSA specification | Source-context fact |
-| Cosign documents signing and verification workflows | Sigstore documentation | Source-context fact |
-| A digest identifies exact artifact bytes | Cryptographic definition | Source-context fact |
-| Model packages should bind tokenizers and policy to weights | System-design analysis | Engineering inference |
-| Admission and startup verification provide defense in depth | System-design analysis | Engineering inference |
-| Signing does not establish model quality or safety | Scope of signatures | Engineering inference |
+| No exact July 2026 model-signing release was verified for this lesson. | Source review performed 2026-09-07 | Fact about this editorial pass |
+| SLSA describes provenance and supply-chain assurance concepts. | [SLSA — accessed 2026-09-07](https://slsa.dev/spec/v1.0/) | Fact; specification scope |
+| Sigstore documents signing and verification workflows. | [Sigstore — accessed 2026-09-07](https://docs.sigstore.dev/cosign/) | Fact; documentation scope |
+| A signature binds bytes to an issuer under a trust policy but does not establish model quality or safety. | Cryptographic and systems analysis | Engineering inference |

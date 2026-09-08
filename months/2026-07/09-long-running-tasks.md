@@ -2,11 +2,15 @@
 
 Status: emerging
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (source-context discovery); [Temporal documentation — Durable Execution](https://docs.temporal.io/what-is-temporal) (durable-workflow concepts)
+Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/)
 
 ## In one sentence
 
 A long-running AI task is trustworthy only when progress, tool effects, permissions, and recovery choices live in durable system state rather than solely in a model conversation.
+
+## Prerequisites
+
+Know durable state, queues, timers, leases, idempotent effects, receipts, and cancellation. A long-running task is a workflow whose worker may disappear between any two events; the state record, not a live process, carries recovery context.
 
 ## Background: what existed before
 
@@ -28,7 +32,7 @@ This shift raises the observability bar. A traditional trace can say an HTTP req
 
 ## What changed this month
 
-The practical change to learn is an architectural one: evaluate agents as resumable runs instead of treating them as unusually long chat sessions. A run must be able to pause for an external event without reserving a worker, survive a deploy without losing its place, and resume with the same authority boundaries that applied when it started. These requirements pull workflow primitives—state, queues, timers, receipts, and approval gates—into the core of agent application design.
+The verified July 30 release describes multi-step planning, progress tracking from continuous video, self-correction when a step fails, and communication between different robots. It does not establish a universal task duration or a specific durable-workflow product. The engineering consequence is narrower and testable: when an agent must preserve progress across those steps, evaluate it as a resumable run rather than an unusually long chat session. A run must be able to pause for an external event without reserving a worker, survive a deploy without losing its place, and resume with the same authority boundaries that applied when it started. These requirements pull workflow primitives—state, queues, timers, receipts, and approval gates—into the core of agent application design.
 
 This also changes the definition of progress. A fluent intermediate message is not progress unless it corresponds to a committed state transition or useful artifact. For example, “I will run tests” is a plan; a stored test invocation identifier and its output hash are progress. The distinction prevents dashboards from reporting apparent activity while hidden retries or blocked permissions leave the business task unchanged.
 
@@ -87,18 +91,24 @@ sequenceDiagram
   participant W as Worker
   participant X as External API
   participant H as Human operator
-  O->>D: Commit intent and idempotency key
-  O->>W: Dispatch approved action
-  W->>X: Execute request with key
-  X-->>W: Response may be lost on crash
-  W->>D: Persist receipt when known
-  O->>D: Read state after retry
-  alt outcome unknown
-    O->>X: Reconcile by correlation key
-    X-->>O: Found, absent, or ambiguous
-    O->>H: Escalate ambiguous effect
-  else receipt known
-    O->>D: Checkpoint next step
+  rect rgb(219, 234, 254)
+    O->>D: Commit intent and idempotency key
+    O->>W: Dispatch approved action
+  end
+  rect rgb(220, 252, 231)
+    W->>X: Execute request with key
+    X-->>W: Response may be lost on crash
+    W->>D: Persist receipt when known
+  end
+  rect rgb(254, 226, 226)
+    O->>D: Read state after retry
+    alt outcome unknown
+      O->>X: Reconcile by correlation key
+      X-->>O: Found, absent, or ambiguous
+      O->>H: Escalate ambiguous effect
+    else receipt known
+      O->>D: Checkpoint next step
+    end
   end
 ```
 
@@ -113,6 +123,18 @@ Use explicit states such as `QUEUED`, `RUNNING`, `WAITING`, `RECONCILING`, `ESCA
 Testing changes too. Unit-test transition guards and idempotency behavior. Integration-test a crash after an API receives a request but before the receipt is saved. Load-test long waiting tails, not just throughput. Chaos exercises should revoke credentials, delay approval, return malformed tool results, and restart orchestration. These tests measure recovery—the main property of durable execution.
 
 Attach cost to the run: model tokens, tool charges, retries, storage, and elapsed time. An agent should not endlessly replan around a flaky service. A budget gate can move it to `ESCALATED` with evidence collected so far. That is safer for users and easier to operate than silently spending until an account limit is reached.
+
+## Product-run state versus workflow-runtime replay
+
+The boundary between this lesson and durable workflow runtimes matters. Product-run state answers questions a user or operator asks: what is this task trying to accomplish, what deadline applies, which permissions are currently granted, what artifact is ready, and what decision is waiting? It is allowed to contain an evolving plan and a compact interpretation of observations. The product record is therefore a controlled projection of a run, not necessarily a complete replay log. It should be easy to query, redact, and explain.
+
+A deterministic workflow runtime has a different job. It records the events and activity outcomes needed to replay orchestration code after a worker restart, and it cares about compatible workflow code, event ordering, timers, and activity identities. A runtime can replay the same sequence while the product still needs to decide whether a deadline has expired, whether a user revoked access, or whether a new external fact makes the next action inappropriate. Do not use a product summary as a substitute for runtime history, and do not expose raw runtime history as the only user-facing state.
+
+Deadlines need more than a timestamp. Store the deadline source, time zone or clock policy, grace period, and behavior at expiry. A task waiting for a human should stop creating new effects when its approval window closes. A task waiting for a build should distinguish “build still running” from “build result arrived after the task deadline.” These distinctions let an operator choose cancel, renew, or deliver a partial result without guessing from a stale chat message.
+
+Cancellation is similarly two-phase. First record the request durably and prevent new dispatches. Then observe in-flight work: a read-only query may finish, while a remote write may need reconciliation. Mark the run `CANCELLING` or `UNKNOWN_EFFECT` until the external outcome is known. This is more honest than changing a UI badge to “cancelled” while a worker can still create a ticket. A deadline, cancellation request, and permission revocation should all be visible events with an actor and timestamp.
+
+Recovery tests should vary the point of failure. Restart before intent persistence, after intent but before dispatch, after the external service accepts a request, and after receipt persistence. Each point has a different safe action. The first can be retried; the third requires idempotency lookup; the fourth should simply advance. Test delayed approvals and late queue messages too. These scenarios exercise product-run semantics directly and keep the lesson distinct from lesson 19’s focus on deterministic replay compatibility.
 
 ## Limits and failure modes
 
@@ -195,15 +217,14 @@ Choose one multi-step assistant feature. Draw its states and list every external
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context; vendor publication archive.
+- [Google DeepMind — 2026-07-30, Gemini Robotics-ER 2](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) — July source for multi-step planning, progress tracking, self-correction, and robot collaboration.
 - [Temporal documentation: What is Temporal?](https://docs.temporal.io/what-is-temporal) — durable-execution source context.
 - [RFC 9457: Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457) — structured failure-response context.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| Durable workflow systems persist progress so work can resume after failures. | Temporal documentation | Source-context fact |
-| Long-running AI tasks benefit from state, receipts, and reconciliation. | Lesson synthesis | Engineering inference |
-| Idempotency and reconciliation reduce duplicate-effect risk. | Distributed-systems practice | Engineering inference |
-| A transcript alone is not an audit record for tool effects. | Lesson synthesis | Engineering inference |
+|---|---|---|
+| The July 30 post describes multi-step planning, progress tracking, self-correction, and communication between different robots. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| The post describes progress tracking, self-correction, and multi-step orchestration. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| Temporal documents durable execution as recovery from persisted workflow progress. | [Temporal — accessed 2026-09-07](https://docs.temporal.io/what-is-temporal) | Fact; documentation scope |
+| Product task state should retain deadlines, receipts, permissions, and reconciliation status. | This lesson’s architecture | Engineering inference |

@@ -2,11 +2,15 @@
 
 Status: emerging
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (issue discovery context); [Open-RMF documentation](https://openrmf.readthedocs.io/en/latest/) (fleet-interoperability context); [ROS 2 documentation](https://docs.ros.org/en/rolling/) (robot-software context)
+Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/)
 
 ## In one sentence
 
 Robot fleet scheduling is the operational system that assigns tasks, reserves shared space, and recovers from delays so a group of individually capable robots produces reliable work together.
+
+## Prerequisites
+
+Know assignment problems, route constraints, capacity calendars, deadlines, reservations, congestion, and local collision avoidance. Scheduling chooses among globally feasible plans; a robot’s safety controller still decides whether immediate motion is safe.
 
 ## Background: what existed before
 
@@ -22,13 +26,13 @@ The baseline is therefore a central or logically coordinated scheduler that has 
 
 More AI-enabled robots can handle variation in perception, natural-language task intake, and exception triage. That capability increases the value of fleets, but also makes coordination harder. A planner may identify more jobs that a robot could perform; it does not automatically decide which job is most valuable for the whole operation. Scheduling remains the bridge between high-level intent and finite physical capacity.
 
-The release-specific fact in this issue is limited to public work around increasingly capable robotics and AI systems represented by the linked source context. The scheduling design here is an engineering inference. It does not claim that a particular vendor has solved global optimal routing or that a model-generated plan is safe by itself.
+The release-specific fact in this issue is limited to the July 30 report that different robot types can communicate and work together on a workflow. The scheduling design here is an engineering inference. It does not claim that the release supplies a fleet scheduler, global optimal routing, or a safe model-generated plan.
 
 The practical change is to treat fleet scheduling as a continuously revised, observable decision service. It accepts work requests, estimates feasibility, reserves scarce resources, dispatches a bounded action, and replans when observed state diverges. The service must expose why a task is delayed, not merely show a robot icon standing still.
 
 ## What changed this month
 
-For engineers building current AI and robotics products, the notable change is the emphasis on connecting richer task understanding to disciplined operational control. A request can arrive as text, image-derived inventory information, or a system event, but it must become a typed task before dispatch. The scheduler is where that translation meets real constraints: a model may suggest “restock the urgent shelf,” while deterministic services decide the shelf identifier, deadline, payload, permitted robots, and capacity reservation.
+The verified July 30 release specifically reports multi-robot collaboration: different robot types can communicate and work together on a workflow. It does not claim a particular fleet scheduler, global optimizer, or deadline policy. This lesson therefore treats collaboration coordination as the source-backed change and scheduling as the deterministic infrastructure needed to make that capability observable. A request can arrive as text, image-derived inventory information, or a system event, but it must become a typed task before dispatch. The coordinator is where that translation meets real constraints: a model may suggest “restock the urgent shelf,” while deterministic services decide the shelf identifier, deadline, payload, permitted robots, and capacity reservation.
 
 This framing makes evaluation more useful. Instead of asking only whether a robot completed an isolated benchmark, teams can measure whether the fleet honored priority, avoided stale assignments, released resources, and recovered after interruption. Those are the behaviors that determine whether additional robot capability improves an operation rather than simply producing more exceptions for a supervisor.
 
@@ -85,15 +89,21 @@ sequenceDiagram
   participant R as Reservation store
   participant B as Robot B
   participant A as Robot A
-  Q->>S: Urgent task arrives
-  S->>R: Check route and charger capacity
-  R-->>S: Aisle conflict with Robot A
-  S->>A: Ask for progress or release
-  A-->>S: Delayed by obstacle
-  S->>R: Reserve alternate route for Robot B
-  S->>B: Dispatch bounded assignment
-  B-->>S: Milestones and telemetry
-  S->>R: Renew or release reservations
+  rect rgb(219, 234, 254)
+    Q->>S: Urgent task arrives
+    S->>R: Check route and charger capacity
+    R-->>S: Aisle conflict with Robot A
+  end
+  rect rgb(254, 226, 226)
+    S->>A: Ask for progress or release
+    A-->>S: Delayed by obstacle
+  end
+  rect rgb(220, 252, 231)
+    S->>R: Reserve alternate route for Robot B
+    S->>B: Dispatch bounded assignment
+    B-->>S: Milestones and telemetry
+    S->>R: Renew or release reservations
+  end
 ```
 
 The right objective is rarely “minimize average travel time.” A site might minimize late critical deliveries, maximize completed picks, preserve battery reserve, reduce worker interruption, or keep an emergency path clear. Make the objective explicit, with weights that operators can understand. Optimization that hides its priorities is difficult to govern.
@@ -107,6 +117,20 @@ Use a two-speed planner. A fast local dispatcher handles normal events with simp
 Measure predicted versus actual travel and service times by route, robot, payload, and time of day. Calibration matters: a scheduler with systematically optimistic estimates will overbook shared resources and create delay cascades. Keep uncertainty in the score, reserve slack for fragile routes, and identify areas with recurring variance for facility improvement.
 
 Build degradation modes. If the global scheduler is unavailable, robots should move to a conservative policy such as finishing their current safe step, holding, or returning to a designated location. If telemetry is stale, stop assigning new work to that robot. If the reservation service loses consistency, prefer safety and visibility over maximizing utilization. Operators need a clear console state explaining which control plane is degraded.
+
+## Capacity planning under changing routes
+
+Fleet scheduling is not merely a ranking function over idle robots. It is a capacity-planning problem whose inputs change while a plan is executing. A route can be feasible at 10:00 and infeasible at 10:03 because a door is closed, a charger is occupied, or a person is using a shared aisle. The scheduler should therefore calculate an earliest feasible start and an expected completion interval, then reserve every scarce resource across that interval. If a task needs an elevator at minute 12 and a charging port at minute 20, choosing a robot that can reach the elevator quickly but cannot reach the charger creates a delayed plan that looked locally optimal.
+
+Use a reservation graph to make conflicts explicit. Nodes can represent zones, stations, or service windows; edges represent precedence or movement between them. A reservation record should include resource, owner, start, expiry, plan version, and release reason. When a robot reports a delay, the scheduler can identify which downstream reservations are now at risk and either shift them or release them. This is more precise than re-running the whole optimizer on every telemetry packet, and it produces an explanation an operator can act on.
+
+Time windows need slack and a policy for lateness. If a delivery has a hard clinical deadline, the scheduler may preempt a low-priority task. If the deadline is a customer preference, it may preserve a nearly complete assignment to avoid wasted motion. Encode that distinction in the task type rather than hiding it in a numeric priority. Penalize lateness, interruption, and route changes separately so an operator can see why a plan chose a farther robot. A single blended score can be useful, but its components must remain observable for debugging and governance.
+
+Capacity is also multidimensional. Payload weight, volume, battery reserve, tool compatibility, access permissions, and operator availability can each eliminate a candidate. Treat unknown data as uncertainty, not as permission. A missing map version should make a route ineligible or require a conservative mode. A battery estimate should include reserve for safe return and not merely enough energy for the nominal path. These checks belong before assignment; local collision avoidance cannot repair a task that was infeasible from the beginning.
+
+The control-plane boundary distinguishes this lesson from robot task orchestration in lesson 01. Lesson 01 asks whether one task has an authorized owner, a durable effect, and a reconciled result. This lesson asks how a whole fleet shares finite routes and services while honoring deadlines. The scheduler may emit an assignment, but it must not pretend that assignment is proof of execution. The robot acknowledges, reports progress, and can reject a route when local sensing makes it unsafe. Keeping those boundaries clear prevents a “successful dispatch” metric from being mistaken for completed work.
+
+For evaluation, replay the same task and telemetry stream under several policies: nearest feasible robot, earliest deadline first, and a policy with reservation-aware switching costs. Compare completion, lateness, utilization, reservation conflicts, starvation, and number of replans. Include a route closure immediately after dispatch and a robot that stops reporting. A policy that wins average travel time but strands urgent tasks or thrashes assignments is not operationally superior. The experiment should expose those trade-offs before an optimizer is introduced.
 
 ## Limits and failure modes
 
@@ -147,7 +171,11 @@ def choose(robots: list[Robot], task: Task) -> str:
     return best.name
 
 robots = [Robot("a", 4, 80, 8), Robot("b", 2, 20, 12), Robot("c", 7, 95, 20)]
-print(choose(robots, Task("urgent-bin", weight=7, priority=5)))
+urgent = Task("urgent-bin", weight=7, priority=5)
+assert choose(robots, urgent) == "a"  # b lacks the battery reserve
+assert choose([Robot("a", 4, 80, 6)], urgent) == "no feasible robot"
+assert choose([Robot("a", 4, 80, 8, busy=True)], urgent) == "no feasible robot"
+print("positive and failure scheduling assertions passed")
 ```
 
 1. Save the example as `fleet.py` and run `python3 fleet.py`.
@@ -186,15 +214,14 @@ Choose a facility with three scarce resources—such as an aisle, charger, and e
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context; vendor publication archive.
+- [Google DeepMind — 2026-07-30, Gemini Robotics-ER 2](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) — July source for different robot types communicating and collaborating on workflows.
 - [Open-RMF documentation](https://openrmf.readthedocs.io/en/latest/) — primary interoperability and fleet-management context.
 - [ROS 2 documentation](https://docs.ros.org/en/rolling/) — primary robot-software documentation.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| Fleet-management systems coordinate robots and shared infrastructure. | Open-RMF documentation | Source-context fact |
-| Fleet scheduling should combine assignment, reservations, telemetry, and recovery. | Lesson synthesis | Engineering inference |
-| A nearest-robot rule is insufficient under shared constraints. | Lesson synthesis | Engineering inference |
-| Local safety control remains necessary despite centralized scheduling. | Lesson synthesis | Engineering inference |
+|---|---|---|
+| The July 30 post describes different robots communicating and working together on complex workflows. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| Open-RMF documents fleet-management and interoperability concepts. | [Open-RMF — accessed 2026-09-07](https://open-rmf.readthedocs.io/en/latest/) | Fact; documentation scope |
+| Scheduling should reserve shared resources before dispatch and expire stale reservations. | This lesson’s architecture | Engineering inference |
+| Global scheduling does not replace local collision or safety control. | This lesson’s architecture | Engineering inference |

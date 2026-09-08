@@ -2,11 +2,15 @@
 
 Status: emerging
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (issue discovery context); [Google Research — Accelerating large language model decoding with speculative sampling](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/) (primary research context); [Hugging Face assisted generation documentation](https://huggingface.co/docs/transformers/main/en//generation_strategies#speculative-decoding) (implementation context)
+Sources: [Google Research — publication date not stated, accessed 2026-09-07; primary research post](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/); [Hugging Face — publication date not stated, accessed 2026-09-07; official implementation documentation](https://huggingface.co/docs/transformers/main/en/generation_strategies#speculative-decoding)
 
 ## In one sentence
 
 Speculative decoding uses a fast draft model to propose several tokens and a slower target model to verify them in parallel, reducing latency without changing the target model’s accepted distribution when implemented correctly.
+
+## Prerequisites
+
+Know autoregressive decoding, logits, sampling, batching, acceptance/rejection, and GPU cost. Speculation changes execution scheduling, not the target model’s authority over committed tokens.
 
 ## Background: what existed before
 
@@ -25,6 +29,10 @@ Speculative decoding has moved from a research technique toward production infer
 The cited research describes speculative sampling and the implementation documentation exposes assisted-generation interfaces. Those are source-context facts. Choosing a draft model, acceptance length, routing policy, and fallback behavior for a particular service is an engineering inference that must be measured on that service’s prompts.
 
 The practical change is to make decoding a two-model pipeline with observable economics. Operators need draft acceptance rate, target verification time, tokens per target pass, end-to-end latency, and memory overhead. A draft model that is cheap but poorly aligned can lower acceptance and make performance worse. Correctness and speed must therefore be evaluated together.
+
+## What changed this month
+
+No direct July 2026 primary release about speculative decoding was verified. This article is marked planned/rebuild-needed for the July source contract; the cited research and implementation documentation are durable source context, not a July announcement. The July model-efficiency announcement is not used as evidence for speculation. This lesson focuses on the draft/target acceptance algorithm, separate from broad optimization experiments and continuous-batching scheduler policy.
 
 ## Impact on current processing and architecture
 
@@ -84,11 +92,15 @@ sequenceDiagram
   S->>T: Verify block with accepted-prefix cache
   T-->>S: Target probabilities
   S->>S: Apply acceptance and residual sampling
-  S->>K: Commit only accepted prefix and correction
-  S-->>C: Stream committed tokens
-  alt low acceptance or capacity pressure
-    S->>D: Disable speculation for next round
-    S->>T: Decode one token at a time
+  rect rgb(220, 252, 231)
+    S->>K: Commit only accepted prefix and correction
+    S-->>C: Stream committed tokens
+  end
+  rect rgb(254, 226, 226)
+    alt low acceptance or capacity pressure
+      S->>D: Disable speculation for next round
+      S->>T: Decode one token at a time
+    end
   end
 ```
 
@@ -120,24 +132,76 @@ Implementation mistakes can change outputs. Reusing rejected cache entries, appl
 
 Two models double some operational concerns. Memory pressure can trigger eviction or out-of-memory failures. Draft and target failures need independent retry budgets; retrying both can multiply latency. Cancellation must stop speculation promptly and release both caches. A feature flag should allow operators to disable the draft without redeploying the target.
 
+## Engineering analysis
+
+Speculation is an algorithmic optimization with a strict authority boundary. The draft model is allowed to be wrong because its output is provisional; the target model is responsible for deciding which prefix can be committed. That makes the verifier the most important component to test. It must compare positions against the current accepted prefix, stop at the first rejection, sample or select a corrected token, and discard every later draft token. Accidentally appending the full draft is not a small performance bug: it changes the target’s output process.
+
+The residual distribution matters when decoding is stochastic. At a rejected position, the corrected token is drawn from the portion of the target distribution not already explained by the draft distribution, with a special case when the draft probability is greater than or equal to the target probability. A toy example can use exact token equality, but it should name that simplification so readers do not mistake string matching for a production sampler. Production tests should compare distributions under fixed seeds, temperature, top-p, stop tokens, and grammar constraints. Greedy matching is a useful control, not a proof of sampling correctness.
+
+Cache ownership is another source of subtle failures. The target cache may advance only over accepted tokens and the correction. The draft cache can speculate ahead, but its suffix must be truncated after rejection. Cache counters should be asserted against the committed prefix length after every round. This is especially important under cancellation: a request that is removed while a block is being verified must not return uncommitted tokens or leave a cache allocation attached to a dead stream.
+
+Acceptance metrics need a denominator. Report proposed tokens, accepted tokens, corrected tokens, rejection position, target passes, draft time, target time, and end-to-end latency. “Acceptance rate” can otherwise look good because a system reports only successful rounds. Segment by prompt family and output length; a draft trained on code may be excellent for syntax completion and poor for legal text. Keep a target-only control group in the same batch and hardware conditions so scheduler contention is visible.
+
+The safest rollout is shadow-first. Run the draft model and verifier without changing the response, compare the committed result and resource counters with a target-only trace, and enable speculation only when the overhead budget is met. Keep a kill switch at the scheduler, not inside the model prompt. The source material explains the technique; the production engineering work is preserving target authority while making every speed claim falsifiable.
+
+## Verifier accounting in a real serving path
+
+The verifier’s unit of work is a candidate block, not a completed answer. That distinction changes how a serving team should account for both quality and capacity. Suppose a draft proposes six tokens and the target accepts four before rejecting the fifth. The request has gained four useful draft tokens, consumed six draft predictions, consumed one target block pass, and still needs one corrected token before the next round. Counting the round as “six tokens accepted” hides the discarded suffix; counting it as “one token generated” hides the vectorized work. Store all four quantities so a capacity review can explain where time went.
+
+The acceptance denominator also needs an explicit policy. A useful first metric is draft-token acceptance: accepted draft tokens divided by proposed draft tokens. A second is committed tokens per target pass: accepted draft tokens plus the correction, divided by verification passes. A third is useful speedup: target-only target passes divided by the total cost-equivalent passes after charging the draft model. These metrics answer different questions. The first tells whether the pair agrees, the second tells whether the target is being amortized, and the third tells whether the product actually got cheaper or faster. A high acceptance rate can still lose if the draft consumes a large GPU or if every response is too short to amortize startup.
+
+Round boundaries must be represented in the request state. Keep `accepted_prefix_length`, `proposed_length`, `accepted_draft_length`, `corrected_length`, and `target_pass_id` in the trace. When a client cancels after the target returns probabilities but before the commit, discard the entire uncommitted block. When the target returns a stop token, commit only through the stop boundary and release the draft suffix. When a grammar rejects a token, classify it separately from ordinary model disagreement; otherwise the acceptance dashboard will confuse a policy constraint with a poor draft model.
+
+The target-only comparison should use the same prompt set, tokenizer, sampling parameters, hardware class, and concurrency. Comparing a warm speculative request with a cold baseline produces a convincing but invalid result. For deterministic greedy decoding, compare exact committed token sequences and cache counters. For stochastic decoding, exact strings may differ even when both paths are correct; compare seeded distributions, log-probability checks, task-level success, and constraint violations. A target-only control remains necessary after rollout because a target model update can alter latency independently of the speculation feature.
+
+There is a subtle residual-correction boundary in a production API. The correction is authoritative output, but it is not an accepted draft token. Report it separately so teams do not tune the draft based on tokens it did not predict. If every round reports only total committed tokens, a draft that frequently fails at position one can look healthy because the target keeps supplying corrections. That draft should probably be replaced or disabled for the affected route. Conversely, a draft that accepts long runs but occasionally fails on a safety delimiter needs route-specific grammar and stop-token tests, not simply a larger candidate block.
+
+The rollout gate should therefore combine correctness and resource thresholds. Require zero uncommitted-token leaks in cancellation tests, no target-only divergence under the chosen decoding contract, bounded draft memory, and an improvement in p95 inter-token latency or cost per committed token. Break down failures by model pair, language, context length, and output type. This keeps the lesson’s boundary clear: speculative decoding is the verification algorithm and its accounting, while the neighboring inference-efficiency lesson owns the broader end-to-end experiment and the batching lesson owns queue policy.
+
 ## Build it locally
 
-This low-cost example demonstrates acceptance accounting rather than neural inference. It treats a draft as a list of proposed tokens and accepts matching positions; a real sampler would compare probabilities.
+This low-cost example demonstrates multi-round acceptance accounting rather than neural inference. It treats a draft as a list of proposed tokens and uses the authoritative target token as a toy residual correction at the first mismatch; a real sampler compares probabilities.
 
 ```python
-def verify(draft: list[str], target: list[str]) -> tuple[list[str], int]:
-    accepted = []
-    for proposed, authoritative in zip(draft, target):
-        if proposed != authoritative:
+def verify_round(prefix: list[str], draft: list[str], target: list[str], max_k: int = 4):
+    committed = list(prefix)
+    accepted_draft = 0
+    proposed = draft[:max_k]
+    corrected = 0
+    for proposed_token, target_token in zip(proposed, target[len(prefix):]):
+        if proposed_token != target_token:
+            committed.append(target_token)  # toy residual correction
+            corrected = 1
             break
-        accepted.append(proposed)
-    return accepted, len(accepted)
+        committed.append(proposed_token)
+        accepted_draft += 1
+    return committed, len(proposed), accepted_draft, corrected
 
-draft = "the quick brown fox".split()
-target = "the quick brave fox".split()
-accepted, count = verify(draft, target)
-print("accepted:", accepted)
-print("acceptance rate:", count / len(draft))
+target = "the quick brave fox jumps over the log".split()
+draft_rounds = [
+    ["the", "quick", "brown"],  # two accepted, then one correction
+    ["fox", "jumps", "over"],    # three accepted
+    ["wrong", "tokens"],          # one correction
+    ["log"],                       # final accepted token
+]
+prefix, proposed_total, accepted_draft_total = [], 0, 0
+corrected_total, target_passes = 0, 0
+for draft in draft_rounds:
+    prefix, proposed, accepted_draft, corrected = verify_round(prefix, draft, target)
+    proposed_total += proposed
+    accepted_draft_total += accepted_draft
+    corrected_total += corrected
+    target_passes += 1
+
+target_only_passes = len(target)
+acceptance_rate = accepted_draft_total / proposed_total
+print("committed:", prefix)
+print("draft acceptance:", accepted_draft_total, "/", proposed_total, "=", round(acceptance_rate, 2))
+print("corrected tokens:", corrected_total, "target passes:", target_passes)
+assert prefix == target
+assert accepted_draft_total == 6 and proposed_total == 9
+assert corrected_total == 2 and target_passes < target_only_passes
+assert 0 < acceptance_rate < 1
 ```
 
 1. Save it as `verify.py` and run `python3 verify.py`.
@@ -145,8 +209,6 @@ print("acceptance rate:", count / len(draft))
 3. Generate random draft/target sequences and report mean accepted tokens per round.
 4. Add a `max_k` policy that shrinks the candidate block after two low-acceptance rounds.
 5. Compare a simulated target-only loop with speculative rounds and include draft cost in the timing model.
-
-## Mini exercise (15–30 min)
 
 ## Capacity planning and debugging
 
@@ -188,15 +250,14 @@ Choose a local text corpus and a deterministic toy target. Create two draft gene
 
 ## References
 
-- [Google Research: Speculative sampling](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/) — primary research context.
+- [Google Research: Speculative sampling](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/) — primary research context; publication date not stated on the page.
 - [Hugging Face assisted generation](https://huggingface.co/docs/transformers/main/en//generation_strategies#speculative-decoding) — implementation documentation.
 - [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| A draft model can propose tokens for target-model verification. | Google Research | Source-context fact |
-| Correct verification can preserve the target sampling distribution. | Google Research | Source-context fact |
-| Draft choice and block size must be tuned to workload acceptance. | Lesson synthesis | Engineering inference |
-| Speculation does not replace semantic or safety validation for tool actions. | Lesson synthesis | Engineering inference |
+|---|---|---|
+| Google Research describes a draft model proposing tokens for target-model verification. | [Google Research — publication date not stated, accessed 2026-09-07](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/) | Fact; research description |
+| Correct verification can preserve the target sampling distribution when implemented according to the algorithm. | [Google Research — publication date not stated, accessed 2026-09-07](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/) | Fact; research claim |
+| Hugging Face documents assisted-generation implementation options. | [Hugging Face — publication date not stated, accessed 2026-09-07](https://huggingface.co/docs/transformers/main/en/generation_strategies#speculative-decoding) | Fact; documentation scope |
+| Draft block size must be tuned against acceptance, target contention, and tail latency. | This lesson’s systems analysis | Engineering inference |

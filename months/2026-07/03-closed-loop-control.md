@@ -1,10 +1,14 @@
 # Closed-loop control
-Status: draft — expansion pending
-Sources: [Google DeepMind — news archive](https://deepmind.google/blog/)
+Status: durable
+Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/); [Google DeepMind — 2026-07-30, model card](https://deepmind.google/models/model-cards/gemini-robotics-er-2/)
 
 ## In one sentence
 
 Closed-loop control repeatedly observes a system, chooses a bounded action, measures the resulting state, and corrects course, making feedback and recovery part of the product rather than an afterthought.
+
+## Prerequisites
+
+Know state transitions, preconditions, retries, timeouts, receipts, and idempotency. The key distinction is between a rejected action, a confirmed effect, and an unknown effect after a timeout; those states require different recovery paths.
 
 ## Background: what existed before
 
@@ -12,13 +16,17 @@ An open-loop workflow issues a plan and assumes the world behaves as expected: s
 
 Classical control systems use a sensor, controller, actuator, and feedback path. A thermostat measures temperature, compares it with a target, turns heating on or off, then measures again. Software systems use the same pattern even when the “sensor” is an API receipt, test result, event stream, or human review. The key distinction is state ownership: the controller responds to an observed state from the controlled system, not only its own prior intent.
 
-The July source map concerns embodied agents and frontier operations via the Google DeepMind news archive. That is a discovery source, not evidence that a particular control system is reliable. The engineering inference is that capable planning increases the need for feedback: a model can propose an action, but it cannot establish success unless an independent sensor or service reports the resulting state.
+The July 30 ER 2 release is the monthly anchor because it describes robots tracking progress from continuous video, adapting when something goes wrong, and checking task completion before moving on. Those are provider-reported capabilities, not a safety guarantee for a controller. The engineering inference is that the action loop needs an independent observation and a declared postcondition: a model may choose the next action, but a sensor, receipt, or policy service must decide whether the prior action succeeded.
 
 ## What changed and why now
 
 Agent systems can produce long action plans, tool calls, and UI interactions, which creates a temptation to execute many steps before checking results. Closed-loop design instead turns each consequential step into a small transaction: read current state, validate that action preconditions hold, apply a limited action, observe a receipt or measurement, and decide whether to continue, retry, compensate, or escalate. This reduces the blast radius of stale assumptions.
 
 The feedback signal must be defined before automation begins. “Task completed” can mean a command was accepted, a job was scheduled, a physical effect was observed, a database record changed, or a user confirmed the result. These are different states with different evidence. A queue acknowledgment proves less than an external receipt; a model’s summary proves less than a system-of-record query. The controller should record which evidence level it has reached.
+
+## What changed this month
+
+The July 30 ER 2 description makes the observe–act–verify loop concrete: a high-level reasoner hands work to an action model and uses ongoing video to decide whether to continue. In a real controller, that signal must carry freshness, task identity, and an expected state version. If an observation or receipt is stale, pause or reconcile instead of letting a plausible model narrative advance the workflow.
 
 ## Impact on current processing and architecture
 
@@ -46,6 +54,7 @@ Controllers should use thresholds and hysteresis. Hysteresis means using differe
 
 ```mermaid
 sequenceDiagram
+    rect rgb(219, 234, 254)
     participant C as Controller
     participant X as External system
     participant V as Verification service
@@ -60,6 +69,7 @@ sequenceDiagram
         V-->>C: missing or conflicting evidence
         C->>H: escalation packet
         H-->>C: retry, compensate, or stop
+    end
     end
 ```
 
@@ -121,6 +131,18 @@ Log the policy version and rule that allowed, delayed, denied, or escalated ever
 
 This evidence also gives reviewers a concrete basis for adjusting thresholds without relying on anecdotal reports.
 
+## Engineering analysis
+
+The July robotics release is a useful example of why a high-level reasoner and an action model need a feedback contract. The reasoner can propose a sequence, while continuous video and task-progress signals indicate whether the physical world followed that proposal. In software, the same separation appears when a planner submits a tool request and an independent service verifies the resulting record. The important unit is not “model call succeeded”; it is “the expected state transition was observed with fresh evidence.”
+
+Define preconditions and postconditions in the action schema. A precondition may say that the robot is in a named zone, the gripper is empty, and the scene version is current. A postcondition may require an object to be detected at a destination, a database version to increment, or a receipt to contain a specific resource ID. If the action returns only `200 OK`, the controller has not learned whether the business effect occurred. The verifier should query the authoritative system or use a sensor whose failure modes are understood. A model-generated description can help explain a result, but it should not be the sole postcondition.
+
+Feedback cadence is a trade-off. Checking after every motor micro-step is too expensive and may introduce instability; checking only at the end of a long plan creates a large blast radius. Choose checkpoints at boundaries where the cost of a wrong assumption changes: before entering a shared space, after grasping an object, before a write operation, after a page navigation, and before releasing a resource. Each checkpoint needs a timeout and an explicit outcome for stale or missing evidence. A timeout should move the state to `UNKNOWN` or `NEEDS_REVIEW`, not to success by default.
+
+Retries need a controller-specific policy. A transient sensor read can be retried safely, while a physical grasp or payment request may already have taken effect. Use an idempotency key when the external system supports one, and use reconciliation when it does not. Compensation is not the same as undo: moving an item back may be impossible, and issuing a refund may have legal or accounting implications. The controller should record the original effect, the attempted recovery, and who authorized it.
+
+Control quality also depends on observability. Log the observed state version, action ID, policy decision, actuator command class, receipt ID, and reason for each transition. Do not log raw credentials or unbounded sensor streams by default. During rollout, shadow the controller against recorded traces, inject stale observations and delayed receipts, and compare its decisions with a reference policy. A loop that is stable in a clean simulation can oscillate when measurements arrive late, so latency and freshness belong in the test fixture. The source-backed capability is adaptation; the engineering work is making adaptation bounded, measurable, and reversible.
+
 ## Build it locally
 
 This small state machine shows why a timeout after an action becomes an unknown effect instead of an immediate retry.
@@ -133,6 +155,8 @@ from dataclasses import dataclass
 class Run:
     state: str = "OBSERVE"
     attempt: int = 0
+    effect_key: str = ""
+    observed: str | None = None
 
 
 def act(run: Run, response: str) -> str:
@@ -148,9 +172,29 @@ def act(run: Run, response: str) -> str:
     return run.state
 
 
+def reconcile(run: Run, observation: str) -> str:
+    if run.state != "UNKNOWN_EFFECT":
+        return "REJECT: no unknown effect"
+    run.observed = observation
+    if observation == "present":
+        run.state = "SUCCEEDED"
+    elif observation == "absent" and run.attempt < 2:
+        run.state = "OBSERVE"
+    else:
+        run.state = "ESCALATED"
+    return run.state
+
+
 run = Run()
+run.effect_key = "door:open:attempt-1"
 print(act(run, "timeout"))
 assert run.state == "UNKNOWN_EFFECT"
+assert reconcile(run, "present") == "SUCCEEDED"
+assert reconcile(run, "absent").startswith("REJECT")
+
+retry = Run(effect_key="door:open:attempt-2")
+assert act(retry, "rejected") == "RETRYABLE_FAILURE"
+assert retry.effect_key != run.effect_key
 ```
 
 1. Save as `control_loop.py` and run `python3 control_loop.py`.
@@ -181,11 +225,14 @@ Pick a workflow such as a deployment or subscription cancellation. Draw the targ
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — primary discovery source for the July topic.
+- [Google DeepMind — Gemini Robotics ER 2, 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) — primary product release and monthly source.
+- [Google DeepMind — Gemini Robotics ER 2 model card](https://deepmind.google/models/model-cards/gemini-robotics-er-2/) — primary model documentation.
 - [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) — risk-management context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| July’s source map concerns embodied-agent and operational systems. | Google DeepMind news archive | Source-context fact |
-| Consequential agent actions need independent observation, bounded retries, and reconciliation. | This lesson’s systems design | Engineering inference |
+| ER 2 is described as tracking progress and adapting when a physical step goes wrong. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| The post describes a high-level reasoner handing motor execution to a VLA model. | [Google DeepMind — 2026-07-30](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/) | Fact; provider release claim |
+| Every consequential action should have an observation or receipt that can advance state. | This lesson’s architecture | Engineering inference |
+| A timeout with an unknown external effect must not be treated as a clean failure. | Distributed-systems design | Engineering inference |

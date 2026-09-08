@@ -1,10 +1,14 @@
-# Red teaming
-Status: draft — expansion pending
-Sources: [Google DeepMind — news archive](https://deepmind.google/blog/), [Frontier Model Forum — emerging security practices for AI agents](https://www.frontiermodelforum.org/issue-briefs/emerging-security-practices-for-ai-agents/)
+# AI-assisted vulnerability discovery
+Status: emerging
+Sources: [Google DeepMind — 2026-07-21, primary cyber-model release](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/)
 
 ## In one sentence
 
 Red teaming is structured adversarial testing that searches for realistic misuse, policy bypass, unsafe tool use, and recovery gaps—then turns verified findings into prioritized engineering controls and regression tests.
+
+## Prerequisites
+
+Know threat models, attack surfaces, prompt/tool boundaries, authorization, regression tests, and incident triage. Red teaming is adversarial discovery; it becomes engineering value only when a finding is reproduced, contained, assigned, fixed, and retested.
 
 ## Background: what existed before
 
@@ -12,13 +16,17 @@ Security engineering has long used adversarial thinking. Threat modeling identif
 
 AI applications add new surfaces. Inputs can contain prompt injection, model outputs can form tool arguments, retrieved documents can influence a planner, agents can retain state across turns, and a harmless-looking workflow can acquire authority through integrations. Traditional web and API tests remain necessary, but they do not automatically cover the interaction between a probabilistic model, untrusted context, and effectful tools.
 
-The July source map includes red teaming and agent-security practices, with the linked sources providing discovery and industry context. They are not evidence that any individual deployment has been safely tested. The durable engineering lesson is that adversarial findings need to become concrete, repeatable controls rather than one-off demonstrations.
+The July 21 Gemini 3.5 Flash Cyber release gives this lesson a specific starting point: it describes CodeMender invoking the model repeatedly to explore code paths, validate vulnerabilities, and produce a consolidated report. That is an AI-assisted vulnerability-discovery workflow, not evidence that a red-team program is complete. This lesson follows the adversarial finding lifecycle—scope, reproduce, classify, assign, remediate, and retest—while measurement validity belongs to lesson 05 and isolated range infrastructure belongs to lesson 14.
 
 ## What changed and why now
 
 Tool-using agents can chain steps and adapt after feedback, so red-team tests must examine trajectories, not only single prompts. A test may begin with a benign document, cause the agent to request a broader tool action, observe whether the gateway blocks it, and verify that the system preserves an audit trail. This asks both capability and control questions: what can the model propose, and what can the application actually allow?
 
 Start from a threat model. Identify protected assets such as customer data, credentials, money movement, source code, or physical actuators; entry points such as chats, uploads, web pages, tickets, or tool results; and trust boundaries between model, retrieval, gateway, executor, and tenant. Convert high-value paths into authorized scenarios with expected safe outcomes. A successful red-team test may be a refusal, a policy denial, an escalation, or a benign sandboxed result—not necessarily a model failure.
+
+## What changed this month
+
+The July 21 cyber-model release describes repeated model calls inside CodeMender to explore more code paths and consolidate findings. That is a concrete source example of search-space expansion, while its benchmark and internal-use claims remain provider-reported. Red teaming applies the same adversarial thinking to prompts, tools, tenant boundaries, retries, and recovery, then follows each finding through reproduction, remediation, and regression testing.
 
 ## Impact on current processing and architecture
 
@@ -46,6 +54,7 @@ Test defense in depth. A well-designed system can have a model that follows a ma
 
 ```mermaid
 sequenceDiagram
+    rect rgb(219, 234, 254)
     participant H as Test harness
     participant P as Planner
     participant G as Tool gateway
@@ -61,6 +70,7 @@ sequenceDiagram
         X-->>E: receipt
     end
     G-->>E: policy and audit event
+    end
 ```
 
 ## Real-world applications and constraints
@@ -121,6 +131,18 @@ The same map supports disciplined release notes, ownership transitions, and evid
 
 It strengthens accountability.
 
+## Engineering analysis
+
+The July 21 release gives this lesson a specific center: CodeMender uses repeated model calls to explore large codebases, validate findings, and prepare fixes. That is vulnerability-discovery workflow, not a generic invitation to attack. The red-team boundary is therefore the finding lifecycle. A tester creates an authorized fixture, observes the model’s proposed path, records which tool calls were allowed or denied, reproduces the finding safely, assigns severity, and turns the result into a regression test. The goal is to improve a defended system, not to maximize exploit detail.
+
+Search and validation should be separated. A candidate finding is a hypothesis with a source location, affected component, confidence, and evidence pointer. Validation asks whether the issue is reachable under the fixture and whether a proposed patch preserves intended behavior. A model can be useful in both stages, but the evidence requirements differ. Search may tolerate broad hypotheses; validation needs deterministic tests, a pinned dependency graph, and a clear statement of what was not tested. Do not let an unverified model explanation become a security ticket with production severity.
+
+Red-team trajectories reveal interaction failures that static prompts miss. A document can inject a tool instruction, a tool can return a misleading error, and a planner can retry with a broader argument. Capture the whole sequence: input class, model proposal, gateway decision, normalized result, next proposal, and terminal disposition. Use synthetic credentials and private fixtures. An action that is blocked at the gateway is different from an action the model never proposed, and both differ from a successful benign operation.
+
+The finding database needs ownership and closure. Assign a unique finding ID and keep the original fixture, reproduction steps, affected version, mitigation, regression test, and residual-risk decision. After a fix, rerun the same test and a neighboring case to detect overfitting. If the model changes, compare finding distributions rather than only total counts. A drop in findings can mean improved security, reduced coverage, or a broken harness.
+
+A mature program also protects the testers and the organization. Define rules of engagement, rate limits, allowed repositories, stop conditions, and a communication channel before the run. Store raw traces behind a security role and publish only sanitized lessons. The July source supports studying AI-assisted vulnerability search; the engineering consequence is a disciplined loop from hypothesis to evidence to regression, with permissions and human judgment at every boundary.
+
 ## Build it locally
 
 This small harness checks that an untrusted instruction cannot change the trusted tenant boundary. It models a gateway rule, not a real security system.
@@ -136,6 +158,17 @@ class ToolRequest:
     action: str
 
 
+def gateway_with_budget(request: ToolRequest, cancelled: set[str], counts: dict[str, int], limit: int = 2) -> str:
+    if request.authenticated_tenant in cancelled:
+        return "DENY: run cancelled"
+    if counts.get(request.authenticated_tenant, 0) >= limit:
+        return "DENY: action budget"
+    decision = gateway(request)
+    if decision.startswith("ALLOW"):
+        counts[request.authenticated_tenant] = counts.get(request.authenticated_tenant, 0) + 1
+    return decision
+
+
 def gateway(request: ToolRequest) -> str:
     if request.requested_tenant != request.authenticated_tenant:
         return "DENY: cross-tenant request"
@@ -149,6 +182,11 @@ unsafe = ToolRequest("tenant-a", "tenant-b", "read_ticket")
 print(gateway(safe))
 print(gateway(unsafe))
 assert gateway(unsafe).startswith("DENY")
+counts = {}
+assert gateway_with_budget(safe, set(), counts).startswith("ALLOW")
+assert gateway_with_budget(safe, set(), counts).startswith("ALLOW")
+assert gateway_with_budget(safe, set(), counts).startswith("DENY")
+assert gateway_with_budget(safe, {"tenant-a"}, {}).startswith("DENY")
 ```
 
 1. Save as `red_team_gate.py` and run `python3 red_team_gate.py`.
@@ -179,11 +217,13 @@ Choose one agent tool and write a red-team property: its asset, trusted identity
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — primary discovery source for the July topic.
+- [Google DeepMind — Introducing Gemini 3.5 Flash Cyber, 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) — primary release and monthly source.
 - [Frontier Model Forum — emerging security practices for AI agents](https://www.frontiermodelforum.org/issue-briefs/emerging-security-practices-for-ai-agents/) — industry security context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| July’s source map includes red teaming and agent-security practices. | Google DeepMind news archive | Source-context fact |
-| Adversarial findings should be converted into enforced controls and regression tests. | This lesson’s systems design | Engineering inference |
+| The July cyber release describes repeated model calls to explore more code paths and consolidate findings. | [Google DeepMind — 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) | Fact; provider release claim |
+| The release describes limited-access distribution because the capability is dual-use. | [Google DeepMind — 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) | Fact; provider deployment claim |
+| A red-team finding should include reproduction evidence, affected boundary, owner, and retest result. | This lesson’s process | Engineering inference |
+| Regression tests turn a discovered bypass into a maintained control. | This lesson’s process | Engineering inference |

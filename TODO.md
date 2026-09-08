@@ -14,7 +14,7 @@
 
 ## Active
 
-- [x] July 2026 — Create and expand source-backed articles 01–20; mechanics and similarity audit complete; substantive review remains..
+- [ ] July 2026 — Create and expand source-backed articles 01–20; mechanics and similarity audit complete; substantive review required.
 - [x] July 01 — Robot task orchestration: expansion and mechanics pass complete; substantive review remains.
 - [x] July 02 — Video understanding: expansion and mechanics pass complete; substantive review remains.
 - [x] July 03 — Closed-loop control: expansion and mechanics pass complete; substantive review remains.
@@ -30,6 +30,11 @@
 - [x] July 13 — Browser sandboxing: expansion and mechanics pass complete; substantive review remains.
 - [x] July 14 — Cyber ranges: expansion and mechanics pass complete; substantive review remains.
 - [x] July 15 — Model artifact signing: expansion and mechanics pass complete; substantive review remains.
+- [x] July 16 — Secret scanning: expansion and mechanics pass complete; substantive review remains.
+- [x] July 17 — Speculative decoding: expansion and mechanics pass complete; substantive review remains.
+- [x] July 18 — Inference batching: expansion and mechanics pass complete; substantive review remains.
+- [x] July 19 — Durable execution: expansion and mechanics pass complete; substantive review remains.
+- [x] July 20 — Operator takeover: expansion and mechanics pass complete; substantive review remains.
 - [ ] Expand April–June draft coverage month by month before returning to July/August missing-file coverage; review/approval remains a later pass.
 - [x] June 01 — Defense in depth: expansion and mechanics pass complete; substantive review remains.
 - [x] June 02 — Agent control: expansion and mechanics pass complete; substantive review remains.

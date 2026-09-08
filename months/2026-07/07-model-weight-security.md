@@ -1,10 +1,14 @@
-# Model weight security
-Status: draft — expansion pending
-Sources: [Google DeepMind — news archive](https://deepmind.google/blog/), [Frontier Model Forum — emerging security practices for AI agents](https://www.frontiermodelforum.org/issue-briefs/emerging-security-practices-for-ai-agents/)
+# AI patch provenance and artifact security
+Status: durable
+Sources: [Google DeepMind — 2026-07-21, primary cyber-model release](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/); [SLSA — 2026-09-07, accessed; current v1.2 specification](https://slsa.dev/spec/v1.2/); [Sigstore — 2026-09-07, accessed; official Cosign documentation](https://docs.sigstore.dev/cosign/)
 
 ## In one sentence
 
 Model weight security protects the model artifact, its metadata, evaluation data, credentials, and deployment path so a serving system can prove which approved model it loaded and prevent unauthorized extraction, substitution, or tampering.
+
+## Prerequisites
+
+Know object storage, access-control roles, cryptographic digests, registries, provenance, and deployment admission. Separate integrity (bytes did not change) from authenticity (an accepted identity authorized them) and from model quality or safety.
 
 ## Background: what existed before
 
@@ -12,13 +16,17 @@ Software supply-chain security already treats source code, build dependencies, b
 
 The baseline failure mode is an open artifact bucket or a broadly privileged service account. If anyone who can launch a server can download any model, export an artifact, change a registry tag, or inject a custom loader, the organization cannot enforce licensing, evaluation gates, or incident response. Weights may be valuable intellectual property, but confidentiality is only one concern. Integrity matters when a substituted model changes behavior; availability matters when a malicious or accidental deletion blocks service; provenance matters when a team needs to reproduce an output or roll back an incident.
 
-The July source map includes model artifact security and agent-security practices. The linked sources provide topic context, not a claim that a particular registry is secure. The systems lesson is that model artifacts need the same disciplined identity, least privilege, and release controls as executable software, with additional attention to data and runtime compatibility.
+The July 21 cyber release is the monthly anchor for the artifact boundary: it describes CodeMender using an AI model to find, validate, and patch vulnerabilities at scale, and it reports consolidated findings rather than a model-weight security product. This lesson therefore makes an explicit engineering inference from that release: AI-generated patches, evaluation records, and model bundles become high-value artifacts that need separate access controls before they can influence a deployment. Signing identity and admission proof are the focus of lesson 15; this lesson focuses on who may read, transform, evaluate, or deploy each artifact.
 
 ## What changed and why now
 
 Open models, fine-tuning, quantization, adapters, and multiple deployment targets mean a model is increasingly assembled from a chain of artifacts. A team may use a base checkpoint, an adapter trained on internal data, a tokenizer, a prompt template, a safety configuration, and a compiled runtime. Each component can affect behavior. Security must therefore verify a complete serving bundle rather than only the largest weight file.
 
 Treat the bundle as immutable content addressed by hashes. An approved release record should name the base model digest, all adapter and tokenizer digests, conversion or quantization settings, evaluation report, license decision, runtime image digest, hardware class, deployment manifest, and signing identity. A mutable tag such as `latest` can help humans discover a release but should not be the only identifier used by production.
+
+## What changed this month
+
+No exact July 2026 primary release about model-weight security was verified. A July archive mention would not substantiate a claim about registry protection. This lesson therefore keeps its durable scope: threat-model who may read, replace, or promote weights, evaluation data, credentials, and deployment artifacts, and use independent access boundaries before considering signing or runtime admission.
 
 ## Impact on current processing and architecture
 
@@ -171,11 +179,13 @@ Draw a model-bundle supply chain for one service: source, conversion, registry, 
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — primary discovery source for the July topic.
+- [Google DeepMind — Introducing Gemini 3.5 Flash Cyber, 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) — primary release and monthly artifact-security context.
 - [Frontier Model Forum — emerging security practices for AI agents](https://www.frontiermodelforum.org/issue-briefs/emerging-security-practices-for-ai-agents/) — industry security context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| July’s source map includes model artifact security. | Google DeepMind news archive | Source-context fact |
-| Model release bundles should have immutable identity, least privilege, verified provenance, and rollback controls. | This lesson’s systems design | Engineering inference |
+| No exact July 2026 weight-security release was verified for this lesson. | Source review performed 2026-09-07 | Fact about this editorial pass |
+| SLSA defines provenance concepts for software supply chains. | [SLSA — accessed 2026-09-07](https://slsa.dev/spec/v1.0/) | Fact; specification scope |
+| Cosign documents signing and verification workflows. | [Sigstore — accessed 2026-09-07](https://docs.sigstore.dev/cosign/) | Fact; documentation scope |
+| Weights, evaluation data, credentials, and deployment artifacts should have separate access boundaries. | This lesson’s threat model | Engineering inference |

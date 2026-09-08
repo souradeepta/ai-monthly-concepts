@@ -2,11 +2,15 @@
 
 Status: emerging
 
-Sources: [Google DeepMind news archive](https://deepmind.google/blog/) (issue discovery context); [GitHub secret scanning documentation](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning); [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+Sources: [Google DeepMind — 2026-07-21, primary cyber-model release](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/); [GitHub — 2026-09-07, accessed; secret scanning documentation](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning); [OWASP — 2026-09-07, accessed; LLM application risks](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 
 ## In one sentence
 
 Secret scanning for AI systems must inspect source, prompts, model context, tool arguments, artifacts, and logs because credentials can enter any data path an agent is allowed to use.
+
+## Prerequisites
+
+Know regular expressions, entropy and false positives, redaction, credential rotation, CI boundaries, artifact stores, logs, and least privilege. A finding must be actionable without copying the secret into the finding, alert, prompt, or trace.
 
 ## Background: what existed before
 
@@ -25,6 +29,10 @@ Tool-using assistants make secret exposure an ordinary pipeline risk. A planner 
 The issue’s source context reflects increasing agentic systems; it does not establish a specific July release of a secret scanner. The controls in this lesson are engineering inferences grounded in the cited security guidance. Capability—an agent can call an API—must be kept separate from the reliability claim that the API key will remain confidential.
 
 The practical shift is to scan at trust-boundary transitions: before context construction, after tool responses, before model output is stored or published, and when artifacts leave a sandbox. Each transition needs a policy decision: block, redact, quarantine, allow with audit, or request human review. A single “secret detected” boolean is too coarse for different tenants, environments, and rotation obligations.
+
+## What changed this month
+
+No exact July 2026 primary release about secret scanning was verified. The July 21 cyber release mentions commit-scanning workflows, but that is vulnerability scanning rather than a secret-detector release. The durable lesson is boundary coverage: scan prompts, tool payloads, artifacts, logs, and exports, while treating provider-specific detectors as incomplete inputs.
 
 ## Impact on current processing and architecture
 
@@ -127,11 +135,14 @@ This example detects a few synthetic token shapes and returns a masked projectio
 ```python
 import re
 
-PATTERNS = [re.compile(r"sk-[A-Za-z0-9]{12,}"), re.compile(r"AKIA[0-9A-Z]{16}")]
+PATTERNS = [
+    ("provider", re.compile(r"\bsk-[A-Za-z0-9]{12,}\b")),
+    ("aws", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+]
 
 def redact(text: str) -> tuple[str, int]:
     hits = 0
-    for pattern in PATTERNS:
+    for _, pattern in PATTERNS:
         text, count = pattern.subn("[SECRET]", text)
         hits += count
     return text, hits
@@ -140,6 +151,13 @@ sample = "deploy with sk-example123456789 and keep the region us-west-2"
 masked, count = redact(sample)
 print(masked)
 print("findings:", count)
+assert "sk-example" not in masked and count == 1
+false_positive, false_count = redact("docs mention sk-PLACEHOLDER and region us-west-2")
+assert false_count == 0 and "sk-PLACEHOLDER" in false_positive
+split_value = "sk-example123" + "456789"
+split_masked, split_count = redact(split_value)
+assert split_count == 1 and split_value not in split_masked
+assert "sk-example" not in masked
 ```
 
 1. Save the code as `scan.py` and run `python3 scan.py`.
@@ -155,6 +173,20 @@ A finding should be actionable without disclosing the value. Record the boundary
 Prioritize findings by exposure, not only detector confidence. A suspected token in a public artifact deserves urgent containment; a test marker in an isolated fixture may be accepted with a documented exception. Include business impact and whether the credential is still active. The scanner can recommend an action, but revocation should use a controlled provider workflow with an audit receipt.
 
 Scanning should be continuous enough to catch delayed publication. Run at commit and CI boundaries, on artifact upload, before indexing content for retrieval, and when exporting traces. Re-scan when detector rules or provider formats change. A content hash lets the system identify unchanged data without retaining another copy, while a policy version explains why an older finding was allowed.
+
+## Scanning boundaries and detector design
+
+The boundary determines what “scan” can safely mean. At a source-control boundary, the scanner can inspect a diff, file path, and commit metadata before publication. At a prompt boundary, it should return a safe projection quickly because the next model call may already be queued. At a tool boundary, the scanner needs to inspect both arguments and results, including structured fields that a pretty printer might hide. At an artifact boundary, it may need archive traversal, file-type detection, and a block decision before a package becomes downloadable. At a log boundary, it must protect the alerting system itself: an incident event cannot contain the value it is supposed to contain.
+
+These boundaries need different false-positive policies. A documentation example can be allowed if it is an unmistakable placeholder and cannot authenticate, while an unknown token in a public release should be blocked until reviewed. A candidate in a private prompt might be redacted so the task can continue, but a candidate in a customer export should normally stop publication. Classify findings with at least source, destination, credential family, confidence, and reversibility. “High confidence” is not enough to choose an action without knowing where the data is going.
+
+Split secrets expose a common mistake in detector design. If a token is divided across two tool messages, scanning each message independently misses it. Joining every adjacent message indiscriminately creates false positives and may combine unrelated text. A practical gateway can keep a short-lived, bounded window for each logical stream, normalize only approved separators, and attach the finding to the smallest set of source segments that produced the match. The window must be cleared at a trust-boundary transition and must never be written to a debug log. This is a streaming-state problem, not just a better regular expression.
+
+Encoded values require a similar trade-off. Base64 is an encoding, not encryption, so a detector can decode candidate strings before applying provider rules. But decoding every long string is expensive and can turn arbitrary binary data into noisy text. Limit decoding by alphabet, padding, length, and context; cap the number of attempts per event; and record the decoder rule without retaining the decoded value. The same idea applies to URL encoding, JSON escaping, and Unicode confusables. Canonicalization should be explicit and testable because aggressive normalization can change the meaning of user content.
+
+Findings should be designed as safe objects. Store a keyed or unkeyed fingerprint, rule ID, boundary, source component, position, confidence, and an inert preview such as `sk-live-…<24 bytes>`. Do not store the matched value, a reversible encryption key beside the event, or the entire surrounding line. If incident response needs raw evidence, put it in a separate vault with a different role, short retention, access logging, and an approval path. The default alert should let an owner locate and rotate the credential without copying it into chat, issue trackers, or model context.
+
+The scanner’s test corpus should include positive, negative, and ambiguous fixtures. Positive cases include a direct token, a token split across messages, a base64-wrapped token, a JSON field, and a shell error. Negative cases include documentation placeholders, hashes, UUIDs, and ordinary prose. Ambiguous cases include a high-entropy test value and a token-like string in a screenshot OCR result. Assert both detection behavior and non-disclosure: the raw fixture must not occur in the finding object, logs, exception text, or serialized report. Measure recall separately for each representation, because an aggregate score can hide a complete failure on encoded or split values.
 
 ## Mini exercise (15–30 min)
 
@@ -212,10 +244,9 @@ Keep all demonstrations local and synthetic. A Wireshark capture should contain 
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — application-security risk context.
 
 ## Claim ledger
-
 | Claim | Source | Fact or inference |
-| --- | --- | --- |
-| Secret scanning detects credential-like material and supports remediation workflows. | GitHub documentation | Source-context fact |
-| AI systems add prompts, tool outputs, artifacts, and traces as scanning boundaries. | Lesson synthesis | Engineering inference |
-| Scoped worker capabilities are safer than putting literal keys in model context. | Lesson synthesis | Engineering inference |
-| Detection coverage is incomplete and requires layered controls. | OWASP context and synthesis | Engineering inference |
+|---|---|---|
+| No exact July 2026 secret-scanning release was verified for this lesson. | Source review performed 2026-09-07 | Fact about this editorial pass |
+| GitHub documents secret scanning as a way to detect credential-like material and support remediation. | [GitHub — accessed 2026-09-07](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning) | Fact; documentation scope |
+| The July cyber release describes commit-scanning workflows, but as vulnerability scanning rather than secret detection. | [Google DeepMind — 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) | Fact; source distinction |
+| Prompts, tool payloads, artifacts, and traces are additional scanning boundaries. | This lesson’s architecture | Engineering inference |
