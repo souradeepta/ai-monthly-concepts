@@ -1,33 +1,10 @@
 # Edge Model Serving
-Status: planned
-Sources: [Google DeepMind — Perceiver](https://deepmind.google/blog/building-architectures-that-can-handle-the-worlds-data/), [Hugging Face Blog](https://huggingface.co/blog)
+Status: emerging
+Sources: [Google DeepMind — 2021-05-18](https://deepmind.google/blog/building-architectures-that-can-handle-the-worlds-data/), [Android Developers — 2026-07-21](https://developer.android.com/blog/posts/build-intelligent-android-apps-on-device-inference), [Google DeepMind — 2026-08-12](https://deepmind.google/blog/putting-sign-language-ai-into-users-hands/)
 
 ## In one sentence
-Edge model serving places inference near sensors or users so decisions can continue under bandwidth, privacy, or latency constraints.
 
-## Background: what existed before
-Centralized inference simplified upgrades and capacity pooling. Devices uploaded raw data and waited for a remote response, making the network a required dependency.
-
-## What changed and why now
-General multimodal architectures and smaller open models make local processing feasible for cameras, phones, robots, and gateways. Perceiver research shows why a common architecture is attractive for varied sensor inputs, though deployment still depends on hardware.
-
-## Impact on current processing and architecture
-An edge fleet needs signed model packages, staged rollout, device health, resource budgets, local queues, and a cloud reconciliation path. Never assume all devices have the same accelerator or clock.
-
-## Real-world applications and constraints
-Use edge inference for robotics, inspection, offline translation, and privacy-sensitive cameras. Thermal limits, intermittent connectivity, physical tampering, and fragmented updates are major constraints.
-
-## Mental model
-An edge model is a distributed service replica with a battery and a hostile network.
-
-## What changed this month
-Multimodal local workloads expand the edge contract from “classify a sensor” to coordinate several streams under a fixed budget.
-
-## Engineering consequence
-Define what the device may decide offline and what must be deferred to a trusted service.
-
-## Limits and failure modes
-Stale policy, clock skew, partial uploads, corrupted artifacts, and silently degraded sensors can make local decisions unsafe.
+Edge model serving runs a controlled, versioned inference artifact near its data source while managing fleet heterogeneity, offline state, and constrained resources.
 
 ## Prerequisites: inference at the edge
 
@@ -131,6 +108,10 @@ In retail or building systems, cameras and microphones create significant privac
 In field service, an offline assistant can search local manuals, interpret a photograph, or translate a checklist. The device must display document version and model version, support later synchronization, and avoid presenting stale safety instructions as current. If a procedure changes, revoke or expire the local copy.
 
 In vehicles and remote operations, thermal and power budgets can dominate. Measure sustained performance, not only the first minute. A device that throttles under heat may miss events exactly when the environment is demanding. Define a degraded mode and tell the operator what coverage has been reduced.
+
+## Mental model
+
+Model each device as a temporarily disconnected replica: it can serve only the policy and artifact state it has, queues bounded work, and reconciles approved events when connectivity returns.
 
 ## Engineering consequence
 

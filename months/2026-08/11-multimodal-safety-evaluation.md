@@ -1,33 +1,10 @@
 # Multimodal Safety Evaluation
-Status: planned
-Sources: [Google DeepMind — Social and ethical risks](https://deepmind.google/blog/evaluating-social-and-ethical-risks-from-generative-ai/), [OpenAI GPT-4o System Card](https://openai.com/index/gpt-4o-system-card/)
+Status: emerging
+Sources: [Google DeepMind — 2023-10-19](https://deepmind.google/blog/evaluating-social-and-ethical-risks-from-generative-ai/), [OpenAI — 2024-05-13](https://openai.com/index/gpt-4o-system-card/), [Google DeepMind — 2026-08-27](https://deepmind.google/blog/piloting-the-worlds-first-double-blind-ai-evaluations/)
 
 ## In one sentence
-Multimodal safety evaluation tests harmful combinations of inputs, outputs, and context instead of assuming that a safe text-only path remains safe when images, audio, or video are added.
 
-## Background: what existed before
-Safety suites frequently centered on text prompts and text completions. Image moderation, speech filtering, and video review were separate or less mature. A text policy could miss harm conveyed by tone, a diagram, an edited frame, or a spoken instruction.
-
-## What changed and why now
-Unified models make mixed-media interactions normal. DeepMind’s review identifies modality gaps, while the GPT-4o system card describes testing across audio, image, and text. The change is evaluation scope, not proof that a model is safe.
-
-## Impact on current processing and architecture
-Test every boundary: upload, extraction, model input, tool call, generated artifact, and playback. Maintain paired fixtures where the same intent is expressed as text, screenshot text, speech, and a video sequence. Log refusals, unsafe completions, false positives, and degradation after transformations.
-
-## Real-world applications and constraints
-This matters for voice assistants, moderation, education, medical imaging, and media tools. Privacy, annotator exposure, cultural context, and costly human review constrain the test set.
-
-## Mental model
-Safety is a matrix of modality combinations and action consequences, not a single classifier score.
-
-## What changed this month
-The rise of unified and video-capable systems makes cross-modal test coverage an operational release gate.
-
-## Engineering consequence
-Block high-impact tools unless both the semantic request and the media evidence pass independent policy checks.
-
-## Limits and failure modes
-Sparse edge cases, evaluator disagreement, prompt injection in media, and transformations that defeat detectors remain difficult.
+Multimodal safety evaluation tests capability, reliability, and harmful effects across media combinations and the complete product path.
 
 ## Prerequisites: capability, safety, and system risk
 
@@ -132,6 +109,10 @@ Accessibility assistants need especially careful evaluation because refusing eve
 Media creation tools should test both input and output harms. An input image may contain a person who did not consent. A generated voice may imitate a real speaker. A video continuation may alter identity, age, or context. Reviewers need to assess the assembled artifact, not only the text prompt. Provenance metadata can help downstream users, but it does not replace content policy or consent controls.
 
 Healthcare and other high-impact domains require domain-specific labels and escalation. A general safety classifier may not know that a visually plausible dosage is clinically unsafe. Use deterministic reference checks, constrained output schemas, source citations, and qualified review. Keep the system in an assistive role unless a regulated workflow explicitly permits more autonomy.
+
+## Mental model
+
+Treat each safety case as a path through input, transformation, model output, policy decision, and possible external effect; the release gate is the worst credible slice, not the average score.
 
 ## Engineering consequence
 

@@ -1,33 +1,10 @@
 # Multimodal Prompt Injection
-Status: planned
-Sources: [OWASP GenAI Security Project](https://owasp.org/www-project-generative-ai-security/), [OpenAI GPT-4o System Card](https://openai.com/index/gpt-4o-system-card/)
+Status: emerging
+Sources: [Google Blog — 2026-08-27](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/), [OpenAI — 2024-05-13](https://openai.com/index/gpt-4o-system-card/), [OWASP — 2025-11-06](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 
 ## In one sentence
-Multimodal prompt injection hides or places agent-directed instructions in images, documents, audio, subtitles, or video so content is mistaken for trusted control input.
 
-## Background: what existed before
-Text assistants taught engineers that retrieved documents and web pages are untrusted. Image OCR and speech transcription widened that same attack surface without always carrying the warning forward.
-
-## What changed and why now
-Unified models can directly interpret media, so an instruction may be visible only after rendering, spoken in background audio, or embedded in a QR code. The input channel changed; the trust boundary did not.
-
-## Impact on current processing and architecture
-Tag extracted content as untrusted, isolate it from system policy, and require a separate authorization service for tools. Do not let a screenshot’s “ignore prior instructions” text alter permissions.
-
-## Real-world applications and constraints
-Document agents, browser assistants, customer-support uploads, and camera-based robots are exposed. Sanitization can remove useful text, while detection can miss obfuscation.
-
-## Mental model
-Every decoder is another parser at the trust boundary.
-
-## What changed this month
-Multimodal input increases the number of places where adversarial instructions can arrive.
-
-## Engineering consequence
-Use least privilege, confirmation for effects, output validation, and canary fixtures across every supported media type.
-
-## Limits and failure modes
-Indirect instructions, adversarial typography, low-volume audio, and model over-trust can bypass superficial filters.
+Multimodal prompt-injection defense keeps instructions found in media, metadata, or tool results tainted as data and enforces authority outside the model.
 
 ## Prerequisites: content is not control
 
@@ -128,6 +105,10 @@ A coding agent may inspect issue screenshots, logs, and terminal output. Logs ar
 A robot may use camera and microphone input to understand a workspace. A sign or spoken phrase can try to redirect it. The perception model can propose a task, but a controller must validate location, object state, collision risk, and human authorization. Physical safety interlocks remain outside the model.
 
 Accessibility systems need to describe images and web pages without making them impossible to use. Over-blocking all text that looks like an instruction can harm legitimate navigation. Separate description from action, offer a user-visible confirmation, and apply least privilege. Safety controls should preserve a safe way to answer “what does this page say?” even when the page is adversarial.
+
+## Mental model
+
+Follow the instruction’s origin through every decoder and representation; taint may persist into a model proposal, but only an authenticated policy decision can turn that proposal into an effect.
 
 ## Engineering consequence
 
@@ -256,12 +237,3 @@ Place controlled instructions in every supported modality and transformation, te
 | Unified multimodal inputs increase the representations through which hostile instructions can arrive. | Multimodal systems analysis | Inference |
 | OCR, ASR, frames, metadata, and tool results should retain untrusted origin. | Security architecture | Inference |
 | External authorization is stronger than prompt-only instruction hierarchy for effect control. | Application security analysis | Inference |
-
-## Mini exercise (15–30 min)
-Put the same harmless tool-directed instruction in visible text, OCR text, alt text, and audio transcription; verify that policy remains unchanged.
-
-## Claim ledger
-| Claim | Source | Fact or inference |
-|---|---|---|
-| Generative AI systems have prompt-injection risk. | OWASP | Fact about threat category |
-| Media decoders expand the injection surface. | Security engineering | Inference |

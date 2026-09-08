@@ -1,33 +1,10 @@
 # Audio-Visual Synchronization
-Status: planned
-Sources: [Google DeepMind — Generating audio for video](https://deepmind.google/blog/generating-audio-for-video/), [OpenAI GPT-4o System Card](https://openai.com/index/gpt-4o-system-card/)
+Status: emerging
+Sources: [Google DeepMind — 2024-05-16](https://deepmind.google/blog/generating-audio-for-video/), [OpenAI — 2024-05-13](https://openai.com/index/gpt-4o-system-card/), [Google — 2026-08-27](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/)
 
 ## In one sentence
-Audio-visual synchronization preserves the timing and causal relationship between sound and moving images during analysis or generation.
 
-## Background: what existed before
-Video and sound were often processed independently: frames went to vision and waveforms went to audio. A later join on filenames or approximate timestamps was fragile, especially after edits, dropped frames, or variable latency.
-
-## What changed and why now
-End-to-end multimodal models and video-to-audio systems reason over both signals. DeepMind’s V2A work encodes video and prompts, generates compressed audio, and decodes a waveform, while noting dependence on video quality and lip-sync limitations.
-
-## Impact on current processing and architecture
-Carry a single timeline with explicit offsets and time bases. Validate frame count, sample rate, duration, and edit transforms. Keep generated tracks versioned independently so a sound revision does not silently replace the visual source.
-
-## Real-world applications and constraints
-Applications include captioning, dubbing, accessibility, editing, simulation, and event detection. Music, background noise, speech, and visual motion have different synchronization tolerances.
-
-## Mental model
-Synchronization is a contract between clocks, not an aesthetic property checked only at the end.
-
-## What changed this month
-Unified media workflows make synchronized input and output part of the API’s correctness contract.
-
-## Engineering consequence
-Add automated sync tests with known offsets and human review for speech, beats, and safety-critical alerts.
-
-## Limits and failure modes
-Drift, frame drops, mismatched transcripts, video artifacts, and uncanny lip motion remain common.
+Audio-visual synchronization keeps independently sampled streams aligned on a shared timeline through capture, model processing, composition, and playback.
 
 ## Prerequisites: two streams, one timeline
 
@@ -130,6 +107,10 @@ In robotics, a microphone and camera may detect the same event. Clock drift, vib
 In accessibility, synchronized descriptions let a user understand what happened while speech occurred. Give the user control over replay, speed, captions, and selected intervals. Do not describe a silent or unseen event as observed. A stale stream and a delayed answer should be visibly distinguished.
 
 In security and compliance, audio and video may be evidence. Preserve originals, hashes, timestamps, acquisition metadata, and any repair or re-encoding. A convenience transcode that shifts audio by 300 milliseconds must not overwrite the evidentiary source. Access to voices, faces, and background conversations must be scoped.
+
+## Mental model
+
+Treat audio and video as two queues joined by timestamps, not array indexes; every resample, trim, and retry must preserve or explicitly revise the mapping.
 
 ## Engineering consequence
 

@@ -1,6 +1,6 @@
 # Multimodal Model Routing
-Status: planned
-Sources: [Google Blog — Gemini Omni 1.1 Flash](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/), [OpenAI GPT-4o System Card](https://openai.com/index/gpt-4o-system-card/)
+Status: emerging
+Sources: [Google Blog — 2026-08-27](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/), [OpenAI — 2024-05-13](https://openai.com/index/gpt-4o-system-card/)
 
 ## In one sentence
 Multimodal routing chooses a model and processing path from media type, quality requirement, cost, latency, privacy, and risk.
@@ -267,12 +267,3 @@ Compare route quality, cost, p50/p95 latency, fallback rate, policy denials, and
 | Eligibility must be filtered by policy before cost or latency ranking. | Security architecture | Inference |
 | Route choice should be logged with policy and model versions. | Operations engineering | Inference |
 | Fallbacks require budgets and effect reconciliation. | Distributed-systems analysis | Inference |
-
-## Mini exercise (15–30 min)
-Implement rules that route short low-risk clips to a local path and long or high-impact clips to review.
-
-## Claim ledger
-| Claim | Source | Fact or inference |
-|---|---|---|
-| Omni exposes different resolution workflows. | Google Blog | Fact, release-specific |
-| Routing should consider risk and data residency. | Architecture | Inference |

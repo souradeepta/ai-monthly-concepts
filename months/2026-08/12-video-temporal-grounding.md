@@ -1,33 +1,10 @@
 # Video Temporal Grounding
-Status: planned
-Sources: [Google Blog — Gemini Omni 1.1 Flash](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/), [Google DeepMind — Generating audio for video](https://deepmind.google/blog/generating-audio-for-video/)
+Status: emerging
+Sources: [Google — 2026-08-27](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/), [Google DeepMind — 2024-05-16](https://deepmind.google/blog/generating-audio-for-video/), [Google DeepMind — 2022-10-19](https://deepmind.google/blog/measuring-perception-in-ai-models/)
 
 ## In one sentence
-Temporal grounding links a model’s statement or action to the interval in a video that supports it.
 
-## Background: what existed before
-Many video systems sampled a few frames and produced one caption. This reduced compute but discarded brief actions, transitions, and the ordering that distinguishes “before” from “after.”
-
-## What changed and why now
-Video APIs increasingly expose clips, prior context, scene continuation, and reference segments. Google’s August announcement describes up to ten seconds of prior context for scene extension and three-second video references. These are release-specific controls; the engineering pattern is explicit temporal context.
-
-## Impact on current processing and architecture
-Represent every clip with start time, end time, frame rate, audio offset, and source hash. Sampling policy should be recorded beside the prompt. Answers that matter should cite an interval or return evidence frames.
-
-## Real-world applications and constraints
-Use temporal grounding in incident review, sports analysis, maintenance, accessibility, and editing. Long videos raise storage, decode, privacy, and latency costs; sparse sampling can miss decisive events.
-
-## Mental model
-Video understanding is indexed search over a changing scene, not image classification repeated without order.
-
-## What changed this month
-Continuations and reference-video controls turn temporal context into a first-class API parameter.
-
-## Engineering consequence
-Make temporal windows inspectable and reject answers whose evidence lies outside the user-authorized interval.
-
-## Limits and failure modes
-Frame aliasing, clock drift, occlusion, scene cuts, and hallucinated event order can produce persuasive but unsupported answers.
+Video temporal grounding ties a model’s answer to the exact source interval that supports it, preserving time as part of the result contract.
 
 ## Prerequisites: video is data plus time
 
@@ -129,6 +106,10 @@ In accessibility, a user may ask what happened during a short video or what a pe
 In editing, scene continuation and first/last-frame controls can speed storyboarding. The product needs branchable versions, cancellation, render progress, output validation, and cost previews. A low-resolution draft may be suitable for composition but hide text, hands, or lip-sync defects. Require a final-resolution review before publication.
 
 In security operations, a video may contain credentials on a screen, faces, or sensitive facility layouts. Authorization should cover the exact interval and derivative evidence. A user authorized to view an incident may not be authorized to export every frame or send a generated summary to an external service. Media access is not automatically inherited by a model worker or reviewer.
+
+## Mental model
+
+Think of a video answer as a database query that must return both a value and a valid interval in the source timebase; an accurate label with a wrong interval is still a product failure.
 
 ## Engineering consequence
 

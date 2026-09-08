@@ -1,33 +1,10 @@
 # Media Provenance
-Status: planned
-Sources: [Google DeepMind — SynthID](https://deepmind.google/blog/watermarking-ai-generated-text-and-video-with-synthid/), [C2PA](https://c2pa.org/)
+Status: emerging
+Sources: [Google Blog — 2026-08-27](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/), [Google DeepMind — 2023-08-29](https://deepmind.google/blog/identifying-ai-generated-images-with-synthid/)
 
 ## In one sentence
-Media provenance records where an asset came from, how it was transformed, and which model or human handled it.
 
-## Background: what existed before
-Files were copied between tools with weak lineage. A filename and timestamp rarely explained whether an image was captured, edited, generated, or recompressed.
-
-## What changed and why now
-Multimodal generation increases the need to communicate origin across text, image, audio, and video. Google describes SynthID as an identification building block, while warning it is not a complete detector. C2PA defines signed provenance manifests.
-
-## Impact on current processing and architecture
-Attach content hashes, parent asset IDs, transformation steps, model versions, and signer identity. Store provenance separately from user-visible claims and verify signatures before trusting metadata.
-
-## Real-world applications and constraints
-News, education, advertising, archives, and enterprise approval workflows benefit. Cropping, screenshots, transcoding, malicious removal, and missing creator participation limit coverage.
-
-## Mental model
-Provenance is a chain of custody, not a truth oracle.
-
-## What changed this month
-Unified workflows create more transformations and therefore more points where lineage can be lost.
-
-## Engineering consequence
-Make provenance creation automatic at upload, generation, export, and moderation boundaries.
-
-## Limits and failure modes
-Valid provenance can describe a false claim; absent provenance does not prove human creation.
+Media provenance records where an asset came from and how it changed, while keeping origin evidence separate from truth or safety judgments.
 
 ## Prerequisites: origin, custody, and truth
 
@@ -79,6 +56,10 @@ flowchart LR
 
 The digest must be calculated over a precisely defined representation. If a container’s metadata changes, the byte digest changes even when pixels or samples are identical. That is usually desirable for exact custody, but applications may also need perceptual hashes or decoded-content fingerprints to find near-duplicates. A perceptual similarity signal is not a cryptographic identity and should not be used for authorization.
 
+The graph must be updated transactionally with the media operation. If an encoder succeeds but the provenance write fails, the system has produced an asset whose history is already incomplete. A queue-based design can improve availability, but it must expose a `provenance_pending` state and prevent publication when policy requires a verified record. Idempotency keys keep retries from creating two apparently different transformation events for one job. Store the input digest and output digest on every event; a parent ID without a digest is too weak because a mutable object could later be replaced.
+
+Verification should run at trust boundaries: on upload, before a downstream model consumes a reference, at export, and when a reviewer opens an asset. Cache verification results by digest, but invalidate them when the credential or signer trust list changes. Separate the media blob store from the manifest store so access controls can hide prompts or biometric references while still allowing a public consumer to inspect a limited credential. This architecture makes “unknown,” “invalid,” and “verified” distinct states that user interfaces and enforcement code can handle explicitly.
+
 A manifest needs clear semantics. “Created by tool X” could mean the file was rendered by X, the prompt was entered into X, or a parent was merely opened in X. Use typed actions such as `captured`, `imported`, `cropped`, `composited`, `generated`, `upscaled`, `translated`, `reviewed`, and `exported`. Store actor identity, parent IDs, output digest, software or model version, and relevant parameters. Avoid placing sensitive prompts or private source names in an unrestricted public manifest.
 
 ```mermaid
@@ -127,6 +108,10 @@ Education and archives benefit from knowing whether a recording was original, cl
 Incident response uses provenance to trace a suspicious file through upload, model processing, export, and sharing. Investigators need hashes, actor identities, timestamps, and access logs. A missing record is a signal to investigate, not proof of maliciousness. Logs themselves may contain personal data and must be retained and accessed under policy.
 
 Identity and voice applications have heightened risk. A voice-generation event may need consent evidence, model and voice identity, and restrictions on distribution. Do not claim that a watermark makes impersonation safe. Require authorization before generating a recognizable person’s voice or face and provide a review path for disputes.
+
+## Mental model
+
+Treat each media transformation as an immutable graph edge with an input digest, output digest, actor, tool, and policy result; exported credentials are controlled views of that graph.
 
 ## Engineering consequence
 
@@ -250,12 +235,3 @@ Show “unknown” or “incomplete” rather than treating absence as fraud or 
 | Omni 1.1’s scene extension and reference controls create parent-child media lineage. | Google Blog | Fact plus engineering inference |
 | Provenance can establish process history without establishing truth. | Provenance analysis | Inference |
 | A production system should bind manifests to immutable digests and verify before display. | Security engineering | Inference |
-
-## Mini exercise (15–30 min)
-Hash a source image, create two derived files, and record a signed-looking local manifest with parent relationships.
-
-## Claim ledger
-| Claim | Source | Fact or inference |
-|---|---|---|
-| SynthID is not a silver-bullet detector. | Google DeepMind | Fact |
-| Provenance should be treated as custody evidence, not truth. | Security engineering | Inference |
