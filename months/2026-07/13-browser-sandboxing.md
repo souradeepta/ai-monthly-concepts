@@ -1,6 +1,6 @@
 # WebDriver session isolation
 Status: emerging
-Sources: [W3C — 2026-07-02, WebDriver Working Draft](https://www.w3.org/TR/2026/WD-webdriver2-20260702/); [Chromium Security — 2026-09-07, accessed; Site Isolation documentation](https://www.chromium.org/Home/chromium-security/site-isolation/)
+Sources: [Google Cloud — 2026-07-09, Cloud Run sandboxes preview](https://cloud.google.com/blog/topics/developers-practitioners/google-cloud-run-sandboxes-are-in-public-preview/); [W3C — 2026-07-02, WebDriver Working Draft](https://www.w3.org/TR/2026/WD-webdriver2-20260702/); [Chromium Security — 2026-09-07, accessed; Site Isolation documentation](https://www.chromium.org/Home/chromium-security/site-isolation/)
 
 ## In one sentence
 Browser sandboxing gives a computer-use agent a constrained, observable browser process whose page content, network access, files, and credentials cannot silently become unrestricted powers.
@@ -217,7 +217,7 @@ Numbered implementation steps:
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| No exact July 2026 browser-sandboxing release was verified for this lesson. | Source review performed 2026-09-07 | Fact about this editorial pass |
+| Google Cloud announced Cloud Run sandboxes for isolated AI-generated code and headless-browser tasks on 2026-07-09. | [Google Cloud — 2026-07-09](https://cloud.google.com/blog/topics/developers-practitioners/google-cloud-run-sandboxes-are-in-public-preview/) | Source-context fact |
 | Chromium documents Site Isolation as a browser security architecture. | [Chromium Security — accessed 2026-09-07](https://www.chromium.org/Home/chromium-security/site-isolation/) | Fact; documentation scope |
 | WebDriver specifies a standardized browser automation boundary. | [W3C — accessed 2026-09-07](https://www.w3.org/TR/webdriver2/) | Fact; standard scope |
 | Browser process isolation should be paired with scoped accounts, credentials, and deny-by-default egress. | This lesson’s threat model | Engineering inference |

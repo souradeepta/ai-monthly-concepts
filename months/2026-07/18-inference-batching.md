@@ -2,7 +2,7 @@
 
 Status: durable
 
-Sources: [Google — 2026-07-21, official model release](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/); [NVIDIA — publication date not stated, accessed 2026-09-07, Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html); [Hugging Face — publication date not stated, accessed 2026-09-07, optimization documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization)
+Sources: [NVIDIA — 2026-07, Triton Inference Server 26.07 release](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/introduction/release_notes.html); [NVIDIA — publication date not stated, accessed 2026-09-07, Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html); [Hugging Face — publication date not stated, accessed 2026-09-07, optimization documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization)
 
 ## In one sentence
 
@@ -28,7 +28,7 @@ The target of optimization has also broadened. Throughput, measured as tokens pe
 
 ## What changed this month
 
-No exact July 2026 release about continuous batching was verified. Google’s July 21 release makes efficiency and low latency explicit product goals, which is relevant context but not a batching claim. The durable serving sources provide batching primitives; this lesson’s architecture is an engineering design focused on continuous admission, cache reclamation, cancellation, fairness, and queue policy. Record the policy version with every request so a latency regression can be tied to a scheduler change.
+NVIDIA’s July 2026 Triton Inference Server 26.07 release provides a direct serving-system anchor for this lesson. A release version is evidence that the serving stack changed during the issue month, not evidence that every deployment uses continuous batching or that a particular scheduler policy is optimal. The Triton batching documentation supplies the durable primitives; this lesson’s architecture focuses on continuous admission, cache reclamation, cancellation, fairness, and queue policy. Record the policy version with every request so a latency regression can be tied to a scheduler change.
 
 ## Impact on current processing and architecture
 
@@ -260,6 +260,7 @@ Before enabling a new batching policy, replay a representative trace, verify com
 
 ## References
 
+- [NVIDIA Triton Inference Server 26.07 release notes](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/introduction/release_notes.html) — July 2026 serving-system release context.
 - [NVIDIA Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html) — serving and batching context; publication date not stated on the page.
 - [Hugging Face optimization documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization) — inference optimization context.
 - [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
@@ -267,7 +268,7 @@ Before enabling a new batching policy, replay a representative trace, verify com
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| The July 21 release frames efficiency and low latency as goals for agentic workflows. | [Google — 2026-07-21](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-6-flash-3-5-flash-lite-3-5-flash-cyber/) | Fact; provider release claim |
+| NVIDIA published Triton Inference Server release 26.07 during July 2026. | [NVIDIA — 2026-07](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/introduction/release_notes.html) | Source-context fact |
 | Triton documents dynamic batching controls for inference requests. | [NVIDIA — publication date not stated, accessed 2026-09-07](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html) | Fact; documentation scope |
 | Continuous batching is a scheduler behavior for variable-length generation, not merely static grouping. | Serving-systems analysis | Engineering inference |
 | Queue, cache, cancellation, and fairness policies affect useful throughput and tail latency. | This lesson’s architecture | Engineering inference |
