@@ -58,26 +58,23 @@ The model gateway should expose an explicit content schema. A simple request mig
 Alignment is the central systems problem. If a user asks, “What did the person say while the red car passed?”, the answer depends on joining language and visual events. Use timestamps when the source provides them, but document clock domains and drift. Audio and video may begin at different offsets. A transcript word timestamp is not necessarily the exact interval in which a mouth movement occurs. When precision matters, retain intermediate evidence: selected frames, audio windows, transcript spans, and the model’s cited time ranges. A free-form answer without evidence is hard to debug.
 
 ```mermaid
-sequenceDiagram
-    participant C as Client
-    participant G as Media gateway
-    participant O as Orchestrator
-    participant M as Unified model
-    participant Q as Quality and policy checks
-    participant A as Artifact store
-    C->>G: upload references and typed multimodal request
-    G->>G: authenticate, scan, bound duration and size
-    G->>O: request ID plus short-lived media handles
-    O->>O: choose sampling, resolution, and latency tier
-    O->>M: ordered parts with timestamps and instruction
-    M-->>O: provisional text or media tokens
-    O->>Q: validate schema, safety, provenance, and requested constraints
-    alt output passes checks
-        Q->>A: store artifact, hashes, model and input metadata
-        A-->>C: signed URL and structured response
-    else output fails or is uncertain
-        Q-->>C: refusal, review state, or bounded retry
-    end
+flowchart TD
+    C[Client request] --> G[Media gateway]
+    G --> O[Ordered multimodal job]
+    O --> M[Unified model]
+    M --> Q[Quality and policy checks]
+    Q --> A[Artifact store]
+    Q --> R[Refusal or human review]
+    C --> I[Idempotency key]
+    I --> G
+    classDef request fill:#dbeafe,stroke:#1d4ed8,color:#111827;
+    classDef compute fill:#fef3c7,stroke:#b45309,color:#111827;
+    classDef decision fill:#fee2e2,stroke:#b91c1c,color:#111827;
+    classDef durable fill:#dcfce7,stroke:#15803d,color:#111827;
+    class C,I request;
+    class G,O,M compute;
+    class Q,R decision;
+    class A durable;
 ```
 
 Streaming introduces another state machine. An interactive voice or video request may be `accepted -> decoding -> grounding -> generating -> interrupted -> completed`. A media generation job may be `queued -> running -> awaiting_policy -> published` or `failed`. Do not mark a job complete when the model emits its last token: encoding, moderation, watermarking, upload, and checksum verification may remain. A retry must use an idempotency key and either reuse the same artifact or create a new version; otherwise a network timeout can create duplicate paid media.
@@ -113,6 +110,8 @@ The engineering consequence is more important than the product name: media APIs 
 ## Build it locally
 
 The Python exercise below uses only the standard library, so it runs without an API key or model download. Save this file’s fenced example as `evidence_windows.py`, run `python3 evidence_windows.py`, and then change the question interval and budget. In a real adapter, replace the `Clip` manifest with metadata produced by a trusted media decoder. Keep the selector deterministic so a failed model request can be retried with the same evidence.
+
+The example deliberately tests an orchestration boundary rather than pretending to measure model intelligence. A media gateway should choose evidence before the model call, because the selected window determines both what the model can observe and what the user is authorizing. For a question about a ten-minute recording, sending the whole file may increase latency and expose unrelated speakers. Selecting an interval is therefore a privacy and cost decision as well as a retrieval decision. A production selector should also preserve the original media time base, reject negative or reversed intervals, and record why each clip was admitted.
 
 ## Engineering consequence
 
@@ -156,6 +155,8 @@ def select_windows(clips: list[Clip], question_start: float, question_end: float
 clips = [Clip(0, 2, "intro"), Clip(2, 5, "red car passes"), Clip(5, 8, "speaker talks")]
 evidence = select_windows(clips, 1.5, 6.0, 4.0)
 print([(item.label, item.start, item.end) for item in evidence])
+assert [item.label for item in evidence] == ["intro", "red car passes"]
+assert sum(min(item.end, 6.0) - max(item.start, 1.5) for item in evidence) <= 4.0
 ```
 
 This is not a multimodal model. It is a local test of an application responsibility: selecting bounded, timestamped evidence before inference. Extend it with a media manifest, access checks, and a cost estimate. Then compare selected windows with an all-media baseline and inspect what events are missed.

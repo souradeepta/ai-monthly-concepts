@@ -1,6 +1,6 @@
 # Local Inference
-Status: planned
-Sources: [Hugging Face Blog](https://huggingface.co/blog), [Google Gemma](https://ai.google.dev/gemma)
+Status: watch
+Sources: [Google — 2025-03-12](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-3/), [Google Gemma documentation — accessed 2026-09-07](https://ai.google.dev/gemma)
 
 ## In one sentence
 Local inference moves model execution onto a device or private server, exchanging provider dependency for hardware, update, privacy, and reliability responsibilities.
@@ -101,6 +101,10 @@ stateDiagram-v2
 
 The `OfflineDraftOnly` state is deliberately narrower than normal service. The application can continue a permitted local task, but it does not infer that network failure is permission to bypass an approval service. If the product cannot operate safely without fresh policy, fail closed and explain how the user can retry. If it can perform a low-risk read-only task with a short-lived cached decision, define that cache’s maximum age and audit its use.
 
+Placement also changes the observability design. A hosted endpoint gives the platform owner a naturally centralized request stream; a fleet of laptops or gateways produces fragmented telemetry. The device should emit a small, privacy-reviewed envelope when it reconnects: artifact digest, runtime version, queue depth, latency buckets, failure category, and policy version. Do not use “no telemetry” as a proxy for “no risk.” It can hide a fleet-wide regression, an artifact rollback failure, or a device that has silently diverged from the approved policy. Conversely, do not upload prompts merely to make dashboards convenient. Sampling, local aggregation, and differential retention can provide operational signal without copying the user’s content.
+
+The local/hosted boundary should be explicit in the request record. Record the route decision, the reason for it, and whether a fallback was attempted. A confidence threshold alone is not a safe router: model confidence is often miscalibrated, and a low-confidence local answer may still contain sensitive information that should not be sent upstream. Policy should decide whether transmission is permitted first; quality and cost can choose among permitted routes second. This gives incident responders a way to answer, “Which model saw this document?” without retaining the document itself.
+
 ## Real-world operating patterns
 
 For a private document assistant, the device can run OCR, chunking, embeddings, retrieval, and a small summarizer locally. This keeps raw pages out of a hosted service, but the index and embedding vectors are still sensitive. Encrypt the local store, bind it to a tenant or user identity, and provide deletion that removes source files, chunks, vectors, caches, and generated exports. If a user copies a summary into a shared folder, that export belongs in the governance model too.
@@ -191,6 +195,9 @@ for item in requests:
 for item in held:
     controller.release(item)
 print("final resources", controller.active, controller.used_mb)
+assert controller.active == 0
+assert controller.used_mb == 0
+assert controller.reserve(Request("offline-effect", 64, 50, effectful=True), policy_online=False).startswith("reject")
 ```
 
 ## Limits and failure modes
@@ -259,12 +266,3 @@ Verify the signed artifact, stage it beside the current version, run smoke and r
 | Local devices need artifact verification, resource admission, and update rollback. | Secure deployment design | Engineering inference |
 | Offline drafts and offline side effects should have different permissions. | Authorization design | Engineering inference |
 | Device-specific latency and quality must be measured on the target workload. | Performance engineering | Engineering inference |
-
-## Mini exercise (15–30 min)
-Measure a small local classifier’s cold start, warm latency, memory, and behavior after its model file is replaced with a different digest.
-
-## Claim ledger
-| Claim | Source | Fact or inference |
-|---|---|---|
-| Open models can be deployed through local runtimes. | Hugging Face Blog; Gemma docs | Fact about ecosystem |
-| Local inference changes patching and capacity ownership. | System design | Inference |

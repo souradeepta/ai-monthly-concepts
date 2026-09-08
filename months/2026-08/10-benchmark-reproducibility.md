@@ -1,6 +1,6 @@
 # Benchmark Reproducibility
-Status: planned
-Sources: [Google DeepMind — Double-blind evaluations](https://deepmind.google/blog/piloting-the-worlds-first-double-blind-ai-evaluations/), [MLCommons](https://mlcommons.org/)
+Status: watch
+Sources: [Google DeepMind — 2026-08-27](https://deepmind.google/blog/piloting-the-worlds-first-double-blind-ai-evaluations/), [MLCommons — accessed 2026-09-07](https://mlcommons.org/)
 
 ## In one sentence
 Benchmark reproducibility means another engineer can identify the exact data, prompt, model, runtime, sampling settings, grader, and environment that produced a score.
@@ -112,6 +112,10 @@ For stochastic models, run enough repetitions to estimate variation. One lucky c
 
 Slice analysis is more informative than one mean. Group by language, input length, modality, task family, difficulty, customer segment, safety category, tool count, or data source. Define slices before looking at the result when possible. If a release improves the average by two points but harms a small high-impact slice by ten, a single aggregate should not authorize deployment. Maintain minimum sample sizes and label unstable slices rather than ranking them confidently.
 
+Reproducibility also has a time dimension. A manifest can make an old run understandable without making it rerunnable: a hosted endpoint may be retired, a private dataset may be deleted under retention rules, and an accelerator kernel may no longer build. Preserve the evidence needed for the decision separately from the ability to replay it. The evidence bundle may contain per-item labels, aggregate calculations, hashes, and signed environment metadata; the replay bundle may additionally contain a container image, model artifact, tokenizer, and permitted fixture data. State which of these exists. “Reproducible” should never be shorthand for “we still have a screenshot of the score.”
+
+Compare changes as a controlled experiment. Hold the dataset, harness, and grader fixed while changing one intended variable, or declare a multi-variable migration and compare against a baseline with matched cases. A result that improves after changing both the model and grader is not attributable to the model alone. For a small suite, a single flipped item can move the percentage dramatically, so report counts and confidence or a minimum-effect rule rather than false precision. Release notes should include known non-comparable runs and explain why a historical number was superseded.
+
 Human grading needs its own reproducibility contract. Version the rubric, instructions, sampling plan, annotator pool, adjudication rules, and interface. Blind evaluators to model identity when comparative preference is the goal. Measure agreement and inspect disagreements; a low agreement score can indicate an unclear task rather than a model failure. Do not report a human score without describing who was asked to judge and what information they saw.
 
 ## Real-world applications and constraints
@@ -180,6 +184,9 @@ config_bytes = json.dumps(config, sort_keys=True).encode()
 manifest_id = hashlib.sha256(config_bytes).hexdigest()[:12]
 outcomes = [run_case(case) for case in cases]
 score = sum(item["correct"] for item in outcomes) / len(outcomes)
+assert len(outcomes) == len(cases)
+assert sum(item["correct"] for item in outcomes) == 2
+assert 0.0 <= score <= 1.0
 print(json.dumps({"manifest_id": manifest_id, "config": config,
                   "score": score, "outcomes": outcomes}, indent=2))
 ```
@@ -253,12 +260,3 @@ Yes, if the evaluator exposes an auditable manifest, signed or committed dataset
 | Multimodal evaluation requires recording preprocessing and temporal parameters. | Multimodal systems analysis | Inference |
 | Per-item outcomes and slices are more diagnostic than a single aggregate. | Measurement engineering | Inference |
 | Vendor-reported scores and performance claims should be independently validated for a target workload. | Source interpretation | Inference |
-
-## Mini exercise (15–30 min)
-Run a deterministic prompt suite twice, then change only temperature and show which manifest fields explain the score difference.
-
-## Claim ledger
-| Claim | Source | Fact or inference |
-|---|---|---|
-| Double-blind evaluation protects confidential prompts and weights during a run. | Google DeepMind | Fact about the pilot |
-| A score requires a versioned manifest to be meaningfully comparable. | Evaluation engineering | Inference |
