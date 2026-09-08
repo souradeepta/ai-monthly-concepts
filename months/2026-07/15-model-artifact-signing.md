@@ -241,6 +241,6 @@ Numbered implementation steps:
 | Claim | Source | Fact or inference |
 |---|---|---|
 | OpenSSF published July material describing Model Signing as an AI/ML supply-chain solution. | [OpenSSF — 2026-07-14](https://openssf.org/tag/model-signing/) | Source-context fact |
-| SLSA describes provenance and supply-chain assurance concepts. | [SLSA — accessed 2026-09-07](https://slsa.dev/spec/v1.0/) | Fact; specification scope |
+| SLSA describes provenance and supply-chain assurance concepts. | [SLSA v1.2 — accessed 2026-09-07](https://slsa.dev/spec/v1.2/) | Fact; specification scope |
 | Sigstore documents signing and verification workflows. | [Sigstore — accessed 2026-09-07](https://docs.sigstore.dev/cosign/) | Fact; documentation scope |
 | A signature binds bytes to an issuer under a trust policy but does not establish model quality or safety. | Cryptographic and systems analysis | Engineering inference |
