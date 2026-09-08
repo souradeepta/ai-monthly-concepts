@@ -1,6 +1,6 @@
 # Human Review in Media Pipelines
-Status: planned
-Sources: [Google DeepMind — Social and ethical risks](https://deepmind.google/blog/evaluating-social-and-ethical-risks-from-generative-ai/), [OpenAI GPT-4o System Card](https://openai.com/index/gpt-4o-system-card/)
+Status: watch
+Sources: [Google DeepMind — 2023-10-19](https://deepmind.google/blog/evaluating-social-and-ethical-risks-from-generative-ai/), [OpenAI — 2024-05-13](https://openai.com/index/gpt-4o-system-card/)
 
 ## In one sentence
 Human review is a designed queue with evidence, routing, deadlines, and recorded decisions—not a vague instruction to “check the AI.”
@@ -266,9 +266,3 @@ Before publication or an irreversible external effect. After-the-fact review sup
 
 ## Mini exercise (15–30 min)
 Design a queue policy for 100 generated clips with a five-person review budget and three risk tiers.
-
-## Claim ledger
-| Claim | Source | Fact or inference |
-|---|---|---|
-| Multimodal safety evaluation has context and modality gaps. | Google DeepMind | Fact from review |
-| Review capacity must be modeled as a queue. | Operations engineering | Inference |

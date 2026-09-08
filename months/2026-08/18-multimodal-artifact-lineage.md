@@ -1,6 +1,6 @@
 # Multimodal Artifact Lineage
-Status: planned
-Sources: [Google Blog — Gemini Omni 1.1 Flash](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/), [C2PA](https://c2pa.org/)
+Status: emerging
+Sources: [Google Blog — 2026-08-27](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/), [C2PA](https://c2pa.org/)
 
 ## In one sentence
 Artifact lineage connects an output to its inputs, prompt, preprocessing, model, reviewer, and subsequent transformations.
@@ -256,12 +256,3 @@ No. It can establish process history and transformations. Truth requires corrobo
 | Generated and transformed media should be represented as parent-child artifacts. | Data and media systems | Inference |
 | Provider request IDs do not replace application-owned lineage. | Systems analysis | Inference |
 | Lineage supports audit, deletion impact analysis, and reproducibility. | Data engineering | Inference |
-
-## Mini exercise (15–30 min)
-Build a three-node asset graph for an original clip, an extension, and an upscaled export; then answer which source files can be deleted safely.
-
-## Claim ledger
-| Claim | Source | Fact or inference |
-|---|---|---|
-| Omni supports scene extension and reference inputs. | Google Blog | Fact, release-specific |
-| Such workflows require graph-shaped lineage. | Data engineering | Inference |

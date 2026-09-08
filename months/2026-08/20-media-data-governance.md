@@ -1,6 +1,6 @@
 # Media Data Governance
-Status: planned
-Sources: [Google DeepMind — Social and ethical risks](https://deepmind.google/blog/evaluating-social-and-ethical-risks-from-generative-ai/), [C2PA](https://c2pa.org/)
+Status: watch
+Sources: [Google DeepMind — 2023-10-19](https://deepmind.google/blog/evaluating-social-and-ethical-risks-from-generative-ai/), [C2PA](https://c2pa.org/)
 
 ## In one sentence
 Media data governance defines who may collect, transform, retain, retrieve, publish, or delete multimodal data and its derived representations.
@@ -265,9 +265,3 @@ Retain the minimum authorized evidence—such as IDs, hashes, policy decisions, 
 
 ## Mini exercise (15–30 min)
 Draw the derivative graph for an uploaded meeting recording and write a deletion checklist for every node.
-
-## Claim ledger
-| Claim | Source | Fact or inference |
-|---|---|---|
-| Multimodal risk appears across output modalities and interaction contexts. | Google DeepMind | Fact from review |
-| Governance must include derived media representations. | Data governance | Inference |
