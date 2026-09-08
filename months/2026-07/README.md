@@ -24,7 +24,7 @@ Primary starting point: [Google DeepMind’s news archive](https://deepmind.goog
 - [04 — Computer use](04-computer-use.md) — substantive review required.
 - [05 — Cybersecurity evaluation](05-cybersecurity-evaluation.md) — substantive review required.
 - [06 — AI-assisted vulnerability discovery](06-red-teaming.md) — substantive review required.
-- [07 — AI patch provenance and artifact security](07-model-weight-security.md) — substantive review required.
+- [07 — Model weight security](07-model-weight-security.md) — substantive review required.
 - [08 — Inference efficiency](08-inference-efficiency.md) — substantive review required.
 - [09 — Long-running tasks](09-long-running-tasks.md) — substantive review required.
 - [10 — Human–robot handoff](10-human-robot-handoff.md) — substantive review required.
@@ -32,11 +32,11 @@ Primary starting point: [Google DeepMind’s news archive](https://deepmind.goog
 - [12 — UI state grounding](12-ui-state-grounding.md) — substantive review required.
 - [13 — WebDriver session isolation](13-browser-sandboxing.md) — substantive review required.
 - [14 — Cybersecurity benchmark harnesses](14-cyber-ranges.md) — substantive review required.
-- [15 — Model artifact signing](15-model-artifact-signing.md) — planned/rebuild-needed; substantive review required.
-- [16 — Secret scanning](16-secret-scanning.md) — planned/rebuild-needed; substantive review required.
-- [17 — Speculative decoding](17-speculative-decoding.md) — planned/rebuild-needed; substantive review required.
-- [18 — Inference batching](18-inference-batching.md) — planned/rebuild-needed; substantive review required.
-- [19 — Durable execution](19-durable-execution.md) — planned/rebuild-needed; substantive review required.
+- [15 — Model artifact signing](15-model-artifact-signing.md) — substantive review required.
+- [16 — Secret scanning](16-secret-scanning.md) — substantive review required.
+- [17 — Speculative decoding](17-speculative-decoding.md) — substantive review required.
+- [18 — Inference batching](18-inference-batching.md) — substantive review required.
+- [19 — Durable execution](19-durable-execution.md) — substantive review required.
 - [20 — Operator takeover](20-operator-takeover.md) — substantive review required.
 
 ## Capstone prompt

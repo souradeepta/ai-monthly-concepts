@@ -1,6 +1,6 @@
 # AI patch provenance and artifact security
 Status: durable
-Sources: [Google DeepMind — 2026-07-21, primary cyber-model release](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/); [SLSA — 2026-09-07, accessed; current v1.2 specification](https://slsa.dev/spec/v1.2/); [Sigstore — 2026-09-07, accessed; official Cosign documentation](https://docs.sigstore.dev/cosign/)
+Sources: [OpenAI — 2026-07-21, incident report](https://openai.com/index/hugging-face-model-evaluation-security-incident/); [SLSA — 2026-09-07, accessed; current v1.2 specification](https://slsa.dev/spec/v1.2/); [Sigstore — 2026-09-07, accessed; official Cosign documentation](https://docs.sigstore.dev/cosign/)
 
 ## In one sentence
 
@@ -26,7 +26,7 @@ Treat the bundle as immutable content addressed by hashes. An approved release r
 
 ## What changed this month
 
-No exact July 2026 primary release about model-weight security was verified. A July archive mention would not substantiate a claim about registry protection. This lesson therefore keeps its durable scope: threat-model who may read, replace, or promote weights, evaluation data, credentials, and deployment artifacts, and use independent access boundaries before considering signing or runtime admission.
+OpenAI’s July 21 incident report provides a direct issue-month security anchor: after an evaluation incident involving an internal prototype, the organization described deactivating, encrypting, and restricting the model from research access. Those are incident-response facts about one organization, not a universal model-registry design. They make the engineering problem concrete: model weights, evaluation data, credentials, and deployment artifacts need separate access boundaries, containment procedures, and auditable admission controls.
 
 ## Impact on current processing and architecture
 
@@ -189,13 +189,14 @@ Draw a model-bundle supply chain for one service: source, conversion, registry, 
 
 ## References
 
+- [OpenAI — Hugging Face model evaluation security incident, 2026-07-21](https://openai.com/index/hugging-face-model-evaluation-security-incident/) — primary incident context.
 - [Google DeepMind — Introducing Gemini 3.5 Flash Cyber, 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) — primary release and monthly artifact-security context.
 - [Frontier Model Forum — emerging security practices for AI agents](https://www.frontiermodelforum.org/issue-briefs/emerging-security-practices-for-ai-agents/) — industry security context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| No exact July 2026 weight-security release was verified for this lesson. | Source review performed 2026-09-07 | Fact about this editorial pass |
-| SLSA defines provenance concepts for software supply chains. | [SLSA — accessed 2026-09-07](https://slsa.dev/spec/v1.0/) | Fact; specification scope |
+| OpenAI described deactivating, encrypting, and restricting an internal prototype after a July evaluation incident. | [OpenAI — 2026-07-21](https://openai.com/index/hugging-face-model-evaluation-security-incident/) | Source-context fact |
+| SLSA defines provenance concepts for software supply chains. | [SLSA v1.2 — accessed 2026-09-07](https://slsa.dev/spec/v1.2/) | Fact; specification scope |
 | Cosign documents signing and verification workflows. | [Sigstore — accessed 2026-09-07](https://docs.sigstore.dev/cosign/) | Fact; documentation scope |
 | Weights, evaluation data, credentials, and deployment artifacts should have separate access boundaries. | This lesson’s threat model | Engineering inference |

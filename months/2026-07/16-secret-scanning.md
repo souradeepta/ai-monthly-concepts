@@ -2,7 +2,7 @@
 
 Status: emerging
 
-Sources: [Google DeepMind — 2026-07-21, primary cyber-model release](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/); [GitHub — 2026-09-07, accessed; secret scanning documentation](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning); [OWASP — 2026-09-07, accessed; LLM application risks](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+Sources: [GitHub — 2026-07-07, secret scanning changelog](https://github.blog/changelog/2026-07-07-secret-scanning-extended-metadata-and-multipart-validation/); [GitHub — 2026-07-13, secret scanning API changelog](https://github.blog/changelog/2026-07-13-create-and-manage-secret-scanning-custom-patterns-via-rest-api/); [GitHub — 2026-07-15, secret scanning changelog](https://github.blog/changelog/2026-07-15-improvements-to-secret-scanning-and-public-monitoring/); [GitHub — 2026-09-07, accessed; secret scanning documentation](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning); [OWASP — 2026-09-07, accessed; LLM application risks](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 
 ## In one sentence
 
@@ -32,7 +32,7 @@ The practical shift is to scan at trust-boundary transitions: before context con
 
 ## What changed this month
 
-No exact July 2026 primary release about secret scanning was verified. The July 21 cyber release mentions commit-scanning workflows, but that is vulnerability scanning rather than a secret-detector release. The durable lesson is boundary coverage: scan prompts, tool payloads, artifacts, logs, and exports, while treating provider-specific detectors as incomplete inputs.
+GitHub’s July 7, 13, and 15 changelogs provide a concrete issue-month change: secret scanning gained richer provider metadata and multipart validation, REST management for custom patterns, and additional detector, webhook, and public-monitoring behavior. Those releases concern GitHub’s repository and public-content surfaces; extending the same reasoning to prompts, tool payloads, artifacts, and traces is an engineering inference. The lesson therefore separates provider-backed detection and remediation facts from the broader AI-boundary architecture that teams must implement themselves.
 
 ## Impact on current processing and architecture
 
@@ -239,14 +239,16 @@ Keep all demonstrations local and synthetic. A Wireshark capture should contain 
 
 ## References
 
-- [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
+- [GitHub July secret-scanning changelog](https://github.blog/changelog/2026-07-15-improvements-to-secret-scanning-and-public-monitoring/) — issue-month release context.
 - [GitHub secret scanning](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning) — primary documentation for repository detection and response.
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — application-security risk context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| No exact July 2026 secret-scanning release was verified for this lesson. | Source review performed 2026-09-07 | Fact about this editorial pass |
+| GitHub expanded secret-scanning metadata and multipart validation in July. | [GitHub — 2026-07-07](https://github.blog/changelog/2026-07-07-secret-scanning-extended-metadata-and-multipart-validation/) | Source-context fact |
+| GitHub added REST management for custom secret-scanning patterns in July. | [GitHub — 2026-07-13](https://github.blog/changelog/2026-07-13-create-and-manage-secret-scanning-custom-patterns-via-rest-api/) | Source-context fact |
+| GitHub expanded secret types, public monitoring, and webhook categorization in July. | [GitHub — 2026-07-15](https://github.blog/changelog/2026-07-15-improvements-to-secret-scanning-and-public-monitoring/) | Source-context fact |
 | GitHub documents secret scanning as a way to detect credential-like material and support remediation. | [GitHub — accessed 2026-09-07](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning) | Fact; documentation scope |
 | The July cyber release describes commit-scanning workflows, but as vulnerability scanning rather than secret detection. | [Google DeepMind — 2026-07-21](https://deepmind.google/blog/introducing-gemini-3-5-flash-cyber/) | Fact; source distinction |
 | Prompts, tool payloads, artifacts, and traces are additional scanning boundaries. | This lesson’s architecture | Engineering inference |

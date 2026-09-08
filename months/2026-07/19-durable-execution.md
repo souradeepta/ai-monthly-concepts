@@ -2,7 +2,7 @@
 
 Status: durable
 
-Sources: [Temporal — publication date not stated, accessed 2026-09-07, official documentation](https://docs.temporal.io/what-is-temporal); [AWS — publication date not stated, accessed 2026-09-07, Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html)
+Sources: [AWS — 2026-07-28, Durable Execution SDK release](https://aws.amazon.com/about-aws/whats-new/2026/07/aws-lambda-durable-custom-sdk/); [Temporal — publication date not stated, accessed 2026-09-07, official documentation](https://docs.temporal.io/what-is-temporal); [AWS — publication date not stated, accessed 2026-09-07, Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html)
 
 ## In one sentence
 
@@ -28,7 +28,7 @@ The distinction from a general long-running task article is replay discipline. A
 
 ## What changed this month
 
-No direct July 2026 release about durable execution was verified. This article is marked planned/rebuild-needed for the July source contract; Temporal and AWS documentation are durable workflow context, not July developments. The useful design change is to move timers, retries, and branch decisions into a durable history. A worker can restart and reconstruct the workflow without asking a model to remember prior steps. This reduces duplicate calls and makes recovery behavior testable. It does not make an AI plan correct; policy gates, validation, and human review remain separate controls.
+AWS’s July 28 release provides a direct issue-month anchor: Lambda durable functions added support for custom Durable Execution SDKs and released language-agnostic conformance tests. The release describes checkpointing, retries, long waits, and replay behavior as platform capabilities; it does not imply that arbitrary external effects become exactly-once. This lesson uses that release to explain the runtime boundary, then uses Temporal and Step Functions as durable workflow context. The engineering consequence is to move timers, retries, and branch decisions into a durable history while keeping idempotency and reconciliation at external-effect boundaries.
 
 ## Impact on current processing and architecture
 
@@ -249,6 +249,7 @@ Run the JSON-history example, then interrupt it between the simulated external e
 
 ## References
 
+- [AWS custom Durable Execution SDK release](https://aws.amazon.com/about-aws/whats-new/2026/07/aws-lambda-durable-custom-sdk/) — July 2026 issue-month release.
 - [Temporal: What is Temporal?](https://docs.temporal.io/what-is-temporal) — durable workflow concepts; publication date not stated on the page.
 - [AWS Step Functions Developer Guide](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html) — state-machine and orchestration context.
 - [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
@@ -256,6 +257,7 @@ Run the JSON-history example, then interrupt it between the simulated external e
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
+| AWS announced custom Durable Execution SDK support and language-agnostic conformance tests on 2026-07-28. | [AWS — 2026-07-28](https://aws.amazon.com/about-aws/whats-new/2026/07/aws-lambda-durable-custom-sdk/) | Source-context fact |
 | Temporal documents durable execution and recovery from persisted workflow state. | [Temporal — publication date not stated, accessed 2026-09-07](https://docs.temporal.io/what-is-temporal) | Fact; documentation scope |
 | AWS Step Functions documents state-machine workflow orchestration. | [AWS — publication date not stated, accessed 2026-09-07](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html) | Fact; documentation scope |
 | Deterministic workflow code should separate replay-safe decisions from side-effecting activities. | This lesson’s architecture | Engineering inference |

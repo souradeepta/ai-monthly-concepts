@@ -2,7 +2,7 @@
 
 Status: emerging
 
-Sources: [Google Research — publication date not stated, accessed 2026-09-07; primary research post](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/); [Hugging Face — publication date not stated, accessed 2026-09-07; official implementation documentation](https://huggingface.co/docs/transformers/main/en/generation_strategies#speculative-decoding)
+Sources: [Liu et al. — 2026-07-28, AngelSpec paper](https://arxiv.org/abs/2607.25852); [Google Research — publication date not stated, accessed 2026-09-07; primary research post](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/); [Hugging Face — publication date not stated, accessed 2026-09-07; official implementation documentation](https://huggingface.co/docs/transformers/main/en/generation_strategies#speculative-decoding)
 
 ## In one sentence
 
@@ -32,7 +32,7 @@ The practical change is to make decoding a two-model pipeline with observable ec
 
 ## What changed this month
 
-No direct July 2026 primary release about speculative decoding was verified. This article is marked planned/rebuild-needed for the July source contract; the cited research and implementation documentation are durable source context, not a July announcement. The July model-efficiency announcement is not used as evidence for speculation. This lesson focuses on the draft/target acceptance algorithm, separate from broad optimization experiments and continuous-batching scheduler policy.
+The July 28 AngelSpec paper is a direct issue-month research anchor. It studies real-world speculative-decoding choices across multi-token prediction and block-parallel drafting, and treats verification as a shared batch-level resource whose depth depends on domain, load, and hardware. Those are research-paper claims about the reported experiments, not a promise that one drafting structure wins every production workload. This lesson focuses on the acceptance algorithm and its accounting, separate from lesson 08’s end-to-end optimization experiments and lesson 18’s continuous-batching scheduler policy.
 
 ## Impact on current processing and architecture
 
@@ -250,13 +250,15 @@ Choose a local text corpus and a deterministic toy target. Create two draft gene
 
 ## References
 
+- [AngelSpec](https://arxiv.org/abs/2607.25852) — July 2026 primary research paper.
 - [Google Research: Speculative sampling](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/) — primary research context; publication date not stated on the page.
-- [Hugging Face assisted generation](https://huggingface.co/docs/transformers/main/en//generation_strategies#speculative-decoding) — implementation documentation.
+- [Hugging Face assisted generation](https://huggingface.co/docs/transformers/main/en/generation_strategies#speculative-decoding) — implementation documentation.
 - [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
+| AngelSpec studies multiple speculative-decoding drafting structures and adaptive verification in a July 2026 paper. | [Liu et al. — 2026-07-28](https://arxiv.org/abs/2607.25852) | Source-context fact |
 | Google Research describes a draft model proposing tokens for target-model verification. | [Google Research — publication date not stated, accessed 2026-09-07](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/) | Fact; research description |
 | Correct verification can preserve the target sampling distribution when implemented according to the algorithm. | [Google Research — publication date not stated, accessed 2026-09-07](https://research.google/blog/accelerating-large-language-model-decoding-with-speculative-sampling/) | Fact; research claim |
 | Hugging Face documents assisted-generation implementation options. | [Hugging Face — publication date not stated, accessed 2026-09-07](https://huggingface.co/docs/transformers/main/en/generation_strategies#speculative-decoding) | Fact; documentation scope |

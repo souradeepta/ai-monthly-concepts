@@ -1,6 +1,6 @@
 # Model artifact signing
 Status: emerging
-Sources: [SLSA — 2026-09-07, accessed; current v1.2 specification](https://slsa.dev/spec/v1.2/); [Sigstore — 2026-09-07, accessed; official Cosign documentation](https://docs.sigstore.dev/cosign/)
+Sources: [OpenSSF — 2026-07-14, Model Signing podcast](https://openssf.org/tag/model-signing/); [SLSA — 2026-09-07, accessed; current v1.2 specification](https://slsa.dev/spec/v1.2/); [Sigstore — 2026-09-07, accessed; official Cosign documentation](https://docs.sigstore.dev/cosign/)
 
 ## In one sentence
 Model artifact signing binds a particular model file, tokenizer, configuration, and build record to an issuer so deployment systems can reject tampered or unexplained artifacts.
@@ -57,7 +57,7 @@ Think of a signature as a tamper-evident seal plus an issuer label. The digest s
 
 ## What changed this month
 
-No direct July 2026 release about model-artifact signing was verified. This article is marked planned/rebuild-needed for the July source contract; SLSA v1.2 and Sigstore are durable standards context, not a July announcement. As models become tools inside longer-lived workflows, a mutable artifact pointer can change behavior between runs; signed immutable references make that change observable.
+OpenSSF’s July 14 Model Signing material gives this lesson a direct issue-month anchor: the OpenSSF AI/ML Working Group was formalizing OpenSSF Model Signing as a flexible, implementation-agnostic approach for model artifacts. The source establishes the motivation and ecosystem direction, not a guarantee that every registry or serving runtime already verifies OMS statements. SLSA and Sigstore remain the durable standards context used to explain provenance, identity, and verification. The engineering consequence is to model a release as an immutable, verifiable bundle rather than a mutable model name, then test admission against the identity and policy actually trusted in each environment.
 
 ## Engineering consequence
 
@@ -218,14 +218,15 @@ Numbered implementation steps:
 
 ## References
 
-- [SLSA specification](https://slsa.dev/spec/v1.0/) — primary supply-chain provenance specification.
+- [OpenSSF Model Signing](https://openssf.org/tag/model-signing/) — July 2026 issue-month context.
+- [SLSA v1.2 specification](https://slsa.dev/spec/v1.2/) — current supply-chain provenance specification.
 - [Sigstore Cosign documentation](https://docs.sigstore.dev/cosign/) — official artifact-signing documentation.
 - [NIST Secure Software Development Framework](https://csrc.nist.gov/Projects/ssdf) — primary secure-development guidance.
 
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| No exact July 2026 model-signing release was verified for this lesson. | Source review performed 2026-09-07 | Fact about this editorial pass |
+| OpenSSF published July material describing Model Signing as an AI/ML supply-chain solution. | [OpenSSF — 2026-07-14](https://openssf.org/tag/model-signing/) | Source-context fact |
 | SLSA describes provenance and supply-chain assurance concepts. | [SLSA — accessed 2026-09-07](https://slsa.dev/spec/v1.0/) | Fact; specification scope |
 | Sigstore documents signing and verification workflows. | [Sigstore — accessed 2026-09-07](https://docs.sigstore.dev/cosign/) | Fact; documentation scope |
 | A signature binds bytes to an issuer under a trust policy but does not establish model quality or safety. | Cryptographic and systems analysis | Engineering inference |
