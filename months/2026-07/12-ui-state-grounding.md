@@ -83,15 +83,19 @@ sequenceDiagram
   participant G as Grounder
   participant B as Browser
   participant C as Policy
-  P->>G: Intent: submit expense EXP-1842
-  G->>B: Read current semantics and visual context
-  B-->>G: Candidate plus revision 31
-  G->>C: Evidence and proposed action
-  C-->>G: Allowed with confirmation
-  G->>B: Recheck visibility and revision
-  B-->>G: Revision unchanged
-  G->>B: Execute click
-  B-->>G: Receipt banner and record state
+  rect rgb(219, 234, 254)
+    P->>G: Intent: submit expense EXP-1842
+    G->>B: Read current semantics and visual context
+    B-->>G: Candidate plus revision 31
+    G->>C: Evidence and proposed action
+    C-->>G: Allowed with confirmation
+  end
+  rect rgb(220, 252, 231)
+    G->>B: Recheck visibility and revision
+    B-->>G: Revision unchanged
+    G->>B: Execute click
+    B-->>G: Receipt banner and record state
+  end
 ```
 
 ## Engineering consequence

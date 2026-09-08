@@ -4,6 +4,8 @@ Status: emerging
 
 Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/)
 
+Monthly source status: planned — rebuild needed. The verified July source describes multi-step robot planning, progress tracking, self-correction, and robot collaboration, but does not directly support durable workflows or long-running task execution.
+
 ## In one sentence
 
 A long-running AI task is trustworthy only when progress, tool effects, permissions, and recovery choices live in durable system state rather than solely in a model conversation.

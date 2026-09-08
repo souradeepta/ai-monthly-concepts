@@ -58,13 +58,17 @@ sequenceDiagram
     participant E as Evaluation gate
     participant D as Deployment controller
     participant I as Inference service
-    P->>R: upload candidate digest
-    R->>E: isolated evaluation request
-    E-->>R: signed approval or rejection
-    D->>R: request approved immutable digest
-    R-->>D: artifact and provenance
-    D->>I: verified bundle and runtime policy
-    I-->>D: loaded digest and health receipt
+    rect rgb(219, 234, 254)
+      P->>R: upload candidate digest
+      R->>E: isolated evaluation request
+      E-->>R: signed approval or rejection
+    end
+    rect rgb(220, 252, 231)
+      D->>R: request approved immutable digest
+      R-->>D: artifact and provenance
+      D->>I: verified bundle and runtime policy
+      I-->>D: loaded digest and health receipt
+    end
 ```
 
 ## Real-world applications and constraints

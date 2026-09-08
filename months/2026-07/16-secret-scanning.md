@@ -88,12 +88,16 @@ sequenceDiagram
   participant M as Model
   participant W as Scoped worker
   participant V as Vault
-  U->>G: Submit content or tool result
-  G->>G: Detect, classify, and redact
-  alt suspected secret
-    G-->>U: Block or request review
-  else safe projection
-    G->>M: Send bounded context
+  rect rgb(219, 234, 254)
+    U->>G: Submit content or tool result
+    G->>G: Detect, classify, and redact
+    alt suspected secret
+      G-->>U: Block or request review
+    else safe projection
+      G->>M: Send bounded context
+    end
+  end
+  rect rgb(220, 252, 231)
     M->>W: Request typed operation
     W->>V: Fetch short-lived capability
     V-->>W: Scoped credential

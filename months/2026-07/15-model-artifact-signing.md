@@ -81,18 +81,22 @@ sequenceDiagram
   participant R as Registry
   participant A as Admission
   participant S as Server
-  T->>R: publish manifest and provenance
-  R-->>T: immutable digest
-  T->>R: sign digest with build identity
-  A->>R: request digest and signature
-  R-->>A: bytes, signature, provenance
-  A->>A: verify identity, digest, policy
-  alt accepted
-    A->>S: mount exact package
-    S->>S: verify again at startup
-    S-->>A: serving receipt
-  else rejected
-    A-->>S: no credentials or traffic
+  rect rgb(219, 234, 254)
+    T->>R: publish manifest and provenance
+    R-->>T: immutable digest
+    T->>R: sign digest with build identity
+    A->>R: request digest and signature
+    R-->>A: bytes, signature, provenance
+  end
+  rect rgb(220, 252, 231)
+    A->>A: verify identity, digest, policy
+    alt accepted
+      A->>S: mount exact package
+      S->>S: verify again at startup
+      S-->>A: serving receipt
+    else rejected
+      A-->>S: no credentials or traffic
+    end
   end
 ```
 

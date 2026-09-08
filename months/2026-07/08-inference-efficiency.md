@@ -58,14 +58,20 @@ sequenceDiagram
     participant B as Batch scheduler
     participant M as Model runtime
     participant T as Telemetry
-    C->>R: task, context, latency tier
-    R->>R: choose approved model and cache policy
-    R->>B: reserve capacity
-    B->>M: prefill compatible batch
-    M-->>C: stream first token
-    M->>M: decode tokens with KV cache
-    M->>T: latency, tokens, cache, quality signal
-    T-->>R: route-health feedback
+    rect rgb(219, 234, 254)
+      C->>R: task, context, latency tier
+      R->>R: choose approved model and cache policy
+      R->>B: reserve capacity
+    end
+    rect rgb(220, 252, 231)
+      B->>M: prefill compatible batch
+      M-->>C: stream first token
+      M->>M: decode tokens with KV cache
+    end
+    rect rgb(254, 243, 199)
+      M->>T: latency, tokens, cache, quality signal
+      T-->>R: route-health feedback
+    end
 ```
 
 ## Real-world applications and constraints

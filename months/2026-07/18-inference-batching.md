@@ -2,7 +2,7 @@
 
 Status: durable
 
-Sources: [NVIDIA — 2026-07, Triton Inference Server 26.07 release](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/introduction/release_notes.html); [NVIDIA — publication date not stated, accessed 2026-09-07, Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html); [Hugging Face — publication date not stated, accessed 2026-09-07, optimization documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization)
+Sources: [NVIDIA Triton Inference Server — 2026-07-29, primary release](https://github.com/triton-inference-server/server/releases/tag/v2.71.0); [NVIDIA — publication date not stated, accessed 2026-09-07, Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html); [Hugging Face — publication date not stated, accessed 2026-09-07, optimization documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization)
 
 ## In one sentence
 
@@ -28,7 +28,7 @@ The target of optimization has also broadened. Throughput, measured as tokens pe
 
 ## What changed this month
 
-NVIDIA’s July 2026 Triton Inference Server 26.07 release provides a direct serving-system anchor for this lesson. A release version is evidence that the serving stack changed during the issue month, not evidence that every deployment uses continuous batching or that a particular scheduler policy is optimal. The Triton batching documentation supplies the durable primitives; this lesson’s architecture focuses on continuous admission, cache reclamation, cancellation, fairness, and queue policy. Record the policy version with every request so a latency regression can be tied to a scheduler change.
+NVIDIA’s July 29, 2026 GitHub release for Triton 2.71.0, corresponding to the 26.07 container, provides a direct serving-system anchor for this lesson. The release notes explicitly list enabled PyTorch 2 batching, alongside other backend and frontend changes. That release fact does not prove that every deployment uses continuous batching or that a particular scheduler policy is optimal. The Triton batching documentation supplies the durable primitives; this lesson’s architecture focuses on continuous admission, cache reclamation, cancellation, fairness, and queue policy. Record the policy version with every request so a latency regression can be tied to a scheduler change.
 
 ## Impact on current processing and architecture
 
@@ -260,7 +260,7 @@ Before enabling a new batching policy, replay a representative trace, verify com
 
 ## References
 
-- [NVIDIA Triton Inference Server 26.07 release notes](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/introduction/release_notes.html) — July 2026 serving-system release context.
+- [NVIDIA Triton Inference Server 2.71.0 / 26.07 release](https://github.com/triton-inference-server/server/releases/tag/v2.71.0) — released July 29, 2026; includes the documented PyTorch 2 batching change.
 - [NVIDIA Triton batcher documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html) — serving and batching context; publication date not stated on the page.
 - [Hugging Face optimization documentation](https://huggingface.co/docs/transformers/main/en/llm_tutorial_optimization) — inference optimization context.
 - [Google DeepMind news archive](https://deepmind.google/blog/) — issue discovery context.
@@ -268,7 +268,8 @@ Before enabling a new batching policy, replay a representative trace, verify com
 ## Claim ledger
 | Claim | Source | Fact or inference |
 |---|---|---|
-| NVIDIA published Triton Inference Server release 26.07 during July 2026. | [NVIDIA — 2026-07](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/introduction/release_notes.html) | Source-context fact |
+| NVIDIA released Triton Inference Server 2.71.0, corresponding to container 26.07, on July 29, 2026. | [NVIDIA — 2026-07-29](https://github.com/triton-inference-server/server/releases/tag/v2.71.0) | Fact; release metadata |
+| The 2.71.0 release notes list enabled PyTorch 2 batching. | [NVIDIA — 2026-07-29](https://github.com/triton-inference-server/server/releases/tag/v2.71.0) | Fact; release note |
 | Triton documents dynamic batching controls for inference requests. | [NVIDIA — publication date not stated, accessed 2026-09-07](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/batcher.html) | Fact; documentation scope |
 | Continuous batching is a scheduler behavior for variable-length generation, not merely static grouping. | Serving-systems analysis | Engineering inference |
 | Queue, cache, cancellation, and fairness policies affect useful throughput and tail latency. | This lesson’s architecture | Engineering inference |

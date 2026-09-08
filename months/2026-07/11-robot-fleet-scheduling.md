@@ -4,6 +4,8 @@ Status: emerging
 
 Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/)
 
+Monthly source status: planned — rebuild needed. The verified July source describes different robot types communicating and collaborating, but does not directly support fleet scheduling, time-window optimization, congestion management, or capacity planning.
+
 ## In one sentence
 
 Robot fleet scheduling is the operational system that assigns tasks, reserves shared space, and recovers from delays so a group of individually capable robots produces reliable work together.

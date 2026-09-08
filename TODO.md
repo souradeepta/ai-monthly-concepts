@@ -23,9 +23,9 @@
 - [x] July 06 — Red teaming: expansion and mechanics pass complete; substantive review remains.
 - [x] July 07 — Model weight security: expansion and mechanics pass complete; substantive review remains.
 - [x] July 08 — Inference efficiency: expansion and mechanics pass complete; substantive review remains.
-- [x] July 09 — Long-running tasks: expansion and mechanics pass complete; substantive review remains.
+- [ ] July 09 — Long-running tasks: planned/rebuild needed; current July source does not directly support durable workflows.
 - [x] July 10 — Human–robot handoff: expansion and mechanics pass complete; substantive review remains.
-- [x] July 11 — Robot fleet scheduling: expansion and mechanics pass complete; substantive review remains.
+- [ ] July 11 — Robot fleet scheduling: planned/rebuild needed; current July source does not directly support fleet scheduling.
 - [x] July 12 — UI state grounding: expansion and mechanics pass complete; substantive review remains.
 - [x] July 13 — Browser sandboxing: expansion and mechanics pass complete; substantive review remains.
 - [x] July 14 — Cyber ranges: expansion and mechanics pass complete; substantive review remains.
