@@ -123,7 +123,7 @@
 | May | 0 | Draft coverage 20/20; expand and substantively review 01–20 before approval. |
 | June | 0 | Draft coverage 20/20; expand and substantively review 01–20 before approval. |
 | July | 0 | Priority 4: source-first article creation, 01–20. |
-| August | 4 | Draft coverage 7/20; source-first article creation, 08–20. |
+| August | 0 | 20 lesson files present; mechanics pass, substantive review and source normalization in progress. |
 
 ## Acceptance checklist
 

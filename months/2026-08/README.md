@@ -1,6 +1,6 @@
-# August 2026 — initial research queue
+# August 2026 — multimodal systems and agent reliability
 
-Status: **research queue, not a claim of comprehensive coverage.**
+Status: **20 lesson files present; substantive review in progress. This month is not complete.**
 
 ## Selected concepts
 
@@ -25,13 +25,13 @@ Status: **research queue, not a claim of comprehensive coverage.**
 - [Hugging Face Blog](https://huggingface.co/blog)
 - [arXiv cs.AI recent](https://arxiv.org/list/cs.AI/recent) — only with code, artifacts, or clear engineering impact.
 
-## Queue discipline
+## Review discipline
 
-Start with these four, but publish only three to five after source review. A model release alone is not a concept; include it only when it makes a new engineering pattern understandable.
+Every numbered file is an individual lesson. A file is not complete until it meets the repository learning-content standard, has precise dated sources, and passes substantive review. A model release is used only when it makes an engineering pattern understandable; vendor capability claims remain labeled as source claims rather than independent verification.
 
 ## Lesson filenames
 
-- [01-double-blind-evals.md](01-double-blind-evals.md)
+- [01-double-blind-evals.md](01-double-blind-evals.md) — under substantive review
 - [02-agent-memory.md](02-agent-memory.md)
 - [03-late-interaction-retrieval.md](03-late-interaction-retrieval.md)
 - [04-agent-controls.md](04-agent-controls.md)
@@ -50,4 +50,4 @@ Start with these four, but publish only three to five after source review. A mod
 - [17-multimodal-prompt-injection.md](17-multimodal-prompt-injection.md)
 - [18-multimodal-artifact-lineage.md](18-multimodal-artifact-lineage.md)
 - [19-human-review-in-media-pipelines.md](19-human-review-in-media-pipelines.md)
-- [20-media-data-governance.md](20-media-data-governance.md)
+- [20-media-data-governance.md](20-media-data-governance.md) — under substantive review
