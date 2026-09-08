@@ -2,9 +2,7 @@
 
 Status: emerging
 
-Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/)
-
-Monthly source status: planned — rebuild needed. The verified July source describes multi-step robot planning, progress tracking, self-correction, and robot collaboration, but does not directly support durable workflows or long-running task execution.
+Sources: [AWS — 2026-07-28, Durable Execution SDK release](https://aws.amazon.com/about-aws/whats-new/2026/07/aws-lambda-durable-custom-sdk/); [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/gemini-robotics-er-2/)
 
 ## In one sentence
 
@@ -34,7 +32,7 @@ This shift raises the observability bar. A traditional trace can say an HTTP req
 
 ## What changed this month
 
-The verified July 30 release describes multi-step planning, progress tracking from continuous video, self-correction when a step fails, and communication between different robots. It does not establish a universal task duration or a specific durable-workflow product. The engineering consequence is narrower and testable: when an agent must preserve progress across those steps, evaluate it as a resumable run rather than an unusually long chat session. A run must be able to pause for an external event without reserving a worker, survive a deploy without losing its place, and resume with the same authority boundaries that applied when it started. These requirements pull workflow primitives—state, queues, timers, receipts, and approval gates—into the core of agent application design.
+AWS’s July 28 release provides the direct platform change for long-running tasks: Lambda durable functions added custom Durable Execution SDK support and language-agnostic conformance tests, alongside checkpointing, retries, waits, and replay. The July 30 robotics release supplies a complementary product example of multi-step planning and progress tracking. Together they show two layers that must remain distinct: a platform can preserve workflow progress, while an agent product still needs task deadlines, user-visible status, cancellation, authority checks, and reconciliation for uncertain effects. A run must pause without reserving a worker, survive deployment without losing its place, and resume under the same policy boundaries.
 
 This also changes the definition of progress. A fluent intermediate message is not progress unless it corresponds to a committed state transition or useful artifact. For example, “I will run tests” is a plan; a stored test invocation identifier and its output hash are progress. The distinction prevents dashboards from reporting apparent activity while hidden retries or blocked permissions leave the business task unchanged.
 

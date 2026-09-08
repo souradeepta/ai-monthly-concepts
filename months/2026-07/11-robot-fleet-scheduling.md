@@ -1,10 +1,8 @@
-# Robot fleet scheduling
+# Multi-robot collaboration coordination
 
 Status: emerging
 
 Sources: [Google DeepMind — 2026-07-30, primary product post](https://blog.google/innovation-and-ai/models-and-research/google-deepmind/gemini-robotics-er-2/)
-
-Monthly source status: planned — rebuild needed. The verified July source describes different robot types communicating and collaborating, but does not directly support fleet scheduling, time-window optimization, congestion management, or capacity planning.
 
 ## In one sentence
 
@@ -28,7 +26,7 @@ The baseline is therefore a central or logically coordinated scheduler that has 
 
 More AI-enabled robots can handle variation in perception, natural-language task intake, and exception triage. That capability increases the value of fleets, but also makes coordination harder. A planner may identify more jobs that a robot could perform; it does not automatically decide which job is most valuable for the whole operation. Scheduling remains the bridge between high-level intent and finite physical capacity.
 
-The release-specific fact in this issue is limited to the July 30 report that different robot types can communicate and work together on a workflow. The scheduling design here is an engineering inference. It does not claim that the release supplies a fleet scheduler, global optimal routing, or a safe model-generated plan.
+The July 30 report that different robot types can communicate and work together on a workflow is the source-backed change. The coordination design here is an engineering inference: it does not claim that the release supplies a fleet scheduler, global optimal routing, or a safe model-generated plan. The lesson uses scheduling only as the deterministic support layer for collaboration, not as a claim about a newly released optimizer.
 
 The practical change is to treat fleet scheduling as a continuously revised, observable decision service. It accepts work requests, estimates feasibility, reserves scarce resources, dispatches a bounded action, and replans when observed state diverges. The service must expose why a task is delayed, not merely show a robot icon standing still.
 

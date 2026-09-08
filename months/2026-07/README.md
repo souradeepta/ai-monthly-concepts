@@ -2,8 +2,6 @@
 
 Review status: substantive review required; this month is not complete.
 
-Planned/rebuild-needed lessons: 09 (long-running tasks) and 11 (robot fleet scheduling) lack a directly relevant verified July development and are not presented as complete lessons.
-
 Primary starting point: [Google DeepMind’s news archive](https://deepmind.google/blog/), which covers July robotics, cyber, and model developments. Use the direct linked release before making a factual claim about a specific product.
 
 | # | Concept | What an SDE should understand | Build / interview lens |
@@ -28,9 +26,9 @@ Primary starting point: [Google DeepMind’s news archive](https://deepmind.goog
 - [06 — AI-assisted vulnerability discovery](06-red-teaming.md) — substantive review required.
 - [07 — Model weight security](07-model-weight-security.md) — substantive review required.
 - [08 — Inference efficiency](08-inference-efficiency.md) — substantive review required.
-- [09 — Long-running tasks](09-long-running-tasks.md) — planned; rebuild needed around a directly relevant July development.
+- [09 — Long-running tasks](09-long-running-tasks.md) — substantive review required.
 - [10 — Human–robot handoff](10-human-robot-handoff.md) — substantive review required.
-- [11 — Multi-robot collaboration coordination](11-robot-fleet-scheduling.md) — planned; rebuild needed around a directly relevant July development.
+- [11 — Multi-robot collaboration coordination](11-robot-fleet-scheduling.md) — substantive review required.
 - [12 — UI state grounding](12-ui-state-grounding.md) — substantive review required.
 - [13 — WebDriver session isolation](13-browser-sandboxing.md) — substantive review required.
 - [14 — Cybersecurity benchmark harnesses](14-cyber-ranges.md) — substantive review required.

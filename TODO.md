@@ -23,9 +23,9 @@
 - [x] July 06 — Red teaming: expansion and mechanics pass complete; substantive review remains.
 - [x] July 07 — Model weight security: expansion and mechanics pass complete; substantive review remains.
 - [x] July 08 — Inference efficiency: expansion and mechanics pass complete; substantive review remains.
-- [ ] July 09 — Long-running tasks: planned/rebuild needed; current July source does not directly support durable workflows.
+- [x] July 09 — Long-running tasks: rebuilt around AWS’s 2026-07-28 durable execution release; substantive review remains.
 - [x] July 10 — Human–robot handoff: expansion and mechanics pass complete; substantive review remains.
-- [ ] July 11 — Robot fleet scheduling: planned/rebuild needed; current July source does not directly support fleet scheduling.
+- [x] July 11 — Multi-robot collaboration coordination: rebuilt around the 2026-07-30 robotics release; substantive review remains.
 - [x] July 12 — UI state grounding: expansion and mechanics pass complete; substantive review remains.
 - [x] July 13 — Browser sandboxing: expansion and mechanics pass complete; substantive review remains.
 - [x] July 14 — Cyber ranges: expansion and mechanics pass complete; substantive review remains.
