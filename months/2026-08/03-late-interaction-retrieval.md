@@ -108,11 +108,23 @@ Treat p50 and p95 separately: a configuration that looks cheap on average can ov
 
 Compression changes the quality/cost boundary: pruning or lower precision saves bandwidth but can discard the evidence that motivated this method. Evaluate it as a model change.
 
-## What changed this month
+## What changed and why now
 
 Hugging Face's August 18 post says Sentence Transformers v6.0 now includes a `MultiVectorEncoder`, so late-interaction retrieval is no longer just a separate research stack. The same API that already handled dense, sparse, and reranker models now loads PyLate, ColBERT, and related checkpoints. The post also shows how the model can be used for text retrieval and for visual document retrieval, where a text query can be matched directly against page images without an OCR step.
 
 The August 26 companion post adds training guidance.
+
+The important August change is packaging and workflow, not a claim that MaxSim suddenly became a new mathematical primitive. A model family and its training guidance are now exposed through the same practical ecosystem that engineers already use for dense encoders and rerankers. That lowers the integration cost of testing multi-vector retrieval: a team can load a checkpoint, encode a corpus, persist token-level representations, and compare it with an existing pipeline behind the same evaluation harness. The engineering question becomes measurable—does the extra evidence justify index and serving cost for this workload?
+
+Keep the boundary with agent memory explicit. A late-interaction index stores representations of a corpus so a current query can find relevant passages. Agent memory stores governed state about prior runs, preferences, or reusable lessons so a later run can change its behavior. A prior conversation may be one source document, but retrieval of that transcript is not automatically memory: memory requires ownership, scope, retention, correction, and a reason for reuse. Conversely, a memory record can be retrieved with MaxSim, but the retrieval algorithm does not decide whether the record is authorized or still valid. The safe pipeline is `authorize -> freshness/status filter -> candidate retrieval -> late-interaction scoring -> bounded prompt assembly`.
+
+The Hugging Face post's visual-document example broadens the ingestion decision. If a page image can be represented directly, a text query may retrieve visual evidence without first converting every page to OCR text. That can preserve tables, layout, and diagrams that OCR loses, but it changes the security and quality review: images can contain hidden text, personal information, or adversarial instructions; page-level vectors do not explain which region matched; and an image index needs the same document permissions and deletion propagation as a text index. Treat “no OCR required” as a capability claim, not as proof that OCR is always unnecessary.
+
+For a production rollout, build an error taxonomy before celebrating ranking gains. Record misses caused by candidate generation, tokenization, chunk boundaries, MaxSim ranking, permissions, freshness, and downstream prompt truncation separately. If the relevant passage never enters the candidate set, improving the late scorer cannot help. If it enters but is ranked below the cutoff, multi-vector scoring may help. If it ranks first but the answer is still wrong, inspect metadata, prompt assembly, or model reasoning. This decomposition prevents a ranking experiment from being blamed for a memory or authorization bug.
+
+Capacity is part of the feature. A dense passage may have one vector; a multi-vector passage may have one vector per token or per selected representation. Average token count hides the long-tail cost of manuals, source files, and scanned documents. Estimate p50 and p99 vectors per passage, serialized bytes per scalar, metadata, replicas, and query candidate count. Measure indexing throughput and rebuild time because changing the encoder or tokenization usually invalidates old representations. A system that improves nDCG by two points but doubles memory and misses its p95 latency objective may be a poor architecture for the actual service.
+
+Use staged evidence when comparing systems. First check candidate recall with an inexpensive dense or sparse baseline. Then evaluate MaxSim on the same candidates, recording per-query-token maxima and score distributions. Next test end-to-end answers with permissions, freshness, and prompt budgets enabled. Finally shadow production traffic and measure fallback rate, CPU/GPU utilization, memory pressure, and cost per successful request. The source release makes experimentation easier; it does not remove the need for workload-specific labels, rollback, or an operational budget.
 
 ## Engineering consequence
 
@@ -187,10 +199,21 @@ This small program makes the aggregation concrete. Real systems use larger vecto
 
 ```python
 # python3 maxsim.py
+def maxsim(query, document):
+    if not query or not document:
+        return 0.0
+    return sum(max(sum(a*b for a, b in zip(q, d)) for d in document)
+               for q in query)
+
 query = [[1, 0], [0, 1]]
 document = [[.9, .1], [.2, .8]]
-score = sum(max(sum(a*b for a, b in zip(q, d)) for d in document) for q in query)
-print(round(score, 2))  # 1.7
+irrelevant = [[-.8, -.2], [-.2, -.8]]
+partial = [[.9, .1]]
+assert round(maxsim(query, document), 2) == 1.7  # positive path
+assert maxsim(query, document) > maxsim(query, partial) # two-token evidence wins
+assert maxsim(query, irrelevant) < maxsim(query, document) # bad match loses
+assert maxsim(query, []) == 0.0 and maxsim([], document) == 0.0 # failure guards
+print(round(maxsim(query, document), 2))
 ```
 
 ## Build it locally

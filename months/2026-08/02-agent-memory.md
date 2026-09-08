@@ -33,10 +33,40 @@ Three terms are easy to conflate:
 
 The key idea is dosage: policies behave differently across model tiers. Strong models can absorb more, weaker models benefit from a compact core plus retrieval, and saturated models may see no gain. More memory adds cost and failure modes.
 
-## What changed this month
+## What changed and why now
 The August update frames memory as a pipeline: run tasks, extract lessons, consolidate them, then inject a full set or retrieved subset. That is closer to an internal recommendation system than a notes folder.
 
 Across eight AppWorld models, weak models benefited most from curated retrieval, strong models with headroom from a full set, and saturated models gained nothing measurable. For gpt-oss-120b, curated retrieval improved completion by 16.1 points with about 5% token overhead. Memory is an ongoing bill.
+
+The August IBM Research contribution matters because it makes an explicit distinction between learning in the weights and learning in the task context. ALTK-Evolve does not require another fine-tuning run after every trajectory. Instead, it treats completed trajectories as observations, asks an extraction step to propose guidelines, consolidates those guidelines, and selects them for a later prompt. That puts the new state in a service that can be inspected and changed. A team can compare a memory-enabled run with a baseline, remove one bad record, or change the selector without claiming that the underlying model has been retrained.
+
+The benchmark result is also a warning against a single “memory improves agents” headline. The reported comparison varies both the model's capability and the memory delivery policy. A full guideline set has high recall: it is unlikely to omit a useful item, but it consumes context on every request. Curated retrieval spends fewer tokens and can improve focus, but similarity may select a superficially related rule or miss an unusual exception. A saturated model may not benefit because its baseline already solves the task or because extra instructions compete with the task. The August evidence therefore supports measuring a matrix of policies, not selecting one globally.
+
+For an SDE, the new processing path resembles a feedback data product. A run emits events; an asynchronous worker produces candidate records; a validator applies scope and privacy rules; a store versions the accepted records; a retriever filters and ranks them at read time; and an evaluator attributes later outcomes to the selected IDs. Each edge can fail independently. A queue retry may duplicate a candidate, a consolidation job may merge incompatible rules, an index may lag the primary store, and a prompt budget may drop the only useful memory. The architecture needs state transitions and observability before it needs a sophisticated embedding model.
+
+### Memory is a write policy, not just a read feature
+
+The most consequential decision is what the system is allowed to remember. A transcript contains requests, secrets, accidental claims, and instructions quoted from external documents. A memory record should be a smaller proposition with a reason to reuse it. “The user pasted a token” is not a useful operational lesson and should be deleted or redacted. “For project Atlas, create invoices through the idempotent endpoint; verify the currency field first” may be useful, but it needs project scope, source run, writer identity, expiration, and a testable condition. The write path should reject records that cannot explain why they are durable.
+
+Use an explicit candidate state machine. A candidate can be `observed`, `validated`, `active`, `superseded`, `quarantined`, or `deleted`. `observed` means an extractor suggested it; it is not yet trusted. `validated` means schema, authorization, and redaction checks passed. `active` means the serving path may retrieve it. `superseded` preserves lineage while preventing normal reads. `quarantined` keeps a suspicious record available to an investigator without exposing it to the agent. `deleted` means the serving contract guarantees it will not return, while a minimal tombstone may remain to stop stale replicas from resurrecting it. This is more reliable than overwriting a text column in place.
+
+### Retrieval must be causally testable
+
+A selected memory is not evidence that memory helped. If a task succeeds, the reason could be the model, the current user message, a tool result, or an unrelated change. Run paired trials with the same task distribution and model configuration: no memory, full memory, and selective memory. Keep the prompt assembly and tool availability constant. Record selected IDs and estimated tokens, but do not put private text into general metrics. Compare completion, tool errors, retries, latency, and cost by workload slice. For a guideline that says “retry a rate-limited request,” create a task where a 429 occurs and inspect whether the agent recovers; for a guideline about a tenant boundary, test both an in-scope and cross-tenant request.
+
+The benchmark's improvement number should therefore be treated as publisher-reported evidence for that experimental setup, not as a universal production guarantee. Reproduce the broad shape locally with synthetic tasks, then validate on your own failure distribution. A help-desk agent, coding agent, and data-migration agent have different memory granularity and harm profiles. A support preference can be user-controlled; a migration procedure can change production state and should require stronger review. The memory service should expose enough provenance to explain a decision without exposing the original private conversation.
+
+### Boundaries with retrieval and cache state
+
+Agent memory and ordinary retrieval are adjacent but distinct. Retrieval answers a current information need from an external corpus; memory carries forward a prior interaction's distilled state or guidance. If a documentation page says an endpoint is deprecated, that is corpus evidence and should be fetched with document freshness and permissions. If a previous run learned that a particular tenant requires a confirmation step, that is operational memory and should be governed by source run, scope, and expiry. Combining both into one undifferentiated prompt makes it difficult to know whether a wrong answer came from stale business documentation or poisoned agent state.
+
+Caching creates another boundary. A prompt cache can reuse a stable prefix for speed, but a cache key must include the memory version, tenant, user, model, and policy configuration whenever those fields affect content. Otherwise a record selected for one user can leak to another through a shared cached prefix. The safe order is authorization and version resolution first, cache lookup second, and final token-budget enforcement last. Invalidation should be tested as a distributed event: delete the primary row, remove the index entry, invalidate prompt caches, and verify that a delayed consumer cannot reintroduce the record.
+
+### Choosing an initial implementation
+
+Begin with a relational table and deterministic lexical filters. This makes scope, expiry, status, and deletion inspectable and keeps ranking behavior reproducible. Add a vector index only when a measured paraphrase miss justifies its memory and operational cost. A hybrid selector can use exact matches for identifiers and semantic similarity for natural-language lessons, but permissions must be applied before either ranking method. A vector is a retrieval aid, not an authorization token.
+
+The service contract should return records plus metadata: memory ID, version, scope, source run, status, and reason code. It should also return a truncation indicator when the token budget prevents all eligible records from being injected. The model sees a delimited block that says these are retrieved memories, not higher-priority policy. The agent runner retains the selected IDs in the trace, allowing an evaluator to replay the same prompt assembly after a bug report. This design makes memory a replaceable subsystem rather than an invisible prompt concatenation.
 
 ## Read/write/retrieval lifecycle
 Treat a memory as a record moving through four stages:
@@ -119,6 +149,14 @@ flowchart TB
   X --> L[LLM call]
   D -. audit IDs .-> O[Metrics and review]
   L -. outcome .-> O
+  classDef actor fill:#dbeafe,stroke:#2563eb,color:#172554
+  classDef control fill:#fef3c7,stroke:#d97706,color:#451a03
+  classDef store fill:#e0e7ff,stroke:#4f46e5,color:#1e1b4b
+  classDef output fill:#dcfce7,stroke:#16a34a,color:#14532d
+  class A,L actor
+  class W,V,R,B control
+  class D store
+  class X,O output
 ```
 
 Separate writer/storage so validation can quarantine candidates, and retriever/prompt assembly so budget decides what fits. Audit IDs connect records to outcomes.
@@ -127,13 +165,22 @@ Separate writer/storage so validation can quarantine candidates, and retriever/p
 ```python
 # python3 select_memory.py
 lessons = [
-    ("use idempotent writes", {"write", "api"}),
-    ("retry 429s", {"api", "rate"}),
-    ("prefer CSV exports", {"report", "format"}),
+    {"id": "m1", "text": "use idempotent writes", "terms": {"write", "api"}, "scope": "acme", "active": True},
+    {"id": "m2", "text": "retry 429s", "terms": {"api", "rate"}, "scope": "acme", "active": True},
+    {"id": "m3", "text": "prefer CSV exports", "terms": {"report", "format"}, "scope": "other", "active": True},
+    {"id": "m4", "text": "use the retired endpoint", "terms": {"api", "write"}, "scope": "acme", "active": False},
 ]
-task_terms = {"api", "write"}
-selected = [text for text, terms in lessons if terms & task_terms]
-print(selected)  # ['use idempotent writes', 'retry 429s']
+
+def select_memory(records, task_terms, scope, limit=2):
+    return [r for r in records
+            if r["active"] and r["scope"] == scope and r["terms"] & task_terms][:limit]
+
+selected = select_memory(lessons, {"api", "write"}, "acme")
+assert [r["id"] for r in selected] == ["m1", "m2"]  # positive retrieval
+assert all(r["scope"] == "acme" for r in selected)   # tenant boundary
+assert not any(r["id"] == "m3" for r in selected)    # cross-scope denial
+assert not any(r["id"] == "m4" for r in selected)    # superseded memory denied
+print([r["text"] for r in selected])
 ```
 
 This toy selector shows the control point: task classification selects two lessons instead of all three. Set intersection is not semantic retrieval, authorization, ranking, or conflict resolution; production code must add those policies.

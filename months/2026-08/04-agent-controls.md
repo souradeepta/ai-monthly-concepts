@@ -51,11 +51,39 @@ Keep four concerns separate:
 
 Conflating them is a common design error. For example, a prompt saying “only read files” is planning guidance, not a filesystem permission. A JSON schema makes malformed calls harder, but does not decide whether a well-formed deletion is allowed.
 
-## What changed this month
+## What changed and why now
 
 OpenAI reported that its internal evaluations of a forthcoming model showed enough agentic coding and cybersecurity progress that it could not rule out a critical cyber capability under its Preparedness Framework. Its August 18 follow-up says it added monitoring requirements for higher-capability models during tool-using training, evaluations, and—in the reported case—tool-using inference. The latter post estimates monitoring overhead at roughly 20% of monitored inference compute, with workload-dependent variation.
 
 The durable lesson is not that every application needs a frontier security program. It is that model capability and control architecture are separate engineering dimensions. Adding a browser, shell, code executor, cloud API, or long-lived task increases what must be controlled and evaluated.
+
+### What the August reports change for system designers
+
+The August OpenAI posts make monitoring a deployment concern rather than a laboratory footnote. The reported concern arose from a model's ability to carry out multi-step coding and cybersecurity work with tools, not merely from the quality of an isolated text answer. That distinction matters because a capability evaluation can ask what the model knows, while a control evaluation asks what the surrounding system lets it do. A model may be capable of describing an exploit but unable to reach a network target; another may be less articulate but have a privileged token and a retrying executor. Risk is a property of the combined model, tools, credentials, network, state, and operator workflow.
+
+The reported monitoring overhead is also an architectural tradeoff. A monitor that examines every tool proposal and result consumes compute and adds latency. Sampling too little can miss a dangerous sequence; inspecting too much can expose sensitive code or become a bottleneck. Decide what the monitor can see, where it runs, which events it emits, and what action follows a suspicious score. A useful event includes a task ID, actor identity, tool name, normalized target, authorization result, resource usage, and a pointer to protected evidence. It need not copy every secret into a general-purpose log. Monitoring without a response path is telemetry, not a control.
+
+### Controls and prompt-injection research are different layers
+
+This lesson is about the authority boundary around an agent: who grants a capability, which tool may use it, what resource and tenant it covers, and how an operator revokes it. Lesson 17 addresses a different problem—multimodal prompt injection, where an image, audio track, or other content attempts to influence model instructions. Injection testing is important input validation, but a successful injection should still encounter the gateway's authorization and isolation controls. Conversely, a perfect gateway cannot make a model immune to a malicious image; it can ensure that the resulting proposal receives no permission it has not earned.
+
+Keep the layers testable. A prompt-injection test can assert that untrusted content changes the model proposal or is classified as suspicious. A control test can submit that proposal directly, without a model, and assert that cross-tenant reads, unapproved deploys, and excessive retries are denied. This separation avoids a common false confidence pattern in which a model safety score is treated as proof that a credentialed tool call is safe. The August source supports strengthening the control plane around higher-capability tool use; it does not claim that authorization replaces input defenses or that monitoring detects every malicious plan.
+
+### State transitions, not one-shot filters
+
+An agent request has a lifecycle. It starts as a proposal, becomes an authorization decision, may wait for approval, receives a short-lived capability, executes, and ends in success, denial, timeout, cancellation, or incident review. Each state needs an owner and timeout. An approval should bind to a canonical action digest, resource, amount, and expiry; otherwise the model can alter the request after a human clicks approve. A lease should be revoked when the task ends or a risk signal fires. Retries should carry an idempotency key and must re-enter policy when the target or impact changes.
+
+For example, a coding agent can be allowed to read a repository and write a branch, but not merge to the protected branch. If it proposes a merge, the gateway returns `needs_approval` with the commit digest and CI status. If the branch changes while a reviewer is deciding, the old approval expires because its digest no longer matches. If the executor times out after creating a branch, a retry can safely query the branch by idempotency key rather than creating a second one. These are ordinary distributed-systems techniques applied to a probabilistic caller.
+
+The control plane should also make denial a useful state. Returning “permission denied” without a reason can cause the planner to retry the same request forever. Return a typed reason such as `TENANT_MISMATCH`, `APPROVAL_REQUIRED`, `CAPABILITY_EXPIRED`, or `BUDGET_EXCEEDED`, along with whether the agent may ask the user for a narrower action. Do not reveal policy internals that enable probing. A task budget should cover calls, wall-clock time, bytes, and financial impact; a model that is individually authorized for each call can still cause harm through an unbounded sequence.
+
+### Design for compromise and recovery
+
+Assume an attacker can control retrieved text, a user can be malicious, a tool can return misleading data, and the model can be induced to choose an unexpected valid sequence. Then ask what remains possible after compromise. The answer should be bounded by tenant filters, capability expiry, quotas, network policy, filesystem isolation, and an operator kill switch. Put the kill switch on a path independent of the model and preferably independent of the same queue it may be exhausting. Revoke task credentials, stop executors, block egress, and preserve a minimal evidence record.
+
+Recovery needs more than a log. Identify which actions completed, which were only proposed, and which may have completed before a timeout. Query the authoritative system by idempotency key, reconcile state, and issue compensating actions only when they are safe. A refund, deployment, or permission change may not be safely reversible; that is why high-impact actions deserve a human boundary before execution. Test partial failure in staging: deny after planning, crash after authorization, timeout during execution, duplicate a callback, and revoke while a tool is running. Measure time to stop and time to establish the final state, not only whether the model eventually apologizes.
+
+This produces a practical layered architecture. The model handles planning and explanation. The gateway handles identity, schema validation, authorization, budget, and idempotency. The executor handles sandbox, filesystem, network, and process limits. The monitor handles anomaly detection and escalation. The operator handles exceptional authority and incident response. Clear ownership makes reviews more effective because each claim can be tested at the layer that is meant to enforce it.
 
 ## Design the boundary before the prompt
 
@@ -142,6 +170,15 @@ sequenceDiagram
     G->>O: Decision + trace + output metadata
     G-->>A: Sanitized result
   end
+  rect rgb(254, 226, 226)
+    U->>A: Untrusted content may influence plan
+  end
+  rect rgb(219, 234, 254)
+    G->>P: Policy decision before authority
+  end
+  rect rgb(220, 252, 231)
+    X-->>O: Bounded execution evidence
+  end
 ```
 
 Read the sequence from left to right as a trust-boundary walk. User content can influence the planner but never bypasses the gateway. The executor is intentionally downstream from policy, so the executor cannot receive a useful credential for an unapproved action. Observability receives both denied and allowed events; otherwise an attacker can probe policies invisibly.
@@ -161,6 +198,11 @@ print(authorize("read", "acme", "acme"))                 # True
 print(authorize("deploy", "acme", "acme"))               # False
 print(authorize("deploy", "acme", "acme", approved=True)) # True
 print(authorize("read", "other", "acme"))                # False
+assert authorize("read", "acme", "acme") is True        # allowed positive path
+assert authorize("deploy", "acme", "acme") is False     # approval required
+assert authorize("deploy", "acme", "acme", approved=True) is True
+assert authorize("read", "other", "acme") is False      # tenant failure
+assert authorize("delete", "acme", "acme", approved=True) is False # not allow-listed
 ```
 
 This is deliberately incomplete: production authorization also needs authenticated identities, signed approval records, expiry, rate limits, and a server-side audit event. The point is ownership: the policy code, not the prompt, decides.

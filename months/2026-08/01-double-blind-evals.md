@@ -57,13 +57,43 @@ Key release should be a fail-closed sequence:
 
 This protects against a substituted harness or an ordinary host reading RAM, but not against a vulnerable attested image, a compromised vendor root, malicious inputs that exploit the model or scorer, or leakage intentionally returned through an allowed field. Measurement proves *what was launched*, not that the launched code is bug-free. Store the quote and verification decision beside the run ID so a later reviewer can reconstruct why release was authorized.
 
-## What changed this month
+## What changed and why now
 
 On August 27, 2026, Google DeepMind announced what it called the first double-blind evaluation of a proprietary frontier-class model. The pilot addresses the tradeoff between exposing evaluation prompts and exposing model weights.
 
 The technical report says the prototype uses a GPU enclave on Google Cloud, with OpenMined's PySyft handling the privacy-preserving workflow. It identifies Gemini 2.5 Flash Lite, private MLCommons AILuminate prompts, and a private Singapore AISI prompt set focused on harmful-content elicitation. The reported implementation used an NVIDIA H100 secure enclave with an Intel TDX host and an ephemeral lifecycle.
 
 This is a pilot, not a universal standard. Its importance is enabling independent assessment without exchanging cleartext weights or a closed benchmark.
+
+### Reading the pilot as a protocol
+
+The useful unit of analysis is not the enclave alone; it is the protocol that decides when information may cross a boundary. Before launch, the evaluator and model owner agree on a model interface, an evaluation image, an image digest, a result schema, a sampling policy, and an identity policy. These agreements make the run reproducible. If the parties only say “run the benchmark privately,” one side can still change the harness, add a logging dependency, enable debugging, or return richer outputs than the other side expected. A secure machine cannot repair an underspecified contract.
+
+The evaluator's secret is more than a file called `prompts.json`. It includes the held-out examples, labels, scoring rubric, randomization seed, and sometimes the order in which cases are presented. Exposing labels can reveal the desired answer even when prompts remain hidden. The owner’s secret is more than parameter tensors. Tokenizer files, adapter weights, system prompts, routing rules, and calibration data may identify a proprietary model or make extraction easier. A serious design inventories all of these inputs and gives each an owner, retention rule, and allowed destination.
+
+The pilot's two-party arrangement also changes who is allowed to debug. In an ordinary evaluation, an engineer can open a shell, inspect a failed prompt, rerun one case, and patch the scorer. In DBE, each of those conveniences can become a disclosure channel or an integrity failure. The harness therefore needs a pre-run test phase using synthetic secrets. The evaluator can verify that a canary prompt is not printed, that a model error is converted into an opaque case result, and that the result serializer rejects unknown fields. The owner can verify that the model receives the agreed request shape and cannot call an external service. These tests happen before real secrets are released.
+
+The key-release decision is a distributed state transition. A broker should not release the evaluator's key merely because the owner approved the job, and it should not release weights merely because a VM reports that it is confidential. Both parties should verify the same measurement and bind their approval to a fresh run nonce. The broker then records which policy version, image digest, certificate chain, and expiry were used. This produces an evidence record that is more useful than a screenshot of a cloud console: a reviewer can ask exactly which image processed which benchmark and whether either secret was released before verification.
+
+### Why a bounded result matters
+
+Metrics are an API, and API design determines leakage. A pass rate is not automatically harmless: a result returned per prompt can reveal whether a private item was present, while timing can expose response length, refusal behavior, or model routing. Even aggregate values can be sensitive when the test set is tiny. The parties should agree on a minimum cohort size, rounding policy, confidence interval method, and retry behavior before the run. For example, the output contract might permit a run identifier, count of completed cases, pass rate rounded to two decimals, and a confidence interval, while rejecting completions, prompt identifiers, stack traces, token counts, and arbitrary metadata.
+
+That restriction affects failure handling. A conventional harness might include the failing input in an exception so an engineer can fix it. A DBE harness needs an opaque error class such as `SCORER_INPUT_INVALID` and an internal counter. If the counter itself would reveal which secret case failed, the protocol may need to aggregate errors or defer them until a minimum cohort is met. The engineering tradeoff is real: the less detail leaves the enclave, the harder it is to diagnose a bad run. The answer is to make the image testable before production secrets enter it, retain attested evidence, and use synthetic fixtures for debugging rather than quietly widening egress.
+
+### Evaluation validity remains separate
+
+Confidential execution solves an access problem, not a measurement problem. A benchmark can be private and still have ambiguous labels, an unrepresentative distribution, or a scoring function that rewards a shortcut. A model can score well because the task resembles training data, because the prompt format is unusually favorable, or because the evaluator accidentally grants a tool that will not exist in deployment. Therefore a DBE report should include the sampling frame, task taxonomy, rubric version, number of cases, uncertainty, exclusions, and known contamination checks without revealing the held-out examples.
+
+The report should also separate three kinds of conclusions. A capability conclusion says what the model did on the specified task. A confidentiality conclusion says which protocol and hardware assumptions protected inputs during this run. A safety conclusion says whether the tested behavior is acceptable for a deployment. The first may be supported by the score, the second by attestation evidence and an egress audit, and the third requires a policy decision plus broader testing. Treating one aggregate score as all three is a category error. The DeepMind announcement and technical report describe a promising pilot; they do not independently establish that every confidential evaluation is valid or that the evaluated model is safe in every context.
+
+### Operating a sequence of private evaluations
+
+DBE becomes harder when it is repeated. Teams need a version registry for model identity, benchmark identity, harness image, and policy. A run should be immutable after key release; if a job is retried, it should receive a new run identifier and make clear whether it used the same model snapshot and prompt sample. Otherwise a provider can select a favorable run, or an evaluator can quietly alter a benchmark after seeing an early result. A signed manifest can bind those choices before execution.
+
+Capacity planning matters too. Loading proprietary weights into protected GPU memory may make startup expensive, and an ephemeral lifecycle prevents reusing a warm process across unrelated evaluators. Queueing, reservation time, and failure recovery should be measured separately from model inference time. A failed attestation should fail before transfer, while a model OOM after transfer may require destroying the enclave and re-running the whole job. The service owner should expose only safe operational states—queued, attestation failed, running, bounded result ready, destroyed—rather than raw host diagnostics.
+
+Finally, deletion is part of the promise. The protocol should define when prompts, weights, temporary keys, caches, and error buffers disappear, what evidence remains, and how backups are handled. “Ephemeral” is a lifecycle claim that must be tested with a teardown procedure and documented retention exceptions. Keep attestation quotes, signed manifests, and aggregate metrics because they support audit; keep neither party's secret payload merely because it makes future debugging convenient. A practical runbook has a key-release timeout, an operator kill path, a certificate-revocation path, and a post-run check that the result contains only the agreed fields.
 
 ## End-to-end architecture
 
@@ -139,6 +169,14 @@ flowchart TD
   A[Attestation + immutable image + output schema] -. mitigates .-> L
   A -. mitigates .-> D
   A -. mitigates .-> F
+  classDef secret fill:#fee2e2,stroke:#dc2626,color:#450a0a
+  classDef threat fill:#fce7f3,stroke:#db2777,color:#500724
+  classDef control fill:#dbeafe,stroke:#2563eb,color:#172554
+  classDef impact fill:#fef3c7,stroke:#d97706,color:#451a03
+  class P,W,H secret
+  class L,D,F threat
+  class A control
+  class O impact
 ```
 
 The threat diagram shows that enclave software and output paths remain part of the system.
@@ -147,8 +185,21 @@ The threat diagram shows that enclave software and output paths remain part of t
 ```python
 # python3 verify_metrics.py
 allowed = {"pass_rate", "mean_score", "run_id"}
+
+def validate_result(result):
+    if set(result) - allowed:
+        return False
+    if {"prompt", "weights", "completion"} & set(result):
+        return False
+    return (isinstance(result.get("run_id"), str)
+            and 0 <= result.get("pass_rate", -1) <= 1
+            and 0 <= result.get("mean_score", -1) <= 1)
+
 result = {"run_id": "r42", "pass_rate": 0.81, "mean_score": 0.74}
-assert set(result) <= allowed and not {"prompt", "weights"} & set(result)
+assert validate_result(result)                         # positive path
+assert not validate_result({**result, "prompt": "private"}) # leakage denied
+assert not validate_result({**result, "pass_rate": 1.4})     # invalid metric denied
+assert not validate_result({**result, "completion": "raw"})  # raw output denied
 print("bounded result accepted")
 ```
 
