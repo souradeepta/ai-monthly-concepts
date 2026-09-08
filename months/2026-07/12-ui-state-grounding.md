@@ -96,6 +96,16 @@ sequenceDiagram
 
 ## Engineering consequence
 
+### Designing the semantic contract with the application
+
+Grounding quality depends on the application exposing stable semantics, so the browser agent is not the only component that needs engineering. A form should publish a stable record identifier, an accessible name that describes the operation, an ownership relationship, and a state representation that distinguishes enabled, disabled, pending, and completed. If every release changes labels or removes the relationship between a button and its form, the agent must compensate with brittle visual heuristics. Treat the accessibility tree and test hooks as an API contract with versioning and compatibility tests.
+
+A useful observation is a signed-looking snapshot of facts, not a screenshot alone. Capture the route, tenant, active account, page revision, target record, control role, accessible name, enabled state, and relevant values. The grounder can then produce a candidate with evidence such as “button `submit-expense`, form `EXP-1842`, revision 31.” The executor rechecks those facts immediately before the effect. If the route or revision differs, it returns a stale-observation result rather than trying to infer whether the new page is equivalent.
+
+Postconditions should be equally semantic. “The click returned successfully” is not proof that a payment, deletion, or submission happened. Prefer a durable operation ID, changed record state, or server response whose request ID can be correlated with the action nonce. For a reversible action, the receipt can include an undo token; for an irreversible action, the policy gateway should require confirmation and preserve the evidence shown to the operator. This turns grounding into a transaction protocol with explicit preconditions and postconditions.
+
+Test the contract at the application boundary. Build fixtures with duplicate names, reordered controls, localization, delayed network responses, disabled states, and a record changed by another session. Assert that the agent selects the right semantic target when the snapshot is valid and refuses when ownership, revision, or postcondition evidence is missing. These tests belong in the application’s regression suite as well as the agent’s evaluation set, because a UI change can invalidate a previously safe action without changing the model.
+
 Create a typed action schema with `intent`, `target_context`, `observation_id`, `risk`, `preconditions`, and `expected_postcondition`. Keep the executor narrow: it should accept only validated candidate IDs from the current observation, not arbitrary JavaScript, selectors, or coordinates from a model. Allowlisted domains and per-action permission scopes make the blast radius visible.
 
 Implement a freshness budget. Low-risk read actions can tolerate a short observation age; state-changing actions should require a near-immediate recheck. Invalidate observations on navigation, significant DOM mutation, modal appearance, account changes, timeout, or focus loss. Log the invalidation cause so product teams can distinguish normal dynamic behavior from an unstable integration.

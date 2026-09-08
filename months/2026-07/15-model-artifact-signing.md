@@ -63,6 +63,18 @@ No direct July 2026 release about model-artifact signing was verified. This arti
 
 Use immutable references in deployment specifications. Resolve a human label to a digest during promotion and record the digest in the release record. Never let a serving process resolve `latest` at request time. Include the tokenizer and safety policy in the signed manifest. Require two independent approvals for a production signer or make the build identity policy-controlled and auditable.
 
+### What a verifier must actually establish
+
+A production verifier answers several different questions, and a valid signature answers only one of them. First, do the bytes match the digest that was signed? Second, was the digest signed by an identity trusted for this environment? Third, is that identity authorized for this model family and release channel? Fourth, is the release still allowed by policy, or has it expired, been revoked, or failed a required evaluation? Keep these decisions separate in the admission result so an operator can distinguish tampering from an intact but unauthorized build.
+
+The signed boundary must be explicit. If the manifest signs only the weight archive but the server loads a tokenizer, adapter, prompt template, custom kernel, or configuration from a mutable path, the effective model is not the signed object. Build a canonical manifest that lists every execution-relevant component, its digest, format, and expected role. Canonicalization matters because two serializers can represent the same fields in different byte orders; the builder and verifier must agree on the exact bytes before any signature operation occurs.
+
+Identity should come from the build context, not from a free-form field inside the manifest. An attacker can write `issuer: trusted-production` into an unsigned JSON object. Bind the issuer to the signature or to a certificate/verification record, then apply a trust policy that maps the authenticated identity to permitted repositories, environments, and model families. The local teaching example can use a generated key pair or a well-defined Cosign flow; it should not imply that a shared HMAC secret proves who signed the artifact.
+
+Admission is temporal. A key may be trusted when a release is built and revoked later. Store the verification time, trust-policy version, certificate or key identity, expiry, and revocation result with the deployment record. For disconnected devices, define whether the device may continue serving an already-verified artifact during a registry outage and for how long. Do not silently accept a stale trust bundle; surface the policy age and require an explicit emergency decision when it exceeds the permitted window.
+
+These details make the audit trail useful. A reviewer can reconstruct the source revision, builder identity, manifest bytes, signature, evaluation references, policy decision, and deployment target. A server can expose that release record in health metadata without exposing private keys or protected weights. The security benefit is not the decorative presence of a signature; it is the ability to reject a changed or unauthorized effective bundle and explain the rejection afterward.
+
 ```mermaid
 sequenceDiagram
   participant T as Training

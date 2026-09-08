@@ -79,6 +79,16 @@ Think of a model release as a signed container image plus a data-governance reco
 
 ## Engineering consequence
 
+### Separating asset classes and authorities
+
+The most useful security boundary is not “the model” versus “everything else.” A release usually contains several asset classes with different compromise stories. The weight files may be confidential intellectual property, while the tokenizer may be public but integrity-sensitive. Evaluation prompts may be confidential because they describe abuse cases, and an evaluation result may be integrity-sensitive because a false pass can authorize production. Deployment credentials are neither model data nor evidence; they are live authority and should have the shortest lifetime.
+
+Represent those differences in the registry schema. A bundle record can include a digest and owner for each component, but it should also name the classification, permitted environments, evaluation lineage, and allowed actions. “Read” is not one permission: a researcher may need to download weights, an evaluator may need to execute them without exporting them, and a deployment controller may need to fetch only an already-approved digest. A person who can edit metadata should not automatically be able to replace bytes or approve a release.
+
+This separation changes incident triage. If a tokenizer digest changes, the likely problem is a packaging or tampering event; if an evaluation prompt leaks, the impact may be test-set contamination; if a registry token is stolen, the first question is which write and promotion operations it could perform. Record these scopes in policy and logs. A broad “artifact compromised” alert is less useful than an event identifying the component, authority, environment, and last known trusted digest.
+
+The serving path should also avoid returning protected artifacts through ordinary debugging. A model server can expose its release ID, component digests, and health state without exposing file paths, registry credentials, or raw evaluation data. This gives operators evidence for rollback while keeping the diagnostic interface lower privilege than the artifact store. Test that distinction with role-specific accounts in a local registry mock: an evaluator can read a candidate, a deployer can read only approved records, and neither can change the other’s evidence.
+
 Start with an artifact inventory and data-flow diagram. For each component, identify producer, owner, classification, allowed readers, allowed writers, signature or hash source, retention policy, and deployment environments. Enforce admission control at deployment: reject unsigned, unapproved, incompatible, or policy-violating bundles before they reach an inference process. Log the loaded digest, registry identity, policy version, and runtime image with every deployment and relevant request trace.
 
 ## Limits and failure modes

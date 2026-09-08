@@ -80,6 +80,16 @@ Think of inference efficiency as traffic engineering for expensive compute. The 
 
 ## Engineering consequence
 
+### Turning an optimization into an experiment
+
+An efficiency change should be evaluated as a paired experiment, not as a claim about a single benchmark number. Define a control policy and a candidate policy that see the same request slice. For example, the control may use one approved model with fixed batching, while the candidate routes short extraction requests to a smaller model and reserves the larger model for long-context or high-risk requests. Keep prompt versions, model digests, hardware class, concurrency profile, and retry rules constant. Otherwise an apparent improvement may come from a different workload rather than the optimization.
+
+Measure the complete request timeline: gateway admission, queue wait, prefill, decode, tool calls, retries, and final delivery. First-token latency matters to a streaming user, while total completion time matters to a batch job. A routing policy can lower GPU time but increase queue time if it funnels too many requests into one fallback tier. Similarly, a cache hit may look like zero model latency while adding invalidation work and storage cost. Break the metric into stages so operators can locate the trade-off.
+
+Quality must be a first-class result. Compare exact-match or schema validity for deterministic tasks, reviewer or rubric scores for open-ended tasks, and safety or policy slices for sensitive workflows. Report failure and abstention rates, not just successful requests. A cheaper policy that needs more retries can consume more tokens and produce worse user latency. For each slice, define a minimum quality floor and a maximum p95 latency before the experiment begins; do not select a winner after seeing only the favorable metric.
+
+Capacity experiments also need overload cases. Replay a quiet workload, a burst, a long-context mix, and a cancellation-heavy agent mix. Observe whether queue fairness, cache reclamation, and backpressure remain bounded. Include a failed replica or cold-start event so the fallback path is exercised. The result should state where the candidate wins, where it regresses, and the rollback trigger. This makes “efficient” an operationally testable property rather than a permanent label attached to a model.
+
 Benchmark representative slices before and after each change: short chat, long context, structured output, multilingual input, tool-using tasks, cold start, and high concurrency. Measure p50, p95, and p99 first-token and completion latency; tokens per second; queue time; cache hit rate; GPU or CPU memory; error rate; cost; and task-specific quality. Tie the comparison to exact model, runtime, prompt, cache, hardware, and decoding versions so a regression can be traced and rolled back.
 
 ## Limits and failure modes
