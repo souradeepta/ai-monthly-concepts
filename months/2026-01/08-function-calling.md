@@ -1,6 +1,6 @@
 # Function calling
 Status: durable
-Sources: [OpenAI function calling guide](https://platform.openai.com/docs/guides/function-calling)
+Sources: [OpenAI — Function calling](https://developers.openai.com/api/docs/guides/function-calling)
 
 ## In one sentence
 Function calling lets a model propose typed tool arguments; a gateway must decide whether to execute them.
@@ -177,13 +177,13 @@ Add a destructive tool with `confirm=true`, an idempotency key, and a resource-o
 
 ## References
 
-[OpenAI function calling guide](https://platform.openai.com/docs/guides/function-calling)
+[OpenAI — Function calling](https://developers.openai.com/api/docs/guides/function-calling)
 - [January 2026 lesson map](README.md)
 
 ## Claim ledger
 
 | Claim | Source | Fact or inference |
 |---|---|---|
-| Function calling lets a model request calls to developer-defined tools using declared schemas. | [OpenAI function calling guide](https://platform.openai.com/docs/guides/function-calling) | Fact, scoped to source |
-| The architecture, metrics, and failure handling in this lesson are suitable engineering consequences to test locally. | [OpenAI function calling guide](https://platform.openai.com/docs/guides/function-calling) | Inference |
-| The Python example illustrates a boundary and does not establish provider-scale reliability or safety. | [OpenAI function calling guide](https://platform.openai.com/docs/guides/function-calling) | Inference |
+| Function calling lets a model request calls to developer-defined tools using declared schemas. | [OpenAI — Function calling](https://developers.openai.com/api/docs/guides/function-calling) | Fact, scoped to source |
+| The architecture, metrics, and failure handling in this lesson are suitable engineering consequences to test locally. | [OpenAI — Function calling](https://developers.openai.com/api/docs/guides/function-calling) | Inference |
+| The Python example illustrates a boundary and does not establish provider-scale reliability or safety. | [OpenAI — Function calling](https://developers.openai.com/api/docs/guides/function-calling) | Inference |

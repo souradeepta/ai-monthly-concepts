@@ -1,6 +1,6 @@
 # Asynchronous distributed training
 
-Status: draft — expansion and review pending
+Status: emerging
 Sources: [Google DeepMind — 2026-04-23](https://deepmind.google/blog/decoupled-diloco/)
 
 ## In one sentence

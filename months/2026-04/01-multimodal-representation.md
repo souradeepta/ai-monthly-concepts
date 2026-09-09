@@ -1,7 +1,7 @@
 # Multimodal representation
 
 Status: emerging
-Sources: [Google DeepMind — 2026-04-14](https://deepmind.google/blog/gemini-robotics-er-1-6/)
+Sources: [Google DeepMind — 2026-04-14](https://deepmind.google/blog/gemini-robotics-er-1-6/) (primary lab announcement)
 
 ## In one sentence
 

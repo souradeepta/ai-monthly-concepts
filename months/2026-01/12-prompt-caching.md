@@ -1,6 +1,6 @@
 # Prompt caching
 Status: watch
-Sources: [OpenAI prompt caching](https://platform.openai.com/docs/guides/prompt-caching)
+Sources: [OpenAI — Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching)
 
 ## In one sentence
 Prompt caching reuses computation for identical stable prefixes, reducing repeated work and often latency.
@@ -185,7 +185,7 @@ Generate keys for stable and volatile prefixes across two tenants and two prompt
 
 ## References
 
-[OpenAI prompt caching](https://platform.openai.com/docs/guides/prompt-caching)
+[OpenAI — Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching)
 - [January 2026 lesson map](README.md)
 
 ## Claim ledger

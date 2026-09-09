@@ -25,12 +25,12 @@ Create a simulated robot task: parse a command, read a JSON “camera” scene, 
 
 ## Articles
 
-1. [Multimodal representation](01-multimodal-representation.md) — review candidate
-2. [Streaming speech](02-streaming-speech.md) — draft
-3. [Vision-language-action](03-vision-language-action.md) — draft
-4. [Embodied reasoning](04-embodied-reasoning.md) — draft
-5. [World models](05-world-models.md) — draft
-6. [Asynchronous distributed training](06-asynchronous-distributed-training.md) — mechanics pass complete; substantive review pending
+1. [Multimodal representation](01-multimodal-representation.md) — mechanics/source pass complete; substantive review pending
+2. [Streaming speech](02-streaming-speech.md) — mechanics/source pass complete; substantive review pending
+3. [Vision-language-action](03-vision-language-action.md) — mechanics/source pass complete; substantive review pending
+4. [Embodied reasoning](04-embodied-reasoning.md) — mechanics/source pass complete; substantive review pending
+5. [World models](05-world-models.md) — mechanics/source pass complete; substantive review pending
+6. [Asynchronous distributed training](06-asynchronous-distributed-training.md) — mechanics/source pass complete; substantive review pending
 7. [Chaos engineering for ML](07-chaos-engineering-for-ml.md) — mechanics pass complete; substantive review pending
 8. [Open-weight deployment](08-open-weight-deployment.md) — mechanics pass complete; substantive review pending
 9. [Clinical co-pilots](09-clinical-co-pilots.md) — mechanics pass complete; substantive review pending

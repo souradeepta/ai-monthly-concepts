@@ -1,6 +1,6 @@
 # World models
 
-Status: draft — expansion and review pending
+Status: emerging
 Sources: [Google DeepMind — 2026-04-14](https://deepmind.google/blog/gemini-robotics-er-1-6/)
 
 ## In one sentence

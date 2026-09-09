@@ -1,6 +1,6 @@
 # Streaming speech
 
-Status: draft — expansion and review pending
+Status: emerging
 Sources: [Google DeepMind model cards — 2026-04-15](https://deepmind.google/models/model-cards/)
 
 ## In one sentence

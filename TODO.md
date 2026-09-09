@@ -72,7 +72,7 @@
 - [x] August 19 — Human review in media pipelines: draft and mechanics pass complete; substantive review remains.
 - [x] August 20 — Media data governance: draft and mechanics pass complete; substantive review remains.
 - [x] August batch — all 20 lessons linked; mechanics and similarity audit pass; substantive reviews remain.
-- [ ] April 01 — Multimodal representation: mechanics and source pass complete; substantive review, then push.
+- [x] April 01 — Multimodal representation: mechanics and source pass complete; substantive review remains.
 - [x] April 07 — Chaos engineering for ML: expansion and mechanics pass complete; substantive review remains.
 - [x] April 08 — Open-weight deployment: expansion and mechanics pass complete; substantive review remains.
 - [x] April 09 — Clinical co-pilots: expansion and mechanics pass complete; substantive review remains.
@@ -87,9 +87,10 @@
 - [x] April 18 — Model artifact provenance: expansion and mechanics pass complete; substantive review remains.
 - [x] April 19 — Prospective clinical evaluation: expansion and mechanics pass complete; substantive review remains.
 - [x] April 20 — Multimodal regression suites: expansion and mechanics pass complete; substantive review remains.
-- [ ] April 02 — Streaming speech: expansion and mechanics pass complete; substantive review, then push.
-- [ ] April 04 — Embodied reasoning: expansion and mechanics pass complete; substantive review, then push.
-- [ ] April 05 — World models: expansion and mechanics pass complete; substantive review, then push.
+- [x] April 02 — Streaming speech: expansion and mechanics pass complete; substantive review remains.
+- [x] April 03 — Vision-language-action: expansion and mechanics pass complete; substantive review remains.
+- [x] April 04 — Embodied reasoning: expansion and mechanics pass complete; substantive review remains.
+- [x] April 05 — World models: expansion and mechanics pass complete; substantive review remains.
 - [x] April 06 — Asynchronous distributed training: expansion and mechanics pass complete; substantive review remains.
 - [x] May 01 — Multi-agent decomposition: expansion and mechanics pass complete; substantive review remains.
 - [x] May 02 — Supervisor orchestration: expansion and mechanics pass complete; substantive review remains.
@@ -105,11 +106,17 @@
 - [x] May 12 — Agent budgeting: expansion and mechanics pass complete; substantive review remains.
 - [x] May 13 — Evaluator design: expansion and mechanics pass complete; substantive review remains.
 - [x] May 14 — Program sandboxing: expansion and mechanics pass complete; substantive review remains.
-- [x] January 03–06, 10–18 — required sections, word counts, and mechanics pass complete; substantive/similarity review remains.
+- [x] January 03–06, 16–18 — required sections, word counts, and mechanics pass complete; substantive/similarity review remains.
+- [x] January 15 — Human review: mechanics, source, and substantive review complete; push pending.
+- [x] January 14 — Hallucination handling: mechanics, source, and substantive review complete; push pending.
+- [x] January 13 — Evaluation harnesses: mechanics, source, and substantive review complete; push pending.
+- [x] January 12 — Prompt caching: mechanics, source, and substantive review complete; push pending.
+- [x] January 11 — Context engineering: mechanics, source, and substantive review complete; push pending.
+- [x] January 10 — Embeddings: mechanics, source, and substantive review complete; push pending.
 - [x] January 13–20 — topic-specific rewrite complete; individual mechanics and January-wide similarity audit pass; substantive review remains.
-- [ ] January 07 — Structured output: mechanics and source pass complete; Terra-review, push.
-- [ ] January 08 — Function calling: rewrite, mechanics, and source pass complete; Terra-review, push.
-- [ ] January 09 — RAG: clone removed; mechanics and source pass complete; Terra-review, push.
+- [x] January 07 — Structured output: mechanics, source, and substantive review complete; push pending.
+- [x] January 08 — Function calling: rewrite, mechanics, source, and substantive review complete; push pending.
+- [x] January 09 — RAG: clone removed; mechanics, source, and substantive review complete; push pending.
 - [x] January 03–09 — sequential quality check complete; coverage, runnable examples, and failure-flow sections reviewed; substantive approval remains.
 
 ## Article backlog
