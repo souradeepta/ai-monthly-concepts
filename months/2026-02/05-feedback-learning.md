@@ -48,11 +48,11 @@ For feedback learning, the engineering inference is narrower: turn the cited cap
 
 The useful feedback baseline is a manual bug report or a small hand-labeled dataset. That supports local fixes, but it loses the distribution of user corrections and makes learning changes hard to attribute. A feedback loop adds provenance, sampling, adjudication, and protected evaluation before labels influence a model.
 
-For **feedback learning**, the feedback learning boundary names feedback learning evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+The feedback boundary separates an observed outcome, a human or rule-based label, a training decision, and a released behavior. Treat raw interaction, reviewer judgment, and model proposals as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The feedback learning path starts with its own feedback learning evidence admission check, then records topic state, invokes only the needed processor, and finishes at a feedback learning outcome gate for **feedback learning**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to feedback learning, not a generic agent score.
+The feedback path starts with consent and scope admission, records an outcome and label provenance, runs adjudication and evaluation, and finishes at a versioned release or quarantine state. Keep policy and configuration revisions beside the work, while generated text remains separate from training authority. Measure label quality, protected-slice impact, and real corrections—not a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -100,33 +100,33 @@ On retry, reuse the feedback learning idempotency key or durable artifact; never
 
 Feedback becomes useful only after an outcome is defined. For support routing, distinguish “the agent suggested the right queue,” “the issue was resolved,” “the customer reopened it,” and “a reviewer approved the explanation.” Store the label source, reviewer role, policy version, task slice, and timestamp. A thumbs-up is a noisy preference; a resolved ticket after seven days is a delayed operational label. Sample hard and easy cases, and measure reviewer agreement before using labels for tuning. Keep a frozen replay set so a change that improves billing tickets cannot silently degrade safety escalations. Counterfactual evaluation asks what would have happened under the old router, but it cannot recover unobserved outcomes without assumptions. Separate prompt/configuration fixes from model-training changes and release them behind the same gate. Watch for reward hacking: an agent can reduce escalations by closing difficult tickets or improve apparent satisfaction by making promises. Require a quality floor, a safety floor, and an abstention metric. Frontier's statement that agents learn what good looks like motivates this loop; it does not make raw logs ground truth. A feedback service should make it possible to delete a label, correct a policy mistake, and roll back a learned behavior.
 
-Ask what **feedback learning** can establish at each transition. The request establishes intent only; the feedback learning evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **feedback learning**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Feedback establishes that a particular example received a particular label under a particular rubric; it does not prove that the label is globally correct or safe to train on. Preserve conflict, abstention, and unavailable states. A late correction should create a new dataset revision rather than silently mutating a locked evaluation or training snapshot.
 
 Feedback loops must version the label rubric, sampling rule, annotator guidance, model or prompt candidate, and training snapshot. Store those identifiers beside each correction so an apparent improvement can be separated from a changed population or an easier labeling policy.
 
 Feedback systems need limits on annotation load, replay volume, label frequency, and training-data intake. Route ambiguous or sensitive corrections to review instead of allowing an automated learner to amplify them. Keep `label_pending`, `sample_rejected`, and `training_snapshot_locked` distinct in the pipeline.
 
-Break feedback learning metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break feedback metrics down by task, language, tenant, reviewer cohort, model version, and outcome class so a healthy average cannot hide a biased or unsafe slice.
 
 
 ## Feedback learning: focused design workshop
 
-In feedback learning, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. feedback learning code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request content, observed outcome, label, rubric, adjudication, and training inclusion in separate typed fields. Feedback code owns provenance and promotion; prose explains a judgment but does not make it ground truth.
 
-For feedback learning, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the feedback learning artifact and the decision that moved it between states.
+The event trail should distinguish missing label, reviewer disagreement, sampling exclusion, privacy restriction, snapshot lock, and approved inclusion. Record the dataset digest and decision actor, not an unrestricted transcript.
 
 Test feedback-specific races. A label may be corrected after it enters a training snapshot, or a sampling rule may change while an experiment is running. Record the rubric and snapshot at ingestion, and quarantine late corrections for the next revision. Preserve `label_conflict` and `snapshot_locked` instead of silently choosing the newest annotation.
 
-For feedback learning, slice feedback learning evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare feedback learning failure carries the largest consequence.
+Slice label agreement, correction reduction, and downstream outcomes by task, cohort, policy revision, and final state. A lower training loss or higher agreement score is not enough if real users receive worse or less equitable outcomes.
 
-Save a failing feedback learning input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save failures as redacted regression fixtures with the original outcome, label source, rubric version, model version, and adjudicated result.
 
 
 ## Applications and operational constraints
 
-Start feedback learning in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
+Start with observation and evaluation-only changes. Compare a candidate against a frozen baseline and protected holdout, then release a narrow prompt or routing change before attempting a model update.
 
-Beyond **feedback learning**, feedback learning applies to workflows where feedback learning evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+Feedback loops support support routing, ranking, extraction, and agent tool selection. Each needs a named owner, data purpose, retention rule, reviewer coverage, and rollback path. User feedback may be private, strategic, or ambiguous, so it should not automatically become a training label.
 
 Plan feedback capacity around labelers, adjudicators, storage, and retraining windows. When annotation falls behind, preserve unreviewed examples and lower learner scope rather than silently training on partial labels. A delayed feedback loop should be visible in model-release status and not masquerade as fresh learning.
 
@@ -136,7 +136,7 @@ Feedback loops fail through biased sampling, label leakage, rubric drift, and re
 
 Feedback metrics can be gamed by collecting easy labels, discarding disagreement, or optimizing agreement with a biased annotator. Require protected slices, correction impact, and label-audit coverage alongside loss or preference scores. A smoother training curve is not evidence that users receive better outcomes.
 
-For feedback learning, the February source has a bounded claim. The February source also has scope limits. Frontier says built-in evaluation and optimization should show human managers and agents what works, and that feedback helps improve work over time. That is the February product framing. A production team still has to define labels, sampling, privacy, and release gates; the source does not establish that raw interaction logs are training truth. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The source claim is bounded: Frontier describes evaluation, optimization, and feedback as ways to improve agent work over time. It does not say that raw logs are ground truth or that every feedback signal should train a model. Label rubrics, sampling, privacy controls, holdouts, and release gates are engineering requirements inferred from the problem.
 
 ## Evaluation and change management
 
@@ -150,17 +150,17 @@ The source fact is bounded: **Frontier says built-in evaluation and optimization
 
 ## Mini exercise extension
 
-Create six fixtures for **feedback learning** using the feedback learning vocabulary: a feedback learning evidence omission, a stale or contradictory feedback learning evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior feedback learning records remain historical.
+Create six fixtures: approved label, reviewer conflict, stale policy, poisoned example, protected-slice failure, and corrected label after snapshot lock. Assert distinct outcomes and preserve the rubric, dataset, and model versions.
 
 ## Build it locally: numbered implementation
 
-1. Construct a feedback learning test record with actor, request, feedback learning evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the feedback learning boundary as a pure function. It must inspect feedback learning evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic feedback learning generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the feedback learning dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing feedback learning states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure feedback learning correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the feedback learning schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Define an outcome record with task, model version, result, reviewer, rubric, slice, purpose, and retention fields.
+2. Separate user preference, operational outcome, expert label, and adjudicated truth in the data model.
+3. Sample ordinary, hard, adversarial, and protected-slice cases with a frozen holdout.
+4. Quarantine disagreement, privacy-restricted examples, and labels created under an old rubric.
+5. Compare a candidate change with the baseline using deterministic outcome assertions and human review.
+6. Record dataset, evaluator, prompt/model, policy, and release versions in every report.
+7. Roll back when correction, safety, privacy, or protected-slice thresholds regress, even if aggregate preference improves.
 
 ## Runnable low-cost example
 
@@ -174,25 +174,25 @@ This label-comparison example demonstrates disagreement handling only. It does n
 
 ## Interview Q&A
 
-**Q: Why protect a holdout slice?** A: Enforce the feedback learning rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why protect a holdout slice?** A: To estimate behavior on examples not used to tune the learner and expose overfitting or distribution-specific gains.
 
-**Q: Why separate feedback from ground truth?** A: Enforce the feedback learning rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why separate feedback from ground truth?** A: A click, correction, or complaint can be noisy, strategic, incomplete, or based on a changed policy.
 
-**Q: Which metric would you put on the dashboard first?** A: Track feedback learning evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the feedback learning risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Downstream correction and harmful-error rates by protected slice, paired with label agreement and coverage.
 
-**Q: When should learning pause?** A: Enforce the feedback learning rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should learning pause?** A: When labels conflict, provenance is missing, privacy scope is unclear, a dependency is unavailable, or a protected outcome regresses.
 
-**Q: How should feedback learning be released?** A: Pin feedback learning evidence and the governing versions, begin with shadow or reversible work, and require the feedback learning invariant before widening effects.
+**Q: How should feedback learning be released?** A: Use a frozen baseline, protected holdout, shadow comparison, narrow canary, rollback artifact, and explicit quality and safety thresholds.
 
 ## Glossary
 
-- **Outcome Label**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one feedback learning attempt to its actor, feedback learning evidence, decisions, and recovery evidence.
-- **Idempotency**: the feedback learning guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a feedback learning input or artifact.
-- **SLO**: an explicit feedback learning service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the feedback learning state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about feedback learning derived from source facts rather than presented as a source guarantee.
+- **Outcome label**: a recorded judgment about what happened or what should have happened.
+- **Rubric**: the versioned instructions and criteria used to assign a label.
+- **Adjudication**: resolving disagreement between labels or reviewers.
+- **Holdout**: protected examples withheld from tuning and used for evaluation.
+- **Data slice**: a defined subgroup or task category analyzed separately.
+- **Snapshot lock**: the point after which a dataset revision cannot change silently.
+- **Rollback**: returning to a prior model, prompt, policy, or dataset artifact after a regression.
 
 ## References
 

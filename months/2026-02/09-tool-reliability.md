@@ -33,7 +33,7 @@ Timeouts do not guarantee remote cancellation; duplicate effects can occur; retr
 
 ## SDE2 primer and prerequisites
 
-This lesson treats **tool reliability** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is tool reliability evidence and state: the service must preserve it across tool reliability and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
+This lesson treats **tool reliability** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is a typed execution record: the service must preserve request, deadline, attempt, receipt, and uncertainty across retries. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
 
 The useful boundary for tool reliability is **deadline, typed error, idempotency key, retry class, circuit breaker, reconciliation, and unknown commit**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
 
@@ -47,11 +47,11 @@ For tool reliability, the engineering inference is narrower: turn the cited capa
 
 The useful tool baseline is a direct API call with a success response. That path hides malformed payloads, provider-specific limits, ambiguous timeouts, and duplicate effects. A reliability layer normalizes contracts, records receipts, budgets retries, and reconciles the cases where transport status differs from business state.
 
-For **tool reliability**, the tool reliability boundary names tool reliability evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For tool reliability, name the request, provider contract, actor, mutable state, receipt, and rejecting component. Treat provider output, model interpretation, and committed effects as different data classes. A response can influence a proposal but cannot prove an external effect unless the effect owner provides evidence. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The tool reliability path starts with its own tool reliability evidence admission check, then records topic state, invokes only the needed processor, and finishes at a tool reliability outcome gate for **tool reliability**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to tool reliability, not a generic agent score.
+The path starts with schema and authorization admission, persists an execution ID and deadline, invokes the provider through a versioned adapter, and finishes at a normalized result or reconciliation state. Keep policy and configuration revisions beside the work, while generated text remains separate from provider evidence. Measure receipt-confirmed completion, unknown outcomes, retry amplification, and adapter latency rather than relying on a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -67,7 +67,7 @@ flowchart LR
 
 Keep model intent, validated arguments, provider request, transport result, normalized result, and receipt separate. Tool output is external data, not a new instruction or permission. Bind execution ID, idempotency key, provider contract, tenant, and deadline to the call while redacting credentials and unnecessary payloads.
 
-For tool reliability, record a run identifier, actor, purpose, deadline, typed error, idempotency key, retry class, circuit breaker, reconciliation, and unknown commit, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+Record a run identifier, actor, purpose, deadline, typed error, idempotency key, retry class, circuit-breaker state, reconciliation status, unknown-commit flag, policy and model versions, evidence references, attempts, timestamps, and final state. Add the durable artifact that permits recovery: provider request ID, receipt, normalized response, and adapter version. A generic transcript cannot explain whether a timeout happened before or after a remote write. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
@@ -91,7 +91,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-On retry, reuse the tool reliability idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the provider idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
 ## Topic mechanics: Tool reliability
 
@@ -99,33 +99,33 @@ On retry, reuse the tool reliability idempotency key or durable artifact; never 
 
 Define tool reliability per operation, not per vendor. A ticket search can usually retry a timed-out GET, while payment capture needs an idempotency key and reconciliation after an unknown result. Normalize HTTP and domain errors into classes such as validation, authentication, not-found, conflict, rate-limit, transient, and unknown-commit. Carry a deadline across model, gateway, and downstream calls; a client timeout alone does not stop the remote work. Use exponential backoff with jitter and a circuit breaker when repeated failures indicate overload. On recovery, query the source of truth by request key before issuing a write again. Record attempt number, server receipt, and response classification. For a service agent, distinguish “ticket update rejected because version is stale” from “gateway timed out after the server may have committed.” The model should receive a compact structured error and a safe next action, not a raw stack trace that can leak credentials. Load-test retry amplification and prove that two workers with the same key produce one effect. Frontier's dependable-execution language motivates this contract; RFC 9110 and SRE explain transport semantics, not agent correctness.
 
-Ask what **tool reliability** can establish at each transition. The request establishes intent only; the tool reliability evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **tool reliability**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Ask what each transition can establish. The request establishes intent; validation establishes a safe provider request; transport establishes only delivery information; and the effect owner or receipt query establishes business outcome. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status, not an implicit success. Persist relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
-Tool reliability depends on versioned request schemas, adapter behavior, provider contract, timeout policy, and receipt format. Put those identifiers on each execution record so a timeout or malformed response can be replayed against the same contract rather than guessed at after an upgrade.
+Tool reliability depends on versioned request schemas, adapter behavior, provider contract, timeout policy, and receipt format. Put those identifiers on each execution record so a timeout or malformed response can be replayed against the same contract rather than guessed at after an upgrade. Separate retryability from business success: HTTP 503 may be retryable, while HTTP 200 can still contain a rejected domain operation.
 
 Tool adapters need per-provider concurrency, retry, payload, and deadline budgets. Stop retries when a receipt is ambiguous or the provider's quota is exhausted, and return `provider_rejected`, `transport_unknown`, and `adapter_invalid` separately. Those states drive different recovery playbooks.
 
-Break tool reliability metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break tool metrics down by task slice, actor or tenant, adapter version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup. Include unknown commits and duplicate-suppression results in the main reliability view.
 
 
 ## Tool reliability: focused design workshop
 
-In tool reliability, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. tool reliability code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request prose, validated arguments, provider requests, transport results, normalized results, receipts, and final outcomes in separate typed fields. Adapter code owns schema validation and error classification; reconciliation owns ambiguous effects; prose only explains intent.
 
-For tool reliability, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the tool reliability artifact and the decision that moved it between states.
+The event trail must let an operator distinguish bad input, provider rejection, rate limiting, transport timeout, adapter failure, and confirmed outcome. Record the execution artifact and the decision that moved it between states. Do not log credentials or full payloads simply because a provider returned an error.
 
 Test adapter races. A provider contract may change between request creation and retry, or a timeout may hide a committed side effect. Pin the request schema and reconcile the provider receipt before repeating work. Preserve `transport_unknown` and `provider_partial` rather than returning a fabricated success to the model.
 
-For tool reliability, slice tool reliability evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare tool reliability failure carries the largest consequence.
+Slice tool metrics by task class, actor or tenant, governing revision, dependency, and final state. Report receipt-confirmed completion, unknown outcomes, latency, cost, retry work, and recovery burden together; averages are insufficient when a rare duplicate effect carries the largest consequence.
 
-Save a failing tool reliability input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a failing tool input as a regression fixture only after redaction, classification, and capture of the governing version. Include schema drift, rate limit, malformed response, timeout after commit, provider outage, and duplicate retry.
 
 
 ## Applications and operational constraints
 
 Start tool reliability in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Beyond **tool reliability**, tool reliability applies to workflows where tool reliability evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+This pattern applies to search, ticket updates, inventory reads, deployments, and payments. Choose an application with a named owner and bounded effects, then document data residency, access, quota, staffing, latency, and rollback constraints. A search read may safely retry; payment capture needs an idempotency key and a receipt lookup after timeout. A ticket update may require an expected version to avoid overwriting a human edit. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan tool capacity around provider quotas, connection pools, retry workers, receipt reconciliation, and result normalization. If a provider is slow, disable optional calls or return a pending status; do not stack retries until the queue becomes an outage. Label cached or partial results as such.
 
@@ -135,7 +135,7 @@ Tool reliability fails at the transport/effect boundary: a timeout can hide a co
 
 Tool metrics can improve by retrying less, returning cached errors, or counting provider acceptance as business success. Report receipt-confirmed completion, unknown outcomes, duplicate suppression, and downstream correction separately. A low error rate is meaningless if the adapter stops surfacing ambiguous effects.
 
-For tool reliability, the February source has a bounded claim. The February source also has scope limits. Frontier says agents need a dependable execution environment for files, code, and tools. That is the February source fact. HTTP semantics and SRE practices explain how to construct dependable tool contracts; they are not evidence that a particular agent platform has exactly-once execution. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The February source has a bounded claim and scope limits. Frontier says agents need a dependable execution environment for files, code, and tools. That is a product statement, not evidence that any platform provides exactly-once execution. HTTP semantics and SRE practices explain transport and overload behavior; adapters, receipts, and reconciliation are engineering recommendations. Nothing in the source proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, expose an unknown result and escalate.
 
 ## Evaluation and change management
 
@@ -149,17 +149,17 @@ The source fact is bounded: **Frontier says agents need a dependable execution e
 
 ## Mini exercise extension
 
-Create six fixtures for **tool reliability** using the tool reliability vocabulary: a tool reliability evidence omission, a stale or contradictory tool reliability evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior tool reliability records remain historical.
+Create six fixtures: malformed arguments, stale provider schema, rate limiting, malformed response, timeout after commit, and verified completion. Assert different states for each case; do not use one generic success label. Store the receipt reference and recovery owner beside every assertion, then alter the governing version and prove that prior execution records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Construct a tool reliability test record with actor, request, tool reliability evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the tool reliability boundary as a pure function. It must inspect tool reliability evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic tool reliability generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the tool reliability dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing tool reliability states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure tool reliability correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the tool reliability schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct an execution record with actor, request, adapter version, idempotency key, decision, and outcome fields.
+2. Implement a classifier that rejects unknown statuses and distinguishes validation, retryable, permanent, and unknown-commit results.
+3. Create deterministic provider responses for success, rate limit, malformed JSON, timeout, and domain rejection.
+4. Simulate a timeout after a remote commit. Query a fake receipt store before allowing another write.
+5. Write an event stream containing execution states, redacting credentials while retaining references needed for replay.
+6. Measure receipt-confirmed completion, duplicate suppression, unknown outcomes, recovery work, and resource cost by operation.
+7. Change the adapter schema and verify that old execution records still resolve under their original contract.
 
 ## Runnable low-cost example
 
@@ -176,15 +176,15 @@ This adapter sketch demonstrates normalized success and failure states only. It 
 
 ## Interview Q&A
 
-**Q: Why is timeout a distinct result?** A: Expose a typed tool reliability unavailable state, stop unsafe transitions, and reconcile the external dependency before retrying.
+**Q: Why is timeout a distinct result?** A: The client may stop waiting while the provider continues or commits. Mark the outcome unknown and reconcile with a provider receipt before retrying a non-idempotent operation.
 
-**Q: Why separate an adapter from a provider?** A: Enforce the tool reliability rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why separate an adapter from a provider?** A: The adapter gives the orchestrator one stable schema for provider-specific status codes, deadlines, and receipts. It also localizes contract drift and redaction rules.
 
-**Q: Which metric would you put on the dashboard first?** A: Track tool reliability evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the tool reliability risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Track receipt-confirmed useful completion and unknown-commit age, paired with duplicate effects, provider errors, latency, and recovery work.
 
-**Q: When should a retry stop?** A: Enforce the tool reliability rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should a retry stop?** A: Stop on a permanent error, exhausted deadline or budget, ambiguous non-idempotent effect, provider overload, or a circuit breaker. Reconcile before retrying a write.
 
-**Q: How should tool reliability be released?** A: Pin tool reliability evidence and the governing versions, begin with shadow or reversible work, and require the tool reliability invariant before widening effects.
+**Q: How should tool reliability be released?** A: Pin adapter and provider-contract versions, canary read-only operations, inject malformed and timeout responses, and require receipt reconciliation and bounded-retry floors before widening effects.
 
 ## Glossary
 

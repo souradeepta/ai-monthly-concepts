@@ -33,7 +33,7 @@ Scores are not proof; sensitive logs can become a breach; automated blocks need 
 
 ## SDE2 primer and prerequisites
 
-This lesson treats **abuse monitoring** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is abuse monitoring evidence and state: the service must preserve it across abuse monitoring and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
+This lesson treats **abuse monitoring** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is a privacy-minimized case record: the service must preserve the signals, detector version, evidence window, action, and appeal outcome needed to explain enforcement. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
 
 The useful boundary for abuse monitoring is **behavioral signal, rate feature, case queue, evidence preservation, triage, and response playbook**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
 
@@ -47,11 +47,11 @@ For abuse monitoring, the engineering inference is narrower: turn the cited capa
 
 The useful abuse-monitoring baseline is a threshold over a few account or traffic features. It struggles with coordinated evasion, missing telemetry, and the cost of false enforcement. Modern monitoring needs protected coverage, reviewable evidence, proportionate actions, and an appeal path.
 
-For **abuse monitoring**, the abuse monitoring boundary names abuse monitoring evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For abuse monitoring, name the raw event, derived behavioral signal, actor scope, mutable case state, privacy policy, and rejecting component. Treat telemetry, detector hypotheses, analyst judgments, and enforcement effects as different data classes. A score can prioritize review but cannot establish wrongdoing. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The abuse monitoring path starts with its own abuse monitoring evidence admission check, then records topic state, invokes only the needed processor, and finishes at a abuse monitoring outcome gate for **abuse monitoring**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to abuse monitoring, not a generic agent score.
+The path starts with telemetry integrity and privacy admission, derives bounded signals over an evidence window, applies a tiered response policy, and finishes at an analyst, appeal, or reversal gate. Keep detector and policy revisions beside the work, while generated explanations remain separate from evidence. Measure coverage, false-positive harm, appeal reversal, and queue age rather than relying on a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -67,7 +67,7 @@ flowchart LR
 
 Keep raw events, derived features, detector score, reviewer evidence, enforcement decision, and appeal outcome separate. A score can prioritize a case but cannot itself establish wrongdoing. Bind tenant, detector revision, cohort, evidence window, and action policy to alerts while minimizing retained personal data.
 
-For abuse monitoring, record a run identifier, actor, purpose, behavioral signal, rate feature, case queue, evidence preservation, triage, and response playbook, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+Record a run identifier, actor scope, purpose, behavioral signal, rate feature, case queue, evidence preservation, triage, response playbook, policy and model versions, evidence window, decision, attempts, timestamps, and final state. Add the durable artifact that permits appeal: feature snapshot, detector revision, action reason, retention deadline, and reversal receipt. A generic transcript cannot explain a suspension. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
@@ -91,7 +91,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-On retry, reuse the abuse monitoring idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the alert or enforcement idempotency key; never create duplicate cases or repeated restrictions when the first action has an unknown outcome.
 
 ## Topic mechanics: Abuse monitoring
 
@@ -99,33 +99,33 @@ On retry, reuse the abuse monitoring idempotency key or durable artifact; never 
 
 Abuse monitoring is a temporal and relational classifier. Represent events as a stream with actor, tenant, tool, risk category, rate features, target, and model/provider where available. Keep raw evidence in a restricted store and publish minimized features to the detection path. A single request should rarely decide a severe action; combine repeated behavior, account age, payment signals, destination changes, and human review. Use a tiered response: friction or rate limit, temporary hold, analyst case, and emergency disablement. Preserve the events that justify a decision, including detector and policy versions, so an appeal can be investigated. The February report's point that activity can span traditional tools, platforms, and models argues for controlled joins and a clear data-sharing boundary. It does not justify blanket surveillance or a universal risk score. Calibrate thresholds against analyst capacity, measure appeal overturns, and audit disparate error rates. Red-team coordinated low-and-slow activity and benign automation. Design retention so evidence survives an investigation but ordinary content is not kept forever. A monitoring service must also monitor itself: detector drift, queue backlog, missing telemetry, and an overloaded analyst team are safety failures.
 
-Ask what **abuse monitoring** can establish at each transition. The request establishes intent only; the abuse monitoring evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **abuse monitoring**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Ask what each monitoring transition can establish. Telemetry establishes an observation; feature extraction establishes a bounded signal; scoring prioritizes attention; and review or policy establishes an action within scope. A timeout, missing event stream, or ambiguous enforcement response therefore becomes an explicit status, not an implicit clean result. Persist relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
-Abuse monitoring should version feature extraction, threshold bands, cohort definitions, response playbooks, and the appeal policy. Attach them to each alert and enforcement action; later tuning may change future alerts but must not make a past suspension impossible to explain.
+Abuse monitoring should version feature extraction, threshold bands, cohort definitions, response playbooks, retention, and appeal policy. Attach them to each alert and enforcement action; later tuning may change future alerts but must not make a past suspension impossible to explain. Preserve protected attack cohorts during sampling and make telemetry gaps visible.
 
 Abuse monitoring needs caps on event volume, feature computation, alert fan-out, and enforcement retries. Sample only after preserving high-risk cohorts and known attack signatures. Return `telemetry_gap`, `score_low`, and `review_backlog` distinctly; quiet dashboards can otherwise look like reduced abuse.
 
-Break abuse monitoring metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break monitoring metrics down by task slice, actor or tenant, detector version, dependency, risk band, and outcome class so a healthy average cannot hide a dangerous subgroup. Include appeal outcomes and telemetry gaps.
 
 
 ## Abuse monitoring: focused design workshop
 
-In abuse monitoring, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. abuse monitoring code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request prose, raw telemetry, derived signals, detector proposals, analyst decisions, enforcement actions, and appeal outcomes in separate typed fields. Monitoring code owns completeness, freshness, privacy, and case promotion; prose only explains intent.
 
-For abuse monitoring, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the abuse monitoring artifact and the decision that moved it between states.
+The event trail must let an operator distinguish malformed telemetry, missing coverage, stale features, detector failure, appeal, reversal, and confirmed action. Record the case artifact and the decision that moved it between states. Keep raw content restricted and retain only what the response and appeal process requires.
 
 Test monitoring races. A user may appeal while an enforcement job is queued, or a detector revision may change the score before a reviewer sees the case. Freeze the evidence and detector version for that decision. Preserve `appeal_pending` and `telemetry_gap`; neither should be counted as harmless behavior.
 
-For abuse monitoring, slice abuse monitoring evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare abuse monitoring failure carries the largest consequence.
+Slice monitoring metrics by task class, actor or tenant, governing revision, dependency, risk band, and final state. Report coverage, useful detection, false-positive harm, latency, cost, appeal effort, and recovery burden together; averages are insufficient when a rare wrongful block carries the largest consequence.
 
-Save a failing abuse monitoring input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a failing monitoring input as a regression fixture only after redaction, classification, and capture of the governing version. Include coordinated evasion, benign automation, missing telemetry, appeal during enforcement, and detector drift.
 
 
 ## Applications and operational constraints
 
 Start abuse monitoring in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Beyond **abuse monitoring**, abuse monitoring applies to workflows where abuse monitoring evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+This pattern applies to messaging, code-generation services, account protection, and tool-use platforms. Choose an application with a named owner and bounded effects, then document data residency, access, quota, staffing, latency, and rollback constraints. A temporary rate limit may be safer than a permanent ban while an analyst reviews; an appeal must be able to restore access and record who changed the decision. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan abuse-monitoring capacity around event ingestion, feature computation, alert review, and appeal queues. Under load, protect high-risk cohorts and preserve raw counters before sampling lower-risk traffic. A reduced detector or delayed enforcement decision must carry an explicit coverage state.
 
@@ -135,7 +135,7 @@ Abuse-monitoring failures include evasion, false positives, missing telemetry, a
 
 Abuse metrics can improve by over-blocking benign users, sampling away coordinated attacks, or closing alerts without appeal outcomes. Pair detection recall with false-positive harm, reversal rate, coverage gaps, and reviewer capacity. Fewer alerts are useful only when hostile behavior remains observable.
 
-For abuse monitoring, the February source has a bounded claim. The February source also has scope limits. The February report says its case studies show AI used in combination with traditional tools, and that activity may span multiple AI models and platforms. The factual lesson is to look for behavior across boundaries. Thresholds, classifiers, analyst queues, and retention are proposed controls, not claims made by the report. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The February source has a bounded claim and scope limits. The February report says its case studies show AI used in combination with traditional tools and that activity may span multiple models and platforms. The factual lesson is to look for behavior across boundaries, not to assume every unusual user is abusive. Thresholds, classifiers, analyst queues, retention, and appeals are proposed controls, not claims made by the report. Nothing in the source proves robustness against your adversaries, fairness on your domain, or a particular service-level target. Treat source examples as facts and recommendations as inference. When evidence is weak, preserve uncertainty and escalate.
 
 ## Evaluation and change management
 
@@ -149,17 +149,17 @@ The source fact is bounded: **The February report says its case studies show AI 
 
 ## Mini exercise extension
 
-Create six fixtures for **abuse monitoring** using the abuse monitoring vocabulary: a abuse monitoring evidence omission, a stale or contradictory abuse monitoring evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior abuse monitoring records remain historical.
+Create six fixtures: missing telemetry, coordinated low-and-slow behavior, benign automation, poisoned features, appeal during enforcement, and verified reversal. Assert different states for each case; do not use one generic success label. Store the detector revision and recovery owner beside every assertion, then alter the governing version and prove that prior cases remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Construct a abuse monitoring test record with actor, request, abuse monitoring evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the abuse monitoring boundary as a pure function. It must inspect abuse monitoring evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic abuse monitoring generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the abuse monitoring dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing abuse monitoring states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure abuse monitoring correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the abuse monitoring schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct a monitoring record with actor scope, event window, features, detector revision, decision, and outcome fields.
+2. Implement a pure scoring function that rejects missing telemetry and returns `score_low`, `review`, or `telemetry_gap`.
+3. Create deterministic windows for repeated risky behavior, benign automation, and coordinated low-rate activity.
+4. Simulate an appeal arriving after an enforcement job is queued. Require the action gate to recheck the current case state.
+5. Write an event stream containing case states, redacting sensitive payloads while retaining references needed for appeal.
+6. Measure coverage, useful detection, false-positive harm, appeal reversal, queue age, and resource cost by cohort.
+7. Change the detector revision and verify that old cases remain explainable under their original feature contract.
 
 ## Runnable low-cost example
 
@@ -175,15 +175,15 @@ This monitoring sketch demonstrates a small alert rule only. It does not establi
 
 ## Interview Q&A
 
-**Q: Why measure appeals?** A: Enforce the abuse monitoring rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why measure appeals?** A: Appeals reveal wrongful enforcement and whether users can obtain a timely correction. A low appeal rate may mean the process is inaccessible, not that decisions are accurate.
 
-**Q: Why separate detection from enforcement?** A: Enforce the abuse monitoring rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why separate detection from enforcement?** A: Detection produces evidence and priority; enforcement applies a proportionate policy with ownership and recourse. Separating them limits the damage of a noisy score.
 
-**Q: Which metric would you put on the dashboard first?** A: Track abuse monitoring evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the abuse monitoring risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Track protected attack coverage and false-positive harm, paired with appeal reversal, telemetry completeness, and reviewer capacity.
 
-**Q: What does a telemetry gap mean?** A: Enforce the abuse monitoring rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What does a telemetry gap mean?** A: The detector cannot make its normal coverage claim. Mark the gap, protect known high-risk paths, and avoid treating missing events as evidence of safe behavior.
 
-**Q: How should abuse monitoring be released?** A: Pin abuse monitoring evidence and the governing versions, begin with shadow or reversible work, and require the abuse monitoring invariant before widening effects.
+**Q: How should abuse monitoring be released?** A: Pin detector and policy versions, begin in shadow mode, test evasion and benign edge cases, retain an appeal and reversal path, and require coverage and harm floors before automated action.
 
 ## Glossary
 

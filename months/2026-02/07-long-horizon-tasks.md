@@ -49,11 +49,11 @@ For long horizon tasks, the engineering inference is narrower: turn the cited ca
 
 The useful long-task baseline is a single model call that returns a plan immediately. It cannot preserve progress through hours of waiting, dependency failure, or operator interruption. Long-horizon execution therefore needs explicit checkpoints, budgets, cancellation, and effect reconciliation.
 
-For **long horizon tasks**, the long horizon tasks boundary names long horizon tasks evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For long-horizon work, name the goal, actor, mutable state, checkpoint, and rejecting component. Treat observations, model plans, and committed effects as different data classes. A plan can influence the next proposal but cannot prove that an external effect occurred. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The long horizon tasks path starts with its own long horizon tasks evidence admission check, then records topic state, invokes only the needed processor, and finishes at a long horizon tasks outcome gate for **long horizon tasks**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to long horizon tasks, not a generic agent score.
+The path starts by admitting a goal and budget, records durable workflow state, invokes only the activity needed for the current step, and finishes at a checkpoint or effect-reconciliation gate. Keep policy and configuration revisions beside the work, while generated text remains separate from durable state. Measure queue age, checkpoint freshness, useful completion, recovery time, and budget burn rather than relying on a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -69,7 +69,7 @@ flowchart LR
 
 Keep the goal, plan, observation, checkpoint, budget, and effect receipt in distinct records. A plan is a proposal; an observation or receipt is evidence about the world. Bind run, step, dependency version, tenant, and budget to checkpoints, and retain only the context needed to resume safely.
 
-For long horizon tasks, record a run identifier, actor, purpose, lease, heartbeat, checkpoint, saga, cancellation token, compensation, and budget, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+Record a run identifier, actor, purpose, lease, heartbeat, checkpoint, saga, cancellation token, compensation, budget, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the durable artifact that permits safe resumption: source cursor, dependency version, activity receipt, and next eligible transition. A generic transcript cannot prove where a workflow stopped. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
@@ -93,7 +93,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-On retry, reuse the long horizon tasks idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the workflow idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
 ## Topic mechanics: Long-horizon tasks
 
@@ -101,33 +101,33 @@ On retry, reuse the long horizon tasks idempotency key or durable artifact; neve
 
 Long-horizon orchestration is a resource-management problem. Turn a goal into a DAG of bounded activities with an owner, input contract, timeout, retry class, and compensation. A lease says which worker may advance a step; a heartbeat renews it only while progress is real. A queue separates user latency from work duration, and a progress event gives the user a truthful estimate without exposing internal reasoning. For a catalog migration, validate a batch, write it with an idempotency key, reconcile the destination count, checkpoint the source cursor, then schedule the next batch. If approval is revoked, cancel future batches and leave a repair task for committed data. Exponential backoff must have a maximum and a jitter; otherwise a dependency outage creates a synchronized retry storm. Budget tokens and tool calls per step and for the whole workflow. A stale checkpoint can cause omission or duplication, so include a source version and compare it before commit. The February Frontier framing makes tools and execution part of agent work; SRE and durable-runtime practice provide the recovery vocabulary. No model can turn an irreversible external effect into an automatically cancellable one.
 
-Ask what **long horizon tasks** can establish at each transition. The request establishes intent only; the long horizon tasks evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **long horizon tasks**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Ask what each transition can establish. The request establishes intent only; the checkpoint establishes what was durably observed; the activity receipt establishes whether an effect was acknowledged; and reconciliation establishes whether the remote state matches expectation. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status, not an implicit success. Persist relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
-Long-horizon work needs versioned plans, checkpoint schemas, dependency snapshots, budgets, and cancellation rules. Pin them to each run so a resumed task cannot silently combine a new planner with assumptions recorded by an older checkpoint.
+Long-horizon work needs versioned plans, checkpoint schemas, dependency snapshots, budgets, and cancellation rules. Pin them to each run so a resumed task cannot silently combine a new planner with assumptions recorded by an older checkpoint. A migration worker should compare the source version before committing a batch; if it changed, pause and re-plan rather than silently applying an old cursor.
 
 Long tasks need a declared step budget, wall-clock deadline, checkpoint quota, and tool-call ceiling. Pause work when the next step cannot fit those limits and expose whether the run is waiting, cancelled, or genuinely failed. `budget_exhausted` should never be reported as a successful partial completion.
 
-Break long horizon tasks metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break metrics down by task slice, actor or tenant, workflow version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup. Include abandoned runs and operator takeover, since delayed cleanup is part of the system's cost.
 
 
 ## Long-horizon tasks: focused design workshop
 
-In long horizon tasks, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. long horizon tasks code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request prose, retrieved evidence, generated plans, checkpoints, receipts, and final outcomes in separate typed fields. Workflow code owns completeness, freshness, cancellation, and promotion of a result; prose only explains intent. A step record should identify its input snapshot, attempt number, timeout, retry class, and compensation path.
 
-For long horizon tasks, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the long horizon tasks artifact and the decision that moved it between states.
+The event trail must let an operator distinguish bad input, missing evidence, stale checkpoint, dependency failure, cancellation, and a confirmed outcome. Record the checkpoint or receipt and the decision that moved the workflow between states. Keep state transitions append-only so a later retry does not erase the fact that a commit was once unknown.
 
 Test long-task races. A checkpoint may resume after its dependency version changes, or cancellation may arrive while the next tool call is being prepared. Validate checkpoint compatibility and cancellation ownership before continuing. Preserve `paused`, `cancel_requested`, and `unknown_commit`; a partial plan is not a completed task.
 
-For long horizon tasks, slice long horizon tasks evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare long horizon tasks failure carries the largest consequence.
+Slice workflow metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare duplicate effect or abandoned run carries the largest consequence.
 
-Save a failing long horizon tasks input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a failing workflow input as a regression fixture only after redaction, classification, and capture of the governing version. Include interruptions at lease expiry, after remote commit, before checkpoint, and during cancellation.
 
 
 ## Applications and operational constraints
 
 Start long horizon tasks in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Beyond **long horizon tasks**, long horizon tasks applies to workflows where long horizon tasks evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+This pattern applies to procurement, data migration, incident remediation, report generation, and multi-step research. Choose an application with a named owner and bounded effects, then document data residency, access, quota, staffing, latency, and rollback constraints. A procurement workflow can pause for approval, while a migration can compensate or quarantine a partially copied batch. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan long-task capacity around active leases, checkpoint writes, timers, tool quotas, and human recovery queues. If workers are scarce, pause new runs while preserving durable state. A status such as `paused_for_capacity` must remain distinct from success so a user does not mistake an unfinished plan for a completed outcome.
 
@@ -137,7 +137,7 @@ Long tasks fail through budget drift, stale plans, duplicate effects after recov
 
 Long-task metrics can improve by terminating difficult runs early or counting plans as outcomes before their effects are verified. Pair completion with useful completion, budget consumed, recovery time, and abandoned-work rate. A shorter average task is not progress if it shifts unfinished work to operators.
 
-For long horizon tasks, the February source has a bounded claim. The February source also has scope limits. Frontier says agents can plan, act, solve problems with tools, and run across several runtime locations. That product framing makes long-running work a relevant February lesson, but it does not guarantee completion or recovery. SRE overload guidance and durable-execution practice provide the operational baseline. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The February source has a bounded claim and scope limits. Frontier says agents can plan, act, solve problems with tools, and run across several runtime locations. That product framing makes long-running work relevant, but it does not guarantee completion or recovery. SRE overload guidance and durable-execution practice provide the operational baseline. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, pause, hand off, or reconcile rather than claiming success.
 
 ## Evaluation and change management
 
@@ -151,17 +151,17 @@ The source fact is bounded: **Frontier says agents can plan, act, solve problems
 
 ## Mini exercise extension
 
-Create six fixtures for **long horizon tasks** using the long horizon tasks vocabulary: a long horizon tasks evidence omission, a stale or contradictory long horizon tasks evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior long horizon tasks records remain historical.
+Create six fixtures: a missing checkpoint, a stale dependency version, an adversarial plan, a lease expiry, a dependency interruption after remote commit, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior workflow records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Construct a long horizon tasks test record with actor, request, long horizon tasks evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the long horizon tasks boundary as a pure function. It must inspect long horizon tasks evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic long horizon tasks generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the long horizon tasks dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing long horizon tasks states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure long horizon tasks correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the long horizon tasks schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct a workflow test record with actor, goal, checkpoint, dependency version, budget, decision, and outcome fields.
+2. Implement a transition function that rejects an incompatible checkpoint, expired lease, over-budget step, or unknown state.
+3. Create deterministic plans for a valid batch, a malformed step, and a plan that exceeds its tool-call budget.
+4. Simulate a dependency failing after a remote commit. Use an idempotency key and reconciliation status to prevent duplicate delivery.
+5. Write an event stream containing workflow states, redacting sensitive payloads while retaining references needed for offline replay.
+6. Measure useful completion, time in each state, recovery work, abandoned runs, and resource cost by task slice.
+7. Change the workflow schema or planner revision and verify that old checkpoints still resolve under their original contract.
 
 ## Runnable low-cost example
 
@@ -172,19 +172,19 @@ def claim(job, worker):
 print(claim("batch-3", "worker-a"), claim("batch-3", "worker-b"))
 ```
 
-This checkpoint sketch demonstrates budget accounting only. It does not persist state, cancel workers, reconcile effects, or survive a crash; add interruption and stale-checkpoint fixtures before drawing conclusions about long tasks.
+This checkpoint sketch demonstrates lease ownership only. It does not persist state, cancel workers, reconcile effects, or survive a crash; add interruption and stale-checkpoint fixtures before drawing conclusions about long tasks.
 
 ## Interview Q&A
 
-**Q: What does a checkpoint guarantee?** A: Enforce the long horizon tasks rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What does a checkpoint guarantee?** A: It proves only that the recorded local state was durably written. It does not prove that a remote side effect committed, so the workflow needs a receipt or reconciliation step.
 
-**Q: Why are plans not durable state?** A: Enforce the long horizon tasks rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why are plans not durable state?** A: A plan is an intention that can become stale. Durable state must record observed inputs, completed activities, versions, and the next legal transition.
 
-**Q: Which metric would you put on the dashboard first?** A: Track long horizon tasks evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the long horizon tasks risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Track useful completion and abandoned-work age, then pair them with budget burn, duplicate-effect rate, recovery time, and checkpoint freshness.
 
-**Q: When should a long task pause?** A: Enforce the long horizon tasks rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should a long task pause?** A: Pause on missing approval, stale dependencies, exhausted budget, expired lease, or an unknown external outcome. Preserve state for a worker or human to resume safely.
 
-**Q: How should long horizon tasks be released?** A: Pin long horizon tasks evidence and the governing versions, begin with shadow or reversible work, and require the long horizon tasks invariant before widening effects.
+**Q: How should long-horizon workflows be released?** A: Pin workflow and checkpoint versions, start with reversible work, inject interruptions, and require useful-completion, cancellation, and reconciliation floors before widening effects.
 
 ## Glossary
 

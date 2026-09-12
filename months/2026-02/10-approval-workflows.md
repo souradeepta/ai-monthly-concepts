@@ -34,7 +34,7 @@ A reviewer can approve incomplete evidence; stale approvals and UI spoofing rema
 
 ## SDE2 primer and prerequisites
 
-This lesson treats **approval workflows** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is approval workflows evidence and state: the service must preserve it across approval workflows and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
+This lesson treats **approval workflows** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is an attributable decision packet: the service must preserve the exact proposal, evidence, reviewer, scope, expiry, and execution result. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
 
 The useful boundary for approval workflows is **approval intent, reviewer assignment, separation of duties, expiry, evidence packet, and escalation**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
 
@@ -48,11 +48,11 @@ For approval workflows, the engineering inference is narrower: turn the cited ca
 
 The useful approval baseline is a person clicking approve on a summarized request. That is unsafe when the evidence is stale, the proposal changes, or the click is detached from the exact effect. A workflow binds actor, evidence, proposal digest, expiry, and execution gate into one accountable decision.
 
-For **approval workflows**, the approval workflows boundary names approval workflows evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For approval workflows, name the proposal, evidence snapshot, approver, mutable state, expiry, and rejecting component. Treat evidence, model proposals, reviewer decisions, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The approval workflows path starts with its own approval workflows evidence admission check, then records topic state, invokes only the needed processor, and finishes at a approval workflows outcome gate for **approval workflows**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to approval workflows, not a generic agent score.
+The path starts with evidence and risk admission, persists an immutable proposal digest, assigns an eligible reviewer, and finishes at an execution gate that rechecks scope and expiry. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure evidence completeness, safe deferral, reviewer latency, overturns, and post-action incidents rather than relying on a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -68,7 +68,7 @@ flowchart LR
 
 Keep proposal, evidence packet, approver identity, approval token, policy decision, and executed effect separate. A summary can guide a reviewer but cannot replace the exact fields being approved. Bind proposal digest, resource, actor, expiry, and policy revision to the approval record and minimize sensitive comments in logs.
 
-For approval workflows, record a run identifier, actor, purpose, approval intent, reviewer assignment, separation of duties, expiry, evidence packet, and escalation, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+Record a run identifier, actor, purpose, approval intent, reviewer assignment, separation of duties, expiry, evidence packet, escalation, policy and model versions, proposal digest, decision, attempts, timestamps, and final state. Add the durable artifact that permits reconstruction: reviewed resource version, approval token, reviewer reason, and execution receipt. A generic transcript cannot explain what a person actually approved. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
@@ -92,7 +92,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-On retry, reuse the approval workflows idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the approval decision's idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
 ## Topic mechanics: Approval workflows
 
@@ -100,33 +100,33 @@ On retry, reuse the approval workflows idempotency key or durable artifact; neve
 
 An approval is a state transition with identity and evidence. Create an approval intent containing the proposed action, exact arguments, affected resources, risk classification, evidence links, policy version, expiry, and required reviewer role. The reviewer should see a stable snapshot or a version conflict, not a live amount that can change after clicking. Separation of duties prevents the proposer or an automated worker from approving its own high-risk action. Expire approvals when context, price, permission, or risk changes. If two reviewers are required, store both decisions and the quorum rule. Execute only after a final authorization check and bind the effect ID to the approval ID. For vendor payments, display amount, currency, vendor, invoice evidence, and rollback options; an opaque “approve agent plan” button is not meaningful consent. Test replayed approvals, approval phishing, stale evidence, reviewer unavailability, and a race where a user revokes access while a job is queued. Measure disagreement and overturns, not just time-to-click. Frontier's boundaries and feedback framing support the idea of governed work; NIST provides risk-management language, while the workflow mechanics are this lesson's inference.
 
-Ask what **approval workflows** can establish at each transition. The request establishes intent only; the approval workflows evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **approval workflows**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Ask what each approval transition can establish. The request establishes intent; the evidence packet establishes what was shown; the reviewer establishes a decision within a role; and the execution gate establishes whether the exact reviewed effect was committed. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status, not an implicit success. Persist relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
-Approval workflows should version the proposal schema, approver matrix, evidence requirements, expiry interval, and escalation route. Bind those versions to the approval token; a policy update must invalidate or re-review affected proposals without erasing the original decision context.
+Approval workflows should version the proposal schema, approver matrix, evidence requirements, expiry interval, and escalation route. Bind those versions to the approval token; a policy update must invalidate or re-review affected proposals without erasing the original decision context. A reviewer who proposed an action should not approve a high-risk action when separation of duties requires independence.
 
 Approval queues need limits on case age, evidence size, reassignment count, and approver workload. If a case cannot meet its expiry window, defer it before collecting more model output. Distinguish `awaiting_approver`, `evidence_incomplete`, and `approval_expired`; each needs a different human action.
 
-Break approval workflows metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break approval metrics down by task slice, actor or tenant, version, dependency, risk class, and outcome so a healthy average cannot hide rubber-stamping or delayed high-risk cases.
 
 
 ## Approval workflows: focused design workshop
 
-In approval workflows, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. approval workflows code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request prose, evidence snapshots, generated proposals, reviewer decisions, and execution receipts in separate typed fields. Workflow code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent. The reviewer UI should show the normalized action and diff, not require a person to infer the effect from a long model transcript.
 
-For approval workflows, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the approval workflows artifact and the decision that moved it between states.
+The event trail must let an operator distinguish bad input, incomplete evidence, stale proposal, reviewer conflict, dependency failure, and confirmed outcome. Record the approval packet and the decision that moved it between states. Preserve the original digest even if a later revision is submitted.
 
 Test approval races. An approver can lose authority after clicking approve, or the underlying amount and evidence can change before execution. Bind approval to proposal digest, actor, scope, and expiry, then recheck all four at the action gate. Preserve `approval_expired` and `proposal_changed`; neither means approved.
 
-For approval workflows, slice approval workflows evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare approval workflows failure carries the largest consequence.
+Slice approval metrics by task class, actor or tenant, governing revision, dependency, risk class, and final state. Report evidence completeness, useful completion, latency, cost, deferral, overturns, and recovery burden together; averages are insufficient when a rare unauthorized execution carries the largest consequence.
 
-Save a failing approval workflows input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a failing approval input as a regression fixture only after redaction, classification, and capture of the governing version. Include missing evidence, conflicted reviewers, expiry, changed proposal, unavailable approver, and replayed approval.
 
 
 ## Applications and operational constraints
 
 Start approval workflows in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Beyond **approval workflows**, approval workflows applies to workflows where approval workflows evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+This pattern applies to refunds, production changes, vendor payments, access grants, and data deletion. Choose an application with a named owner and bounded effects, then document data residency, access, quota, staffing, latency, and rollback constraints. A production change should display the diff, tests, rollback, and blast radius; a refund should display amount, account, evidence, and duplicate-risk checks. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan approval capacity around approver coverage, evidence assembly, escalations, and appeal handling. A full queue should trigger safe deferral, not lower the review threshold. Tell the requester whether a proposal is awaiting a person, missing evidence, or expired rather than presenting a delayed case as approved.
 
@@ -136,7 +136,7 @@ Approval failures include rubber-stamping, missing evidence, stale approvals, an
 
 Approval metrics can improve by routing difficult cases away, shortening review, or treating every click as informed consent. Pair approval time with evidence completeness, overturns, appeals, and post-action incidents. A near-perfect approval rate may reveal rubber-stamping rather than excellent proposals.
 
-For approval workflows, the February source has a bounded claim. The February source also has scope limits. Frontier says AI coworkers should have clear permissions and boundaries and should improve quality through feedback. Those statements support an approval boundary as an engineering interpretation. NIST risk-management practice supplies the governance vocabulary; neither source says that a human click automatically makes an action safe. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The February source has a bounded claim and scope limits. Frontier says AI coworkers should have clear permissions and boundaries and should improve quality through feedback. That supports approval as an engineering interpretation, not proof that a human click makes an action safe. NIST risk-management practice supplies governance vocabulary; evidence quality, reviewer independence, stale-proposal checks, and execution reauthorization are local controls. Nothing in the source proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, defer or escalate.
 
 ## Evaluation and change management
 
@@ -150,17 +150,17 @@ The source fact is bounded: **Frontier says AI coworkers should have clear permi
 
 ## Mini exercise extension
 
-Create six fixtures for **approval workflows** using the approval workflows vocabulary: a approval workflows evidence omission, a stale or contradictory approval workflows evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior approval workflows records remain historical.
+Create six fixtures: incomplete evidence, reviewer conflict, expired approval, changed proposal digest, unavailable approver, and verified execution. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior approval records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Construct a approval workflows test record with actor, request, approval workflows evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the approval workflows boundary as a pure function. It must inspect approval workflows evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic approval workflows generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the approval workflows dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing approval workflows states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure approval workflows correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the approval workflows schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct an approval record with actor, proposal digest, evidence references, reviewer role, expiry, decision, and outcome fields.
+2. Implement a pure transition function that rejects incomplete evidence, conflicted roles, expired approvals, and changed digests.
+3. Create deterministic proposals for a valid refund, a missing invoice, and a changed amount after review.
+4. Simulate the execution dependency failing after approval. Use an effect ID to reconcile before replaying.
+5. Write an event stream containing approval states, redacting sensitive payloads while retaining references needed for audit.
+6. Measure evidence completeness, safe deferral, reviewer latency, overturns, recovery work, and resource cost by risk class.
+7. Change the policy revision and verify that old decisions remain historical while affected pending approvals are re-reviewed.
 
 ## Runnable low-cost example
 
@@ -178,15 +178,15 @@ This approval sketch checks an expiry and proposal digest in memory. It does not
 
 ## Interview Q&A
 
-**Q: What should an approval bind?** A: Enforce the approval workflows rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What should an approval bind?** A: The exact normalized action, resource version, evidence packet, reviewer identity and role, policy revision, expiry, and execution scope.
 
-**Q: Why is an approval not a general consent flag?** A: Enforce the approval workflows rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why is an approval not a general consent flag?** A: Consent is meaningful only for the exact effect the person saw and had authority to approve. A changed proposal or stale resource needs a new decision.
 
-**Q: Which metric would you put on the dashboard first?** A: Track approval workflows evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the approval workflows risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Track evidence completeness and post-approval overturns, paired with safe deferral, reviewer latency, and incidents. Approval percentage alone can reward rubber-stamping.
 
-**Q: When should a case defer?** A: Enforce the approval workflows rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should a case defer?** A: Defer when evidence is incomplete, the approver is unavailable or conflicted, the proposal changed, the approval expired, or execution outcome is unknown.
 
-**Q: How should approval workflows be released?** A: Pin approval workflows evidence and the governing versions, begin with shadow or reversible work, and require the approval workflows invariant before widening effects.
+**Q: How should approval workflows be released?** A: Pin proposal and policy versions, start with reversible effects, test stale and replayed approvals, and require exact-effect binding and safe-deferral floors before widening.
 
 ## Glossary
 

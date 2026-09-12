@@ -48,11 +48,11 @@ For stateful runtimes, the engineering inference is narrower: turn the cited cap
 
 The useful baseline for a stateful runtime is a synchronous request that ends with one response. That model breaks when work waits on a human, timer, or provider and the process can disappear between steps. Durable history, checkpoints, leases, and reconciliation turn a transient model call into resumable workflow state.
 
-For **stateful runtimes**, the stateful runtimes boundary names stateful runtimes evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+The runtime boundary separates transient model context from durable workflow state, external effects, and recovery evidence. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The stateful runtimes path starts with its own stateful runtimes evidence admission check, then records topic state, invokes only the needed processor, and finishes at a stateful runtimes outcome gate for **stateful runtimes**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to stateful runtimes, not a generic agent score.
+The workflow path starts with identity and admission, records a durable state transition, invokes only the needed activity, and finishes at a receipt or explicit recovery state. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure history growth, replay, queue age, and recovery—not a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -94,49 +94,62 @@ sequenceDiagram
 
 On retry, reuse the stateful runtimes idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
-## Topic mechanics: Stateful runtimes
+## Topic mechanics: durable workflow state
 
-### Decision model and topic-specific data contract
+A stateful runtime needs a history that is more authoritative than the current prompt. Store commands, accepted events, timers, activity results, and workflow-code version. The orchestrator can replay deterministic decisions from that history; model calls should be isolated as activities whose inputs and outputs are recorded. This makes a language model replaceable without making the workflow history unknowable.
 
-A durable runtime needs a history that is more authoritative than the current prompt. Store commands, accepted events, timers, activity results, and workflow code version. A worker can replay deterministic orchestration from that history; model calls should be treated as activities whose inputs and outputs are recorded, or whose nondeterminism is isolated behind a versioned decision. Checkpoint after validation and before each side effect. For procurement, the state might be `quote_requested`, `quote_received`, `approval_pending`, `order_submitted`, and `delivery_confirmed`; each state has a timeout and an owner. A durable timer wakes the workflow without keeping a process alive. A lease prevents two workers from claiming the same step, while a heartbeat makes a stuck worker visible. Exactly-once execution is usually unavailable across an external API, so the design goal is one logical effect through an idempotency key plus reconciliation. When workflow code changes, use a version gate so old histories do not replay through incompatible branches. Test crash points between every write and event append. A replay that reaches a different branch is a compatibility failure, not a reason to ask the model for a fresh plan.
+Consider a procurement workflow with states `quote_requested`, `quote_received`, `approval_pending`, `order_submitted`, and `delivery_confirmed`. Each state has an owner, timeout, allowed transition, and evidence requirement. A durable timer wakes the workflow after an approval window without keeping a process alive. A worker lease prevents two workers from executing the same step, while a heartbeat distinguishes a slow worker from a lost one. These are runtime facts and contracts, not properties that a model can infer.
 
-Ask what **stateful runtimes** can establish at each transition. The request establishes intent only; the stateful runtimes evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **stateful runtimes**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Exactly-once execution is usually unavailable across an external API. The practical goal is one logical effect: persist an execution record before the call, send an idempotency key, save the provider receipt, and reconcile an `unknown` outcome before retrying. A crash between provider commit and local event append is normal distributed-systems behavior. It must become a recoverable state, not a blind retry.
 
-For a stateful runtime, version the workflow definition, event schema, activity contract, and migration policy. Persist the workflow version with every event so replay uses the rules that created the history; never rewrite an old event merely because a new deployment prefers a different branch.
+Replay compatibility is a release concern. Version the workflow definition, event schema, activity contract, and migration policy. Persist the workflow version with events and use a compatibility gate when old history encounters new code. If a branch must change, use an explicit version marker or migration; do not silently replay old commands through a new interpretation. Test crash points between every event append, checkpoint, and external call.
 
-Use queue admission for stateful work: cap event growth, replay depth, activity concurrency, timer count, and checkpoint size. Reject or defer a run before it consumes a worker when its deadline or recovery budget is already impossible, and distinguish `history_corrupt`, `activity_timeout`, and `replay_budget_exhausted`.
+```mermaid
+flowchart LR
+  R[Request] --> H[(Durable history)]
+  H --> W[Deterministic workflow]
+  W --> T[Timer / approval wait]
+  W --> A[Activity worker]
+  A --> E[External effect]
+  E --> H
+  H --> O[Receipt or reconciliation]
+  classDef input fill:#dbeafe,stroke:#2563eb,color:#172554
+  classDef state fill:#ede9fe,stroke:#7c3aed,color:#2e1065
+  classDef gate fill:#fef3c7,stroke:#d97706,color:#451a03
+  classDef effect fill:#dcfce7,stroke:#16a34a,color:#14532d
+  class R input
+  class H,W state
+  class T,O gate
+  class A,E effect
+```
 
-Break stateful runtimes metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+## Runtime state, failure, and recovery
 
+Represent state transitions explicitly: `created`, `running`, `waiting`, `cancelled`, `activity_pending`, `succeeded`, `failed`, `unknown`, and `compensation_required`. A missing heartbeat is not proof that an external operation failed. A timer firing after cancellation is a race that the state store must reject using a version or compare-and-swap operation. A worker retry must claim a specific activity attempt, not simply rerun the latest model plan.
 
-## Stateful runtimes: focused design workshop
+The state record should include workflow ID, run ID, tenant, actor, workflow version, event sequence, current state, deadline, activity attempt, idempotency key, and receipt reference. Keep generated rationale separate from the event that authorized a transition. If a reviewer approves an order, the approval should bind to the exact order, amount, tenant, policy version, and expiry. A later model response cannot widen that approval.
 
-In stateful runtimes, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. stateful runtimes code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Durable state is not unlimited transcript storage. Keep structured events and references to protected evidence, apply retention to histories and payloads, and redact secrets before export. Large model outputs should be summarized or stored behind access-controlled references with a digest. Deletion and tenant isolation apply to event history, replay fixtures, caches, and provider-side activity logs.
 
-For stateful runtimes, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the stateful runtimes artifact and the decision that moved it between states.
-
-Test two runtime-specific races. A timer may fire after a cancellation, or a worker may crash after an external effect but before appending its event. Reconcile the receipt before retrying, and use the workflow version to reject an incompatible replay. Preserve `unknown` and `compensation_required` as durable states; never infer completion from a missing heartbeat.
-
-For stateful runtimes, slice stateful runtimes evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare stateful runtimes failure carries the largest consequence.
-
-Save a failing stateful runtimes input as a regression fixture only after redaction, classification, and capture of the governing version.
-
+Use bounded queues and budgets. Cap event growth, replay depth, activity concurrency, timer count, checkpoint size, model calls, and total cost. If a workflow cannot meet its deadline, return `deferred` or `needs_review` rather than accumulating retries. Measure history size, replay latency, activity timeout, queue age, recovery time, duplicate-prevention hits, and unknown outcomes by workflow version and tenant. A healthy average can hide a broken migration or one tenant’s starvation.
 
 ## Applications and operational constraints
 
-Start stateful runtimes in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
+Claims processing, provisioning, procurement, and long-running support cases all benefit from durable state because they wait on people and external systems. A claims workflow can pause for a missing document, wake when the document arrives, call a fraud-review service, and resume after a human decision. The model may summarize evidence or propose the next step; the runtime owns the waiting state, deadlines, permissions, and receipt.
 
-Beyond **stateful runtimes**, stateful runtimes applies to workflows where stateful runtimes evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+For an AI agent, Frontier’s announcement describes execution across local environments, enterprise cloud infrastructure, and hosted runtimes, plus tools and memory. That is a product-framing fact, not a guarantee of replay safety or exactly-once effects. The engineering consequence is to put the agent inside a durable workflow: record its context snapshot, model and prompt versions, tool proposal, policy decision, activity attempt, and final evidence. A run can then resume without asking the model to reconstruct an unknown prior action from conversation text.
 
-Plan runtime capacity around history writes, replay workers, timers, checkpoint storage, and activity leases. A database outage can stall every workflow even when model capacity is healthy. Provide a pause or read-only status mode, and label it so operators do not interpret an unadvanced workflow as completed.
+Durability has costs. Event histories consume storage, replay consumes CPU, version migrations add release work, and reconciliation adds latency after ambiguous failures. A short chat response may not need a workflow engine. Use a stateful runtime when work crosses process lifetimes, waits on events, has material side effects, or needs audit and recovery. For a low-risk draft, a database row and queue may suffice; for a payment or deployment, durable history and receipt reconciliation are worth the overhead.
 
-## Failure modes, security, and limits
+## Failure modes and evaluation
 
-Runtime failures center on nondeterministic orchestration, duplicate activity, and history corruption. Keep model calls outside deterministic replay or record their results, use idempotency at every effect boundary, and reconcile an interrupted activity before retrying. Alert on stuck timers, replay divergence, checkpoint growth, and unknown commits; a healthy worker count does not prove workflows are advancing.
+Test worker crashes before and after an external call, duplicate timer delivery, delayed cancellation, out-of-order signals, malformed activity results, provider timeouts, history corruption, and incompatible workflow code. The expected result is a typed state and a safe recovery path. Do not convert every failure to a new model call: replay the known history, reconcile external state, and ask for human help when the effect cannot be established.
 
-Runtime metrics can be gamed by completing trivial workflows, abandoning hard histories, or counting replayed activity as new success. Set floors for recovery, duplicate effects, and replay compatibility. Inspect stuck and compensated runs, not only completed counts, and retain enough event evidence to explain why a workflow was considered successful.
+Evaluate both runtime correctness and business outcome. Runtime tests verify event ordering, state transitions, lease behavior, retry limits, and replay compatibility. End-to-end tests verify that the intended record or deployment changed once and that a failed or cancelled workflow did not change it. Keep a deterministic fake for each dependency and a protected fixture for a partial commit. Record workflow, model, tool, policy, and evaluator versions in the result.
 
-For stateful runtimes, the February source has a bounded claim. The February source also has scope limits. Frontier's February 5 description says agents can operate across local environments, enterprise clouds, and hosted runtimes, use tools, and build memories from interactions. The factual implication for this lesson is only that multi-step execution is part of the announced product framing; durable replay and exactly-once effects are engineering designs, not promises in the post. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+## Mini exercise extension
+
+Create six fixtures: worker crash before activity, timeout after possible commit, timer after cancellation, incompatible workflow version, duplicate signal, and successful resume. Assert the expected state and receipt behavior for each. Then add one model-generated proposal and prove that replay uses the persisted proposal and versioned activity result rather than silently requesting a new plan.
 
 ## Evaluation and change management
 
@@ -146,21 +159,21 @@ Promote a runtime only when replay compatibility, recovery latency, duplicate-ef
 
 ## February primary-source evidence
 
-The source fact is bounded: **Frontier's February 5 description says agents can operate across local environments, enterprise clouds, and hosted runtimes, use tools, and build memories from interactions. The factual implication for this lesson is only that multi-step execution is part of the announced product framing; durable replay and exactly-once effects are engineering designs, not promises in the post.** The February publication date and the publisher's wording should be cited when teaching the event. The recommendation that teams implement event history, checkpoint, durable timer, replay, workflow version, and compensation is an inference from the event plus established systems practice. It should be validated with local fixtures, security review, operational metrics, and domain experts. The source does not independently verify the examples, and this article does not present them as guarantees.
+Frontier’s February 5 description says agents can operate across local environments, enterprise clouds, and hosted runtimes, use tools, and build memories from interactions. Temporal’s documentation describes durable execution as resuming applications after crashes, network failures, or infrastructure outages. These source claims motivate the lesson; durable replay, exactly-once effects, and a particular service level are engineering designs that require local validation.
 
 ## Mini exercise extension
 
-Create six fixtures for **stateful runtimes** using the stateful runtimes vocabulary: a stateful runtimes evidence omission, a stale or contradictory stateful runtimes evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior stateful runtimes records remain historical.
+Create six fixtures: worker crash before activity, timeout after possible commit, timer after cancellation, incompatible workflow version, duplicate signal, and successful resume. Assert the expected state and receipt behavior for each. Then add one model-generated proposal and prove that replay uses the persisted proposal and versioned activity result rather than silently requesting a new plan.
 
 ## Build it locally: numbered implementation
 
-1. Construct a stateful runtimes test record with actor, request, stateful runtimes evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the stateful runtimes boundary as a pure function. It must inspect stateful runtimes evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic stateful runtimes generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the stateful runtimes dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing stateful runtimes states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure stateful runtimes correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the stateful runtimes schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct a workflow record with actor, event sequence, deadline, version, state, and receipt fields.
+2. Implement a deterministic transition function that rejects stale sequence numbers and incompatible workflow versions.
+3. Simulate a timer and an activity worker with a unique attempt and idempotency key.
+4. Inject a crash before and after the simulated external call; represent the latter as `unknown` until reconciliation.
+5. Add fixtures for cancellation, duplicate signals, malformed activity results, and a missing dependency.
+6. Replay the same history twice and assert the orchestration decisions are identical.
+7. Measure history size, queue age, recovery time, duplicate-prevention hits, and unknown outcomes before enabling a side effect.
 
 ## Runnable low-cost example
 
@@ -177,25 +190,25 @@ This event-list example demonstrates sequence checking only. It does not provide
 
 ## Interview Q&A
 
-**Q: What must be deterministic in a stateful runtime?** A: Enforce the stateful runtimes rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What must be deterministic in a stateful runtime?** A: Workflow orchestration, state transitions, timer handling, and effect admission. Model calls should be recorded or isolated as versioned activities.
 
-**Q: What belongs in durable history?** A: Enforce the stateful runtimes rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What belongs in durable history?** A: Accepted commands, events, activity results, workflow version, approvals, timer signals, receipts, and references needed to reconstruct the decision.
 
-**Q: Which metric would you put on the dashboard first?** A: Track stateful runtimes evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the stateful runtimes risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Unknown outcomes and recovery age, because they reveal whether the system can reconcile effects after failure.
 
-**Q: What does replay prove?** A: Enforce the stateful runtimes rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What does replay prove?** A: That compatible history and workflow code produce the same orchestration path; it does not prove an external effect occurred.
 
-**Q: How should stateful runtimes be released?** A: Pin stateful runtimes evidence and the governing versions, begin with shadow or reversible work, and require the stateful runtimes invariant before widening effects.
+**Q: How should stateful runtimes be released?** A: Version workflow code and event schemas, replay protected histories, canary reversible work, and retain rollback and reconciliation procedures.
 
 ## Glossary
 
-- **Event History**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one stateful runtimes attempt to its actor, stateful runtimes evidence, decisions, and recovery evidence.
-- **Idempotency**: the stateful runtimes guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a stateful runtimes input or artifact.
-- **SLO**: an explicit stateful runtimes service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the stateful runtimes state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about stateful runtimes derived from source facts rather than presented as a source guarantee.
+- **Event history**: the ordered durable record of commands, events, timers, and activity results used to resume a workflow.
+- **Run ID**: the correlation key joining one workflow attempt to its actor, state, effects, and recovery evidence.
+- **Activity**: a bounded side operation performed by a worker outside deterministic workflow orchestration.
+- **Idempotency**: behavior in which retrying one logical command does not duplicate its external effect.
+- **Replay**: reconstructing workflow decisions from recorded history under compatible code.
+- **Compensation**: a corrective action used when a completed effect cannot be rolled back directly.
+- **Unknown**: a state in which transport evidence is insufficient to establish whether an external effect occurred.
 
 ## References
 

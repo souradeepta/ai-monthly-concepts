@@ -47,11 +47,11 @@ For onboarding agents, the engineering inference is narrower: turn the cited cap
 
 The useful onboarding baseline is a prompt and a team-owned API key deployed for a pilot. That is fast for exploration, but it hides who owns the agent, which data it can see, and how it will be disabled. Onboarding turns that informal experiment into a reviewed capability with explicit scope and accountability.
 
-For **onboarding agents**, the onboarding agents boundary names onboarding agents evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+The onboarding boundary separates the requested role, verified configuration, readiness evidence, and activation decision. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The onboarding agents path starts with its own onboarding agents evidence admission check, then records topic state, invokes only the needed processor, and finishes at a onboarding agents outcome gate for **onboarding agents**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to onboarding agents, not a generic agent score.
+The onboarding path starts with owner and scope admission, records manifest and policy versions, runs readiness probes, and finishes at activation, rejection, or pending review. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure tool-test coverage, review age, and post-activation correction—not a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -99,33 +99,33 @@ On retry, reuse the onboarding agents idempotency key or durable artifact; never
 
 An onboarding bundle should be compiled like an API client. Start with a role contract that states the task, non-goals, escalation conditions, and evidence standard. Add a tool manifest with JSON schemas, examples, read/write labels, quotas, and error meanings. Separate policy instructions from domain reference material, because reference text may be stale or adversarial. A readiness probe can ask the agent to summarize its allowed actions, refuse a forbidden action, and produce a valid tool call for a fixture. For the support handoff case, include examples of billing ambiguity, angry customers, missing account data, and an outage; the desired behavior is often to ask a question or escalate rather than improvise. Version the bundle and test it in CI against a held-out fixture set. Configuration drift is a production bug: a tool added to development but absent in production should fail readiness, while a production-only tool should not silently appear in the prompt. Track first-run success and invalid-call rate by bundle version. OpenAI's open-standards framing supports portability as a product goal, but portability does not mean every model interprets descriptions identically; adapter tests remain necessary.
 
-Ask what **onboarding agents** can establish at each transition. The request establishes intent only; the onboarding agents evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **onboarding agents**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Onboarding establishes that a proposed configuration has been reviewed and tested; it does not establish that every future task will be safe. A timeout, missing dependency, or ambiguous test therefore becomes an explicit pending or failed state, not an implicit approval. Persist manifest, policy, model, and evaluator versions with the activation decision.
 
 Onboarding needs a versioned agent manifest, tool inventory, training checklist, owner assignment, and approval record. A manifest change should create a new reviewable revision; an audit trail must still show which capabilities were enabled when an earlier run occurred.
 
 Onboarding needs gates on the number of pending reviews, requested tools, data classes, and unresolved training tasks. Do not provision an agent whose owner or rollback plan cannot be verified. Return `review_queue_full`, `owner_missing`, or `capability_not_ready` distinctly so applicants know what must change.
 
-Break onboarding agents metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break onboarding metrics down by task, tenant, tool, manifest version, reviewer, dependency, and outcome so a healthy approval average cannot hide an unsafe capability.
 
 
 ## Onboarding agents: focused design workshop
 
-In onboarding agents, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. onboarding agents code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep the application request, agent manifest, review evidence, sandbox results, and activation decision in separate typed fields. Provisioning code owns completeness and scope; prose only explains the intended role.
 
-For onboarding agents, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the onboarding agents artifact and the decision that moved it between states.
+The event trail should distinguish missing owner, unclassified data, failed tool test, expired review, policy denial, and activation. Record the manifest digest and decision actor, never just a final “ready” label.
 
 Test onboarding races. An agent can pass review while its owner leaves, a tool contract changes, or a data classification is tightened before activation. Recheck manifest revision and owner status at provisioning time. Preserve `activation_pending` and `review_expired` as explicit states; never treat a submitted checklist as evidence that a capability is ready.
 
-For onboarding agents, slice onboarding agents evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare onboarding agents failure carries the largest consequence.
+Slice readiness metrics by task, tenant, data class, tool, governing revision, dependency, and final state. Report post-activation correction, rollback, and owner response alongside approval time.
 
-Save a failing onboarding agents input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save failed readiness cases as redacted fixtures with manifest digest, policy version, tool scope, expected state, and recovery owner.
 
 
 ## Applications and operational constraints
 
-Start onboarding agents in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
+Start with observation or draft-only behavior, compare sandbox results with a deterministic or human baseline, then activate a narrow tool set for a small cohort. Expand only after the owner, rollback, and adverse-case evidence is complete.
 
-Beyond **onboarding agents**, onboarding agents applies to workflows where onboarding agents evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+Onboarding matters for support, finance, deployment, and research agents that will be handed from one team to another. Each application needs a named owner, data-residency decision, access scope, quota, staffing plan, latency budget, and rollback or kill switch. A shared onboarding template should standardize evidence without pretending every domain has the same risk.
 
 Plan onboarding capacity around reviewers, security assessments, sandbox slots, and support ownership rather than model throughput alone. A full review queue should stop new activation, not hide the backlog with automatic approvals. Show applicants whether the agent is pending, rejected, or activated with a bounded capability set.
 
@@ -135,7 +135,7 @@ Onboarding fails when a checklist is mistaken for readiness. Watch for unowned a
 
 Onboarding metrics can be gamed by closing applications quickly, narrowing declared scope, or approving agents before their tools are tested. Pair activation time with post-launch incidents, rollback use, owner response, and capability coverage. A high approval rate is not evidence of readiness when reviewers rarely inspect adverse cases.
 
-For onboarding agents, the February source has a bounded claim. The February source also has scope limits. Frontier's authors compare agent deployment with employee onboarding: understanding how work is done, having tools, learning what good looks like, and receiving identity and boundaries. The post also says the platform can use existing data and applications through open standards. It does not prove that any particular prompt or schema will work for a new organization. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The source claim is bounded: Frontier compares agent deployment with employee onboarding, including understanding work, using tools, learning what good looks like, and receiving identity and boundaries. It also describes integration with existing applications through open standards. Those are publisher claims; a local readiness bundle, sandbox, and approval gate are engineering inferences that require testing.
 
 ## Evaluation and change management
 
@@ -149,17 +149,17 @@ The source fact is bounded: **Frontier's authors compare agent deployment with e
 
 ## Mini exercise extension
 
-Create six fixtures for **onboarding agents** using the onboarding agents vocabulary: a onboarding agents evidence omission, a stale or contradictory onboarding agents evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior onboarding agents records remain historical.
+Create six fixtures: missing owner, excessive tool scope, sensitive data without classification, failed sandbox test, expired approval, and successful read-only activation. Assert distinct states and preserve the governing manifest and policy versions.
 
 ## Build it locally: numbered implementation
 
-1. Construct a onboarding agents test record with actor, request, onboarding agents evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the onboarding agents boundary as a pure function. It must inspect onboarding agents evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic onboarding agents generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the onboarding agents dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing onboarding agents states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure onboarding agents correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the onboarding agents schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Define a manifest with owner, role, tenant, data classes, tools, model adapter, policy revision, SLO, and kill switch.
+2. Validate that every tool has a schema, side-effect label, quota, error contract, and sandbox fixture.
+3. Run ordinary, malformed, adversarial, and forbidden-task probes against the proposed bundle.
+4. Require security and domain review for sensitive data, writes, or external communication.
+5. Store an activation decision with manifest digest, reviewer, expiry, and permitted cohort.
+6. Monitor invalid calls, escalation, correction, rollback, and owner response after activation.
+7. Withdraw the bundle idempotently when ownership, policy, or tool scope changes.
 
 ## Runnable low-cost example
 
@@ -174,25 +174,25 @@ This provisioning sketch checks a manifest invariant in memory. It does not perf
 
 ## Interview Q&A
 
-**Q: What proves an agent is ready?** A: Enforce the onboarding agents rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What proves an agent is ready?** A: A complete manifest, named owner, tested tools, adverse-case evidence, approval, rollback path, and a defined activation scope.
 
-**Q: Why separate activation from application?** A: Enforce the onboarding agents rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why separate activation from application?** A: Review is a release decision; application runs are later evidence that the activated scope is working as intended.
 
-**Q: Which metric would you put on the dashboard first?** A: Track onboarding agents evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the onboarding agents risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Post-activation invalid-call and rollback rates, split by tool and manifest version, alongside legitimate completion.
 
-**Q: When should onboarding stop?** A: Enforce the onboarding agents rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should onboarding stop?** A: Stop activation when ownership, classification, tool tests, evidence, or rollback is missing, or when protected slices regress.
 
-**Q: How should onboarding agents be released?** A: Pin onboarding agents evidence and the governing versions, begin with shadow or reversible work, and require the onboarding agents invariant before widening effects.
+**Q: How should onboarding agents be released?** A: Version the bundle, shadow it, canary a small read-only scope, and widen only after readiness and post-launch guardrails pass.
 
 ## Glossary
 
-- **Role Contract**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one onboarding agents attempt to its actor, onboarding agents evidence, decisions, and recovery evidence.
-- **Idempotency**: the onboarding agents guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a onboarding agents input or artifact.
-- **SLO**: an explicit onboarding agents service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the onboarding agents state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about onboarding agents derived from source facts rather than presented as a source guarantee.
+- **Role contract**: the task, non-goals, escalation rules, and evidence standard for an agent.
+- **Tool manifest**: the versioned inventory of tools, schemas, side effects, quotas, and errors.
+- **Readiness probe**: a test that checks whether the proposed bundle behaves correctly on safe fixtures.
+- **Activation**: the controlled transition from reviewed configuration to an allowed runtime scope.
+- **Idempotency**: behavior in which repeating one provisioning command does not duplicate activation.
+- **Provenance**: origin, version, and transformation evidence attached to setup or test results.
+- **Abstention**: a decision to remain inactive when evidence, authority, or dependency health is insufficient.
 
 ## References
 

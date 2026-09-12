@@ -33,7 +33,7 @@ Indicators can be poisoned or over-shared; attribution is probabilistic; automat
 
 ## SDE2 primer and prerequisites
 
-This lesson treats **threat intelligence** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is threat intelligence evidence and state: the service must preserve it across threat intelligence and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
+This lesson treats **threat intelligence** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is an evidence-backed case: the service must preserve indicator source, observation time, confidence, relationships, and analyst disposition. A model may suggest enrichment or correlation, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
 
 The useful boundary for threat intelligence is **indicator, campaign, infrastructure graph, confidence, enrichment, attribution, and intelligence cycle**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
 
@@ -47,11 +47,11 @@ For threat intelligence, the engineering inference is narrower: turn the cited c
 
 The useful threat-intelligence baseline is a feed of indicators matched against logs. That misses source quality, expiry, enrichment uncertainty, and collisions between feeds. A stronger pipeline preserves observation time and confidence so an indicator informs investigation without becoming an automatic verdict.
 
-For **threat intelligence**, the threat intelligence boundary names threat intelligence evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For threat intelligence, name the raw observation, normalized indicator, source, confidence, mutable case state, and rejecting component. Treat feed data, model hypotheses, analyst judgments, and response actions as different data classes. A request can influence a proposal but cannot grant attribution. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The threat intelligence path starts with its own threat intelligence evidence admission check, then records topic state, invokes only the needed processor, and finishes at a threat intelligence outcome gate for **threat intelligence**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to threat intelligence, not a generic agent score.
+The path starts with feed validation and privacy admission, normalizes observations into indicators and relationships, enriches them through controlled lookups, and finishes at an analyst or response gate. Keep detector and feed revisions beside the work, while generated explanations remain separate from evidence. Measure corroboration quality, feed freshness, analyst workload, and missed detections rather than relying on a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -67,7 +67,7 @@ flowchart LR
 
 Keep raw indicator, normalized indicator, feed provenance, enrichment result, analyst assessment, and response action separate. A feed entry is evidence, not an instruction to block. Bind source, observation time, confidence, expiry, tenant, and handling policy to matches while protecting sensitive investigative content.
 
-For threat intelligence, record a run identifier, actor, purpose, indicator, campaign, infrastructure graph, confidence, enrichment, attribution, and intelligence cycle, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+Record a run identifier, actor, purpose, indicator, campaign, infrastructure graph, confidence, enrichment, attribution, intelligence cycle, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the durable artifact that permits investigation: feed ID, observation timestamp, expiry, relationship provenance, analyst disposition, and response receipt. A generic transcript cannot explain why an indicator was escalated. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
@@ -91,7 +91,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-On retry, reuse the threat intelligence idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the feed-event or case idempotency key; never create a duplicate case when the first enrichment attempt has an unknown outcome.
 
 ## Topic mechanics: Threat intelligence
 
@@ -99,33 +99,33 @@ On retry, reuse the threat intelligence idempotency key or durable artifact; nev
 
 Threat intelligence needs a graph rather than a single alert. Normalize an AI-service event, website, domain, account, payment instrument, model, and timestamp into entities and relationships. Preserve confidence and source provenance so an analyst can distinguish an observed indicator from an inferred campaign link. The February report's cross-platform observation means a detector should correlate, for example, a repeated request pattern with a newly registered domain and synchronized social accounts, without claiming that any one signal proves malicious intent. Enrich indicators through controlled lookups; do not let an untrusted artifact trigger arbitrary network access. Map behavior to ATT&CK techniques where useful, but preserve the uncertainty and the defensive purpose. A case queue needs deduplication, severity, owner, evidence retention, and a closure reason. Test evasion by changing models, accounts, wording, and infrastructure; test false positives with legitimate research and security testing. Measure analyst time and quality, not the number of indicators. OpenAI reports a Chinese influence-operator example and says campaigns may use multiple models; that is a source-reported observation, not an attribution method or prevalence statistic.
 
-Ask what **threat intelligence** can establish at each transition. The request establishes intent only; the threat intelligence evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **threat intelligence**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Ask what each intelligence transition can establish. A feed establishes an observation; normalization establishes a comparable indicator; enrichment adds context; correlation proposes a campaign link; and an analyst or response owner establishes disposition. A timeout, missing feed, or ambiguous relationship therefore becomes an explicit status, not an implicit clean result. Persist relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
-Threat intelligence needs versioned indicator feeds, normalization rules, confidence rubric, enrichment sources, and expiry semantics. Keep the feed revision with every match so an analyst can distinguish a changed indicator from a changed detector and preserve historical incident reasoning.
+Threat intelligence needs versioned indicator feeds, normalization rules, confidence rubric, enrichment sources, and expiry semantics. Keep feed revision with every match so an analyst can distinguish a changed indicator from a changed detector and preserve historical incident reasoning. Never let a model-generated relationship silently acquire the status of an observed fact.
 
 Threat pipelines should cap feed fan-out, enrichment calls, indicator cardinality, and analyst queue age. Quarantine an unbounded or malformed feed before it changes detections. Report `feed_stale`, `enrichment_timeout`, and `indicator_conflict` independently so responders do not treat absent intelligence as a clean signal.
 
-Break threat intelligence metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break intelligence metrics down by task slice, source, tenant, detector version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup. Include feed staleness, false attribution, and missed-detection review.
 
 
 ## Threat intelligence: focused design workshop
 
-In threat intelligence, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. threat intelligence code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request prose, raw observations, normalized indicators, generated hypotheses, analyst assessments, and response actions in separate typed fields. Intelligence code owns completeness, freshness, provenance, and case promotion; prose only explains intent.
 
-For threat intelligence, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the threat intelligence artifact and the decision that moved it between states.
+The event trail must let an operator distinguish malformed feed data, missing source, expired indicator, enrichment failure, disputed attribution, and confirmed response. Record the case artifact and the decision that moved it between states. Preserve chain of custody for sensitive evidence and avoid placing victim data in broad-sharing feeds.
 
 Test intelligence races. An indicator can expire after enrichment begins, or two feeds can assign incompatible meanings to the same artifact. Preserve feed revision, observation time, and confidence through correlation; emit `indicator_expired` or `feed_conflict` rather than silently escalating or dismissing the signal.
 
-For threat intelligence, slice threat intelligence evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare threat intelligence failure carries the largest consequence.
+Slice intelligence metrics by task class, source, tenant, governing revision, dependency, and final state. Report corroborated detection, false-positive burden, latency, cost, analyst effort, and recovery burden together; averages are insufficient when a rare false attribution causes the largest consequence.
 
-Save a failing threat intelligence input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a failing intelligence input as a regression fixture only after redaction, classification, and capture of the governing version. Include a stale indicator, feed conflict, poisoned enrichment, benign lookalike, unavailable feed, and confirmed malicious artifact.
 
 
 ## Applications and operational constraints
 
 Start threat intelligence in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Beyond **threat intelligence**, threat intelligence applies to workflows where threat intelligence evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+This pattern applies to account takeover defense, phishing investigation, abuse operations, and supply-chain monitoring. Choose an application with a named owner and bounded effects, then document data residency, access, quota, staffing, latency, and rollback constraints. Automated blocking should require stronger corroboration than analyst triage; a mistaken block can lock out a legitimate user or expose an organization to attribution and privacy risk. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan threat-intelligence capacity around feed ingestion, enrichment APIs, deduplication, storage, and analyst attention. When a feed or enrichment source is unavailable, preserve the gap and confidence impact in the alert. A cached indicator set is a bounded fallback, not evidence that current coverage is healthy.
 
@@ -135,7 +135,7 @@ Threat-intelligence failures include feed poisoning, indicator collisions, stale
 
 Threat metrics can improve by suppressing noisy alerts, narrowing feed coverage, or labeling unresolved indicators benign. Pair precision with missed-detection tests, feed freshness, analyst review, and time to contain. A quiet queue is not evidence of a quiet threat environment.
 
-For threat intelligence, the February source has a bounded claim. The February source also has scope limits. OpenAI's February 25 report says threat actors typically combine AI with traditional tools such as websites and social-media accounts. It also says activity is seldom limited to one platform or one model, and offers a Chinese influence-operator report as an example. These are observations reported by OpenAI, not a prevalence estimate for all threat actors. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The February source has a bounded claim and scope limits. OpenAI's February 25 report says threat actors typically combine AI with traditional tools such as websites and social-media accounts, and says activity is seldom limited to one platform or model. These are observations reported by OpenAI, not a prevalence estimate, independent attribution method, or guarantee for every campaign. MITRE ATT&CK supplies a behavior vocabulary, while confidence scoring, source handling, corroboration, and privacy controls are local engineering recommendations. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, preserve uncertainty and escalate.
 
 ## Evaluation and change management
 
@@ -149,17 +149,17 @@ The source fact is bounded: **OpenAI's February 25 report says threat actors typ
 
 ## Mini exercise extension
 
-Create six fixtures for **threat intelligence** using the threat intelligence vocabulary: a threat intelligence evidence omission, a stale or contradictory threat intelligence evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior threat intelligence records remain historical.
+Create six fixtures: malformed feed data, stale indicator, conflicting feed entries, poisoned enrichment, unavailable dependency, and corroborated completion. Assert different states for each case; do not use one generic success label. Store source, confidence, and recovery owner beside every assertion, then alter the governing version and prove that prior intelligence records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Construct a threat intelligence test record with actor, request, threat intelligence evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the threat intelligence boundary as a pure function. It must inspect threat intelligence evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic threat intelligence generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the threat intelligence dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing threat intelligence states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure threat intelligence correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the threat intelligence schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct an intelligence record with source, indicator, observation time, confidence, expiry, decision, and outcome fields.
+2. Implement a pure normalizer that rejects malformed indicators and preserves source and timestamp fields.
+3. Create deterministic observations for a domain, account, URL, and benign lookalike, then connect them only with typed relationship evidence.
+4. Simulate enrichment failing after admission. Preserve `enrichment_timeout` and prevent the missing result from becoming a clean signal.
+5. Write an event stream containing case states, redacting victim data while retaining references needed for offline replay.
+6. Measure corroborated detection, false positives, feed freshness, analyst time, recovery work, and resource cost by source.
+7. Change the detector revision and verify that old cases still resolve under their original evidence contract.
 
 ## Runnable low-cost example
 
@@ -175,15 +175,15 @@ This indicator example demonstrates expiry-aware matching only. It does not vali
 
 ## Interview Q&A
 
-**Q: How should an indicator be interpreted?** A: Enforce the threat intelligence rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: How should an indicator be interpreted?** A: As evidence with source, time, confidence, and scope—not as an automatic verdict. Correlate it with independent observations and preserve the uncertainty.
 
-**Q: Is an indicator an incident?** A: Enforce the threat intelligence rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Is an indicator an incident?** A: No. It is an observable artifact or signal. An incident requires a case assessment, impact, ownership, and response decision.
 
-**Q: Which metric would you put on the dashboard first?** A: Track threat intelligence evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the threat intelligence risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Track corroborated detection quality and false-positive burden, paired with feed freshness, analyst effort, and missed-detection review.
 
-**Q: What should a stale feed cause?** A: Enforce the threat intelligence rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What should a stale feed cause?** A: Mark coverage and confidence as degraded, stop treating new matches as current without qualification, and route the gap to the feed owner.
 
-**Q: How should threat intelligence be released?** A: Pin threat intelligence evidence and the governing versions, begin with shadow or reversible work, and require the threat intelligence invariant before widening effects.
+**Q: How should threat intelligence be released?** A: Pin feed and detector versions, begin with analyst-visible correlations, test benign lookalikes and poisoned feeds, and require provenance and uncertainty floors before automated response.
 
 ## Glossary
 

@@ -47,11 +47,11 @@ For agent identity, the engineering inference is narrower: turn the cited capabi
 
 The useful identity baseline is a request carrying a user ID and a bearer token. That can support a simple read, but it becomes insufficient when agents delegate, cross tenants, or act after a delay. The identity system must bind issuer, subject, audience, scope, resource, and revocation state to the action.
 
-For **agent identity**, the agent identity boundary names agent identity evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+The identity boundary separates user intent, verified workload claims, policy decisions, and protected-resource effects. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The agent identity path starts with its own agent identity evidence admission check, then records topic state, invokes only the needed processor, and finishes at a agent identity outcome gate for **agent identity**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to agent identity, not a generic agent score.
+The identity path starts with authenticated admission, verifies a short-lived credential, checks current policy at the protected resource, and records an allow, deny, or unavailable outcome. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure issuer latency, revocation freshness, and legitimate completion—not a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -99,33 +99,33 @@ On retry, reuse the agent identity idempotency key or durable artifact; never as
 
 Treat the agent as a workload principal with a lifecycle. At startup, an attestor proves which workload is running; an issuer returns a short-lived credential whose subject, audience, tenant, and scopes are explicit. The gateway checks signature, expiry, audience, and policy on every call. Delegation is narrower than impersonation: a human may authorize a ticket-read task for an agent, but the resulting token should not inherit every human permission. Bind a token to a run purpose and tool class where possible. For a ticket agent, `incident.read` and `comment.draft` can be separate capabilities; `incident.close` requires another policy and perhaps approval. Record the credential ID, not a secret, in the audit event. Revocation is difficult for already-issued bearer tokens, so keep lifetimes short and put high-risk operations behind an online decision. Clock skew, legacy APIs, and cross-cloud federation require explicit error handling. Test confused-deputy cases in which an agent is asked to use its ticket authority to fetch a payroll record, and test a stolen token after expiry. Identity answers who is calling; it does not prove that the model's intent is benign or that the requested record is correct.
 
-Ask what **agent identity** can establish at each transition. The request establishes intent only; the agent identity evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **agent identity**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Identity establishes who presents a request and what claims are attached to that request; it does not establish that the requested operation is correct or safe. A timeout, missing dependency, or ambiguous delegation therefore becomes an explicit unavailable or review state, not an implicit allow. Persist issuer, subject, audience, scope, and policy versions with the decision.
 
 Identity systems need versioned issuer keys, subject mappings, role definitions, audience claims, and revocation policy. Record the identity snapshot used for each decision; changing a role definition should affect future checks without rewriting the principal and evidence attached to an earlier action.
 
 Identity checks need bounded lookup and token budgets. Limit group expansion, directory fan-out, nested delegation, and cache age before a request reaches a protected resource. Report `identity_unavailable`, `claim_expired`, and `scope_too_broad` separately; collapsing them into a generic denial hides an outage from a real authorization failure.
 
-Break agent identity metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break identity metrics down by task, tenant, audience, issuer version, dependency, and outcome so a healthy average cannot hide a cross-tenant or revocation failure.
 
 
 ## Agent identity: focused design workshop
 
-In agent identity, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. agent identity code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request prose, verified claims, generated proposals, and policy decisions in separate typed fields. Identity code owns claim validation and credential lifecycle; prose can explain intent but cannot mint or widen authority.
 
-For agent identity, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the agent identity artifact and the decision that moved it between states.
+The event trail should distinguish malformed credentials, expired claims, unavailable issuer, denied scope, and successful resource access. Record credential and policy references, never bearer secrets.
 
 Test identity-specific races. A token may be valid when queued but expired when a tool call begins, or a user may lose group membership while a delegated request is in flight. Recheck audience, issuer, subject, and scope at the protected boundary. Preserve `identity_unavailable` and `needs_reauthentication` as explicit outcomes; never treat a cache miss as proof of authorization.
 
-For agent identity, slice agent identity evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare agent identity failure carries the largest consequence.
+Slice grants and denials by task, tenant, resource class, policy revision, dependency, and final state. Pair authorization success with legitimate completion and revocation freshness; a high denial rate or low incident rate alone is not evidence of good security.
 
-Save a failing agent identity input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save failures as redacted regression fixtures with the issuer, audience, policy version, expected scope, and protected-resource outcome.
 
 
 ## Applications and operational constraints
 
-Start agent identity in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
+Start with a read-only resource and a small tenant cohort. Compare grants with an existing identity baseline, then expand to reversible writes only after expiry, revocation, and cross-tenant tests pass.
 
-Beyond **agent identity**, agent identity applies to workflows where agent identity evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+Identity is useful for support agents, deployment workers, data pipelines, and scheduled workflows. Each needs a named owner, resource scope, data-residency decision, key-rotation plan, latency budget, and rollback or kill switch. Do not reuse a human token simply because an agent is acting on that human’s request.
 
 Plan identity capacity around directory lookups, group expansion, key verification, revocation checks, and audit writes. A slow identity provider must not cause callers to receive an allow decision by timeout. Offer a clearly labeled reauthentication or unavailable state instead of treating degraded identity as normal access.
 
@@ -135,7 +135,7 @@ Identity failures include confused deputy behavior, stale group membership, issu
 
 Identity metrics can improve by denying difficult users, shortening sessions, or measuring token validity without resource authorization. Set floors for legitimate completion and revocation freshness alongside denial rates. Sample successful grants by tenant and resource; a low incident count can mean weak detection rather than safe identity decisions.
 
-For agent identity, the February source has a bounded claim. The February source also has scope limits. Frontier explicitly says each AI coworker has its own identity, permissions, and guardrails. That is a release-specific product statement. SPIFFE and zero-trust guidance supply the independent security vocabulary for workload identity; choosing short-lived tokens, audiences, and per-call authorization is an engineering inference. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The source claim is bounded: Frontier says each AI coworker has its own identity, permissions, and guardrails. SPIFFE and zero-trust guidance provide independent workload-identity vocabulary. Short-lived credentials, audience checks, and per-call authorization are engineering inferences that require local security testing; neither source proves resistance to a particular attacker or deployment failure.
 
 ## Evaluation and change management
 
@@ -149,17 +149,17 @@ The source fact is bounded: **Frontier explicitly says each AI coworker has its 
 
 ## Mini exercise extension
 
-Create six fixtures for **agent identity** using the agent identity vocabulary: a agent identity evidence omission, a stale or contradictory agent identity evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior agent identity records remain historical.
+Create six fixtures: valid token, expired token, wrong audience, revoked group, cross-tenant resource, and unavailable issuer. Assert a distinct result for each and preserve the governing key and policy versions.
 
 ## Build it locally: numbered implementation
 
-1. Construct a agent identity test record with actor, request, agent identity evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the agent identity boundary as a pure function. It must inspect agent identity evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic agent identity generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the agent identity dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing agent identity states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure agent identity correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the agent identity schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Define a credential record with issuer, subject, audience, tenant, scopes, expiry, key version, and run ID.
+2. Implement signature, expiry, audience, scope, and resource-owner checks as separate functions.
+3. Simulate a delegated read and ensure delegated scope is narrower than the human’s full role.
+4. Inject clock skew, issuer outage, revoked membership, and a cross-tenant identifier; return typed denials or unavailable states.
+5. Log credential and decision IDs while redacting token values and personal data.
+6. Add an idempotency key and reconcile a timeout before retrying any write.
+7. Run the fixtures against a new policy revision and preserve the old decision context for audit.
 
 ## Runnable low-cost example
 
@@ -176,25 +176,25 @@ This identity example shows claim parsing and scope comparison only. It does not
 
 ## Interview Q&A
 
-**Q: Is a valid token sufficient for access?** A: Enforce the agent identity rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Is a valid token sufficient for access?** A: No. The resource still checks audience, scope, tenant, current policy, and resource ownership.
 
-**Q: Why separate identity from model context?** A: Enforce the agent identity rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why separate identity from model context?** A: Context describes a task; verified identity claims determine which principal and scopes the policy engine may consider.
 
-**Q: Which metric would you put on the dashboard first?** A: Track agent identity evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the agent identity risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Track unauthorized-allow tests and revocation freshness alongside legitimate completion and issuer latency.
 
-**Q: What should happen when the issuer is unavailable?** A: Enforce the agent identity rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What should happen when the issuer is unavailable?** A: Deny or defer privileged actions; use cached claims only within an explicit short expiry and scope.
 
-**Q: How should agent identity be released?** A: Pin agent identity evidence and the governing versions, begin with shadow or reversible work, and require the agent identity invariant before widening effects.
+**Q: How should agent identity be released?** A: Shadow new mappings, test expiry and revocation, canary read-only access, and retain key-rotation and rollback procedures.
 
 ## Glossary
 
-- **Workload Principal**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one agent identity attempt to its actor, agent identity evidence, decisions, and recovery evidence.
-- **Idempotency**: the agent identity guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a agent identity input or artifact.
-- **SLO**: an explicit agent identity service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the agent identity state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about agent identity derived from source facts rather than presented as a source guarantee.
+- **Workload principal**: a machine identity representing a running service or agent.
+- **Audience**: the service or resource for which a credential is valid.
+- **Delegation**: granting a narrower authority to a workload on behalf of another principal.
+- **Attestation**: evidence used by an issuer to identify the running workload.
+- **Idempotency**: behavior in which retrying one command does not duplicate its effect.
+- **Revocation**: invalidation of a previously issued identity or permission.
+- **Abstention**: a decision to deny or defer when identity evidence or issuer health is insufficient.
 
 ## References
 

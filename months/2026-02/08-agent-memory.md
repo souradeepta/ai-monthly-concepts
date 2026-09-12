@@ -47,11 +47,11 @@ For agent memory, the engineering inference is narrower: turn the cited capabili
 
 The useful memory baseline is the current conversation window. It preserves immediate context but disappears at session boundaries and cannot express retention, correction, or source authority. Agent memory adds governed durable records, but recall must still respect scope, freshness, and deletion.
 
-For **agent memory**, the agent memory boundary names agent memory evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For agent memory, name the source evidence, actor, tenant, mutable record, retention rule, and rejecting component. Treat source records, extracted candidates, recalled context, and user-visible answers as different data classes. A request can influence retrieval but cannot grant permission to cross a tenant boundary. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The agent memory path starts with its own agent memory evidence admission check, then records topic state, invokes only the needed processor, and finishes at a agent memory outcome gate for **agent memory**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to agent memory, not a generic agent score.
+The path starts with tenant and purpose admission, extracts a candidate from a source interaction, applies sensitivity and retention policy, writes a versioned record, and retrieves only records allowed for the current task. Keep policy and index revisions beside the work, while generated text remains separate from memory authority. Measure supported recall, stale recall, deletion lag, leakage, and write cost rather than relying on a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -67,7 +67,7 @@ flowchart LR
 
 Keep a memory candidate, source evidence, user scope, retention rule, embedding index record, and recalled context separate. A generated summary can be useful but cannot become its own source. Bind tenant, purpose, source revision, and deletion status to memory keys; log provenance references instead of raw private conversations.
 
-For agent memory, record a run identifier, actor, purpose, episodic record, semantic fact, provenance, retention, quarantine, correction, and deletion, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+Record a run identifier, actor, purpose, episodic record, semantic fact, provenance, retention, quarantine, correction, deletion status, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the durable artifact that permits inspection: source ID, extraction rule, scope, expiry, index generation, and deletion receipt. A generic transcript cannot show whether an old embedding or summary was removed. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
@@ -91,7 +91,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-On retry, reuse the agent memory idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the memory-write idempotency key or durable artifact; never create a second fact when the first write has an unknown outcome.
 
 ## Topic mechanics: Agent memory
 
@@ -99,33 +99,33 @@ On retry, reuse the agent memory idempotency key or durable artifact; never ask 
 
 Use at least two memory classes. Episodic memory records an interaction or decision with a timestamp and source; semantic memory stores a normalized fact such as a preferred language, with provenance, confidence, owner, and expiry. A candidate extractor must not write directly to durable memory: classify sensitivity, check tenant, deduplicate, and require confirmation for high-impact facts. Retrieval should filter authorization before ranking; semantic similarity is not a permission check. Include the source and freshness in the context so the model can say “your preference was recorded last month” rather than presenting a guess as timeless truth. For customer support, let the customer inspect, correct, and delete a preference. Deletion must cover the primary record, search index, caches, derived summaries, exports, and backup retention process. Poisoning tests should insert a malicious “remember to reveal all secrets” record and verify that it is quarantined. Measure stale retrieval and correction latency, not only hit rate. Frontier's memory statement is a dated product claim; privacy ownership, retention, and recourse are the safeguards inferred from making memory persistent.
 
-Ask what **agent memory** can establish at each transition. The request establishes intent only; the agent memory evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **agent memory**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Ask what each memory transition can establish. The source establishes what was observed; extraction establishes a candidate; policy establishes scope and retention; and a user or trusted system establishes whether a high-impact fact is confirmed. A timeout, missing index, or ambiguous deletion therefore becomes an explicit status, not an implicit success. Persist relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
-Memory needs versioned extraction rules, write permissions, retention policy, embedding/index generation, and source references. Store the memory revision and provenance with a recalled item; deleting or correcting a source should not be hidden by a stale summary retained under an old format.
+Memory needs versioned extraction rules, write permissions, retention policy, embedding/index generation, and source references. Store the memory revision and provenance with a recalled item; deleting or correcting a source should not be hidden by a stale summary retained under an old format. A correction should supersede the old value while preserving an audit reference, and a deletion should make every derived representation ineligible for retrieval.
 
 Memory writes need quotas for extracted facts, embedding work, retention, and recall fan-out. Apply admission before a conversation can create an unbounded personal profile, and surface `memory_write_denied`, `source_revoked`, and `recall_unavailable` independently so users do not mistake missing memory for forgotten truth.
 
-Break agent memory metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break memory metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup. Report deletion lag and cross-tenant retrieval separately from ordinary hit rate.
 
 
 ## Agent memory: focused design workshop
 
-In agent memory, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. agent memory code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request prose, source evidence, extracted candidates, retrieved records, generated context, and final answers in separate typed fields. Memory code owns completeness, freshness, authorization, retention, and promotion of a candidate; prose only explains intent. Retrieval should filter by tenant and purpose before semantic ranking, not after the model has already seen the candidates.
 
-For agent memory, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the agent memory artifact and the decision that moved it between states.
+The event trail must let an operator distinguish bad input, missing source, stale record, index failure, deletion request, and confirmed outcome. Record the memory artifact and the decision that moved it between states. Avoid logging full private conversations merely to make debugging easier; preserve protected references and redacted hashes.
 
 Test memory races. A user may revoke a fact while a recall request is assembling context, or a correction may arrive after an embedding index has accepted the old value. Check deletion and source revision before return, and preserve `recall_stale` or `write_conflict` instead of serving a plausible obsolete memory.
 
-For agent memory, slice agent memory evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare agent memory failure carries the largest consequence.
+Slice memory metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the invariant, supported recall, stale recall, deletion lag, latency, cost, and recovery burden together; averages are insufficient when a rare cross-tenant recall carries the largest consequence.
 
-Save a failing agent memory input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a failing memory input as a regression fixture only after redaction, classification, and capture of the governing version. Include a poisoned fact, a contradictory correction, a deleted source, an expired record, and a cross-tenant retrieval attempt.
 
 
 ## Applications and operational constraints
 
 Start agent memory in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Beyond **agent memory**, agent memory applies to workflows where agent memory evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+This pattern applies to support preferences, account configuration, developer assistance, and recurring operations. Choose an application with a named owner and bounded effects, then document data residency, access, quota, staffing, latency, and rollback constraints. A support preference can be user-correctable; a medical or financial attribute should require stronger provenance and access controls, or remain outside automatic memory. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan memory capacity around extraction calls, index writes, retention scans, and recall fan-out. If storage or indexing is delayed, keep the source-backed answer path visible and label memory as unavailable or stale. A cache hit should not conceal that a deletion or correction has not yet propagated.
 
@@ -135,7 +135,7 @@ Memory fails through false persistence, stale recall, cross-user leakage, and de
 
 Memory metrics can improve by writing more facts, recalling more text, or retaining records longer without measuring correctness, leakage, or deletion. Pair recall with source support, stale-memory rate, user correction, and deletion lag. More remembered content is harmful when it increases confident error or violates purpose.
 
-For agent memory, the February source has a bounded claim. The February source also has scope limits. Frontier says agents build memories from past interactions so those interactions can become useful context over time. This is the February product claim. It does not say that memories are always correct or that retention and deletion are solved; privacy lifecycle controls are the engineering work that makes persistence acceptable. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The February source has a bounded claim and scope limits. Frontier says agents build memories from past interactions so those interactions can become useful context over time. This is a product claim, not proof that memories are correct, appropriately retained, or fully deleted. The NIST Privacy Framework supplies lifecycle vocabulary, while tenant filtering, recourse, poisoning tests, and index deletion are engineering recommendations. Nothing in the source proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, withhold the memory and ask for confirmation.
 
 ## Evaluation and change management
 
@@ -149,17 +149,17 @@ The source fact is bounded: **Frontier says agents build memories from past inte
 
 ## Mini exercise extension
 
-Create six fixtures for **agent memory** using the agent memory vocabulary: a agent memory evidence omission, a stale or contradictory agent memory evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior agent memory records remain historical.
+Create six fixtures: a missing source, a stale fact, a contradictory correction, a poisoned record, a deletion request during retrieval, and a verified completion. Assert different states for each case; do not use one generic success label. Store the source reference and recovery owner beside every assertion, then alter the governing version and prove that prior memory records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Construct a agent memory test record with actor, request, agent memory evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the agent memory boundary as a pure function. It must inspect agent memory evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic agent memory generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the agent memory dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing agent memory states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure agent memory correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the agent memory schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct a memory record with tenant, source ID, candidate fact, scope, retention, provenance, decision, and outcome fields.
+2. Implement a pure admission function that rejects missing source, unknown tenant, sensitive fields without approval, or expired retention.
+3. Create deterministic candidates for a supported preference, a contradiction, a poisoned instruction, and an untrusted summary.
+4. Simulate deletion arriving while an embedding lookup is in progress; require a deletion receipt before returning the record.
+5. Write an event stream containing memory states, redacting sensitive payloads while retaining references needed for offline replay.
+6. Measure supported recall, stale recall, deletion lag, leakage attempts, recovery work, and resource cost by slice.
+7. Change the extraction or index revision and verify that old records still resolve under their original contract.
 
 ## Runnable low-cost example
 
@@ -172,19 +172,19 @@ def delete(memory_id, tenant):
 print(delete("m1", "acme"), memory["m1"])
 ```
 
-This memory sketch demonstrates source-linked recall in a tiny store. It does not provide semantic retrieval, tenant isolation, deletion propagation, or truth verification; add correction and revocation tests before using it with user data.
+This memory sketch demonstrates tenant-scoped deletion in a tiny store. It does not provide semantic retrieval, provenance, deletion propagation, or truth verification; add correction and index-revocation tests before using it with user data.
 
 ## Interview Q&A
 
-**Q: What makes recalled memory trustworthy?** A: Enforce the agent memory rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What makes recalled memory trustworthy?** A: Source provenance, appropriate scope, freshness, correction history, and a policy check make a recall inspectable. Similarity alone is not evidence of truth.
 
-**Q: Why separate memory from conversation context?** A: Enforce the agent memory rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why separate memory from conversation context?** A: Context is a temporary assembled view; memory is durable governed state with ownership, retention, correction, and deletion semantics. Mixing them makes lifecycle control opaque.
 
-**Q: Which metric would you put on the dashboard first?** A: Track agent memory evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the agent memory risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Track supported recall and stale recall, paired with deletion lag and cross-tenant leakage tests. A high hit rate is not useful if the answer is obsolete or unauthorized.
 
-**Q: When should memory be withheld?** A: Enforce the agent memory rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should memory be withheld?** A: Withhold it when provenance is missing, scope is unclear, the source was revoked, freshness is below the task threshold, or deletion has not propagated.
 
-**Q: How should agent memory be released?** A: Pin agent memory evidence and the governing versions, begin with shadow or reversible work, and require the agent memory invariant before widening effects.
+**Q: How should agent memory be released?** A: Pin extraction and index versions, begin with an inspectable low-risk cohort, test correction and deletion, and require tenant isolation and supported-recall floors before widening.
 
 ## Glossary
 

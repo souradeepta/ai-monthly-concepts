@@ -98,73 +98,57 @@ sequenceDiagram
 
 On retry, reuse the enterprise agent platforms idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
-## Topic mechanics: Enterprise agent platforms
+## Platform mechanics: registry, context, execution, and evidence
 
-### Decision model and topic-specific data contract
+An enterprise platform should publish an agent registry, not merely a prompt catalog. A registry entry names the owner, supported tasks, tenant scope, data classes, model adapter, tool set, escalation policy, SLO, cost center, evaluation set, and kill switch. This record lets an operator answer basic questions before a run starts: which agent is this, who owns it, what may it read, what may it change, and how is it disabled? Registration is not authorization; the runtime still binds the current actor and resource scope to each request.
 
-A platform team should publish an agent registry, not merely a prompt catalog. A registry entry names the owner, tenant scope, data classes, model adapter, tool set, escalation policy, SLO, cost center, evaluation set, and kill switch. The semantic context layer should expose business entities and relationships through a stable contract while preserving the source system's authorization. A context answer therefore includes source IDs and freshness, not just embedded text. The adapter turns that context into a model-specific request and returns a platform-neutral proposal. This lets a team replace a model without granting a new tool or changing the audit schema. The tool gateway is where schemas, policy, rate limits, and idempotency meet. Its events should be consumable by security, finance, and service owners without exposing every prompt. The trade-off is centralization: common controls reduce drift, but a broken control plane can block every tenant. Use regional replicas, cached read-only metadata, and a break-glass path with a short expiry. For the manufacturer example reported by OpenAI, measure investigation time and accepted root-cause actions, not simply how many agents were registered.
+Frontier describes shared business context as a semantic layer across systems such as data warehouses, CRM, ticketing, and internal applications. The practical design is a context API that returns typed entities, source identifiers, freshness, and access decisions rather than a large unlabelled text dump. A context request should inherit the caller’s tenant and purpose. If the service cannot establish that a record is permitted or current, it should return `context_unavailable` or `context_denied`; the model should not fill the gap from memory.
 
-Ask what **enterprise agent platforms** can establish at each transition. The request establishes intent only; the agent registry, semantic context layer, adapter, tenant control plane, and audit stream stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **root-cause investigation for a hardware manufacturer**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+The model adapter translates that authorized context into a provider-specific request and returns a platform-neutral proposal. This decoupling makes model replacement possible without silently changing the tool or audit contract. A proposal might contain `operation: investigate_failure`, `asset_id: A-17`, `evidence_ids: [...]`, and `next_step: request_log_bundle`. It is not yet a command. The tool gateway validates the schema, binds the authenticated actor, checks ownership and policy, applies rate and budget limits, and returns a typed result. Credentials remain in the gateway or adapter, never in the model context.
 
-The second question is what must be versioned. Version the schema, policy, model adapter, context query, evaluator, and relevant data snapshot. Include the version in the run record and in emitted events. A deployment that changes a prompt but cannot identify which runs saw it cannot explain a regression. A policy change must not rewrite history: old runs retain the decision and policy that actually governed them.
+Run state must be durable. Use states such as `registered`, `admitted`, `context_ready`, `proposed`, `awaiting_approval`, `executing`, `completed`, `failed`, and `unknown`. Persist the registry, policy, model, context, and evaluator versions at each meaningful transition. If a request times out after a tool may have committed, record `unknown` and reconcile with the tool’s receipt before retrying. A platform that collapses this into “the model failed” cannot safely recover or explain duplicate effects.
 
-The third question is where to put backpressure. Limit model calls, tool calls, context size, queue age, reviewer workload, and cumulative cost. Admission control should happen before expensive retrieval or inference when the request cannot meet its deadline or safety requirements. A bounded budget also makes failure legible: `budget_exhausted` is different from `model_error`, `policy_denied`, or `unknown_commit`.
+The platform also needs a shared feedback path. Frontier describes onboarding, learning through feedback, and evaluation/optimization as parts of moving agents from demos toward real work. An enterprise implementation should capture approved outcomes, corrections, and failure reasons as governed data. Do not train directly on every transcript: raw interactions may contain secrets, biased labels, or an operator correcting the model for a one-off exception. A feedback record should identify the task, policy version, evaluator, reviewer role, and whether the correction is approved for reuse.
 
-Break enterprise agent platforms metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
-
-
-## Enterprise agent platforms: focused design workshop
-
-In enterprise agent platforms, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. enterprise agent platforms code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
-
-For enterprise agent platforms, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the enterprise agent platforms artifact and the decision that moved it between states.
-
-There are two subtle cases worth testing. First, a valid record can become invalid between proposal and commit: an approval can expire, a memory can be deleted, a benchmark can be rerun with a different evaluator, or a capacity pool can fill. Recheck the relevant version at the boundary. Second, an invalid record can look plausible because a model or a dashboard smooths away uncertainty. Preserve `unknown`, `abstain`, and `needs_review` as first-class outcomes. Never convert them to success to simplify reporting.
-
-For enterprise agent platforms, slice enterprise agent platforms evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare enterprise agent platforms failure carries the largest consequence.
-
-Save a failing enterprise agent platforms input as a regression fixture only after redaction, classification, and capture of the governing version.
-
+Centralization has a failure mode. One policy or context outage can block many agents, and one incorrect shared schema can spread a defect. Use regional replicas, explicit dependency health, cached read-only metadata with short expiry, and a break-glass procedure that is narrow, audited, and time-limited. Do not make a stale cache silently authorize a write. A degraded platform may offer search, drafting, or queued work while refusing external effects.
 
 ## Applications and operational constraints
 
-Use **root-cause investigation for a hardware manufacturer** as the first controlled rollout for enterprise agent platforms. Start with observation or draft output, compare it with a deterministic or human baseline, and then admit only a small cohort and a narrow class of effects. The release gate should combine topic-specific quality with latency, cost, privacy, and reliability limits. Keep a kill switch and a recovery owner. A faster or more agreeable model is not an improvement if it drops agent registry, semantic context layer, adapter, tenant control plane, and audit stream, increases hidden work, or makes an incorrect transition harder to reverse.
+OpenAI’s Frontier announcement gives a useful motivating example: a hardware manufacturer used agents to investigate failures by combining simulation logs, internal documents, workflows, and code; the company reports reducing root-cause identification from about four hours to a few minutes. This is a publisher-reported customer example, not an independent benchmark. A safe first implementation would run read-only investigations, cite the logs and code it inspected, and let an engineer approve any configuration or deployment change. Measure time to a verified diagnosis, false leads, engineer correction, and evidence completeness—not simply the number of agents registered.
 
-Beyond **enterprise agent platforms**, enterprise agent platforms applies to workflows where enterprise agent platforms evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+The same platform pattern can support customer support, finance operations, sales research, and maintenance. Each workload needs its own data contract and risk boundary. A support agent may draft a response; a finance agent may prepare a reconciliation; a maintenance agent may recommend a work order. Sending an email, moving money, or changing equipment requires a separate capability, fresh authorization, idempotency, and often human confirmation. Shared platform controls should standardize these gates without pretending that one risk threshold fits every domain.
 
-Capacity for enterprise agent platforms includes more than model tokens: enterprise agent platforms evidence storage, validators, queues, reviewers, and downstream quotas can each become the limiter. Budget the critical path and define a labeled degraded mode such as draft-only, read-only, cached, or deferred work.
+Capacity planning covers more than model tokens. Context lookups, policy checks, tool concurrency, reviewer queues, audit storage, and downstream API quotas can each limit throughput. Set per-tenant quotas and a total run budget. Track queue age, context latency, model latency, tool latency, cost per accepted outcome, and time spent in review. When an external dependency is slow, return a bounded pending or read-only state instead of allowing agents to accumulate unbounded retries.
 
 ## Failure modes, security, and limits
 
-A primary enterprise agent platforms failure is confusing a generated suggestion with a trusted enterprise agent platforms evidence result. Enforce the topic invariant at the owning boundary, preserve evidence and version data, and exercise adversarial, stale, partial, and dependency-failure fixtures.
+The most important failure is authority confusion: a generated proposal is mistaken for a permitted action. Enforce policy at the tool boundary and test stale approvals, cross-tenant identifiers, hidden instructions in documents, malformed tool arguments, duplicate requests, and revoked access during a run. Keep the model’s evidence and the platform’s decision separate in storage and in the user interface.
 
-A enterprise agent platforms dashboard can be gamed by refusing hard cases, weakening checks, or hiding recovery work. Set floors for enterprise agent platforms evidence quality and safety before optimizing throughput, and inspect overrides, abstentions, and high-impact slices.
-
-For enterprise agent platforms, the February source has a bounded claim. The February source also has scope limits. OpenAI says Frontier is a platform to build, deploy, and manage agents; it describes shared context, onboarding, feedback, and explicit identity and permissions. The post reports, as customer examples, production optimization falling from six weeks to one day, more than 90% additional salesperson time, and output increasing by up to 5% at an energy producer. These are reported examples, not independently audited benchmarks. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+Another risk is platform monoculture. A central registry can become a bottleneck or a high-value target. Limit blast radius with tenant-aware namespaces, regional failover, least-privilege service accounts, independent audit storage, and a kill switch that disables effects while preserving diagnosis. A platform metric can also mislead: high adoption may reflect forced use, and high completion may reflect auto-closing difficult cases. Pair usage with correction, appeal, safety, and downstream business outcomes.
 
 ## Evaluation and change management
 
-Build enterprise agent platforms fixtures around ordinary, ambiguous, malformed, adversarial, slow, stale, and interrupted enterprise agent platforms evidence cases. Store expected topic states and invariants, compare with a pinned baseline, classify failures, and remove secrets before using production traces.
+Evaluate the platform at three levels. Registry tests check ownership, supported tools, and scope. Workflow tests use deterministic tool fakes to exercise successful, malformed, slow, revoked, and partially completed operations. Outcome tests check whether the intended business state changed and whether evidence supports the result. Keep protected fixtures for cross-tenant access, policy conflicts, stale context, prompt injection, and tool timeout. A release must retain its baseline, evaluator version, policy version, and rollback path.
 
-A enterprise agent platforms release gate should require a enterprise agent platforms evidence quality floor, a safety ceiling, a reliability budget, a cost limit, and complete evidence. Use shadow or a small canary, retain the prior contract, and ensure rollback names any enterprise agent platforms effects needing reconciliation.
+Shadow runs are appropriate for a new agent: generate proposals without executing effects and compare them with an existing workflow. A canary can then allow read-only or reversible work for a small tenant cohort. Expand only when quality, latency, cost, privacy, and safety thresholds hold on protected slices. If a policy or context schema changes, version it explicitly and preserve old run records under the old contract. Never rewrite history to make a new platform version appear compatible.
 
 ## February primary-source evidence
 
-The source fact is bounded: **OpenAI says Frontier is a platform to build, deploy, and manage agents; it describes shared context, onboarding, feedback, and explicit identity and permissions. The post reports, as customer examples, production optimization falling from six weeks to one day, more than 90% additional salesperson time, and output increasing by up to 5% at an energy producer. These are reported examples, not independently audited benchmarks.** The February publication date and the publisher's wording should be cited when teaching the event. The recommendation that teams implement agent registry, semantic context layer, adapter, tenant control plane, and audit stream is an inference from the event plus established systems practice. It should be validated with local fixtures, security review, operational metrics, and domain experts. The source does not independently verify the examples, and this article does not present them as guarantees.
+The source fact is bounded: OpenAI says Frontier is a platform to build, deploy, and manage agents; it describes shared context, onboarding, feedback, and explicit identity and permissions. The post reports customer examples including production optimization falling from six weeks to one day, more than 90% additional salesperson time, and output increasing by up to 5% at an energy producer. These are reported examples, not independently audited benchmarks. The recommendation to implement an agent registry, context service, model adapter, tenant-aware policy gate, and audit stream is an engineering inference from the announcement and established systems practice.
 
 ## Mini exercise extension
 
-Create six fixtures for **enterprise agent platforms** using the enterprise agent platforms vocabulary: a enterprise agent platforms evidence omission, a stale or contradictory enterprise agent platforms evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior enterprise agent platforms records remain historical.
+Create six fixtures: missing context, stale context, an adversarial document, a cross-tenant identifier, a dependency timeout, and a verified read-only completion. Give each fixture a run ID, policy version, evidence IDs, expected state, and recovery owner. Then change the policy version and prove that historical records remain interpretable under the version that governed them.
 
 ## Build it locally: numbered implementation
 
-1. Construct a enterprise agent platforms test record with actor, request, enterprise agent platforms evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the enterprise agent platforms boundary as a pure function. It must inspect enterprise agent platforms evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic enterprise agent platforms generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the enterprise agent platforms dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing enterprise agent platforms states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure enterprise agent platforms correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the enterprise agent platforms schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct an agent registry record with owner, tenant scope, tools, model adapter, policy version, SLO, and kill-switch reference.
+2. Implement a context stub that returns source IDs, freshness, and an authorization result; reject missing or expired evidence.
+3. Create a typed proposal for one read-only operation and validate its tool name, arguments, tenant, and deadline at a gateway boundary.
+4. Persist run states and use an idempotency key for a simulated tool call; represent a timeout as `unknown` until a receipt is reconciled.
+5. Add deterministic fixtures for prompt injection, cross-tenant access, revoked permission, malformed output, and dependency failure.
+6. Record a redacted feedback event with reviewer, policy version, correction, and reuse decision; do not train on raw interaction logs by default.
+7. Run a shadow comparison against a baseline and report quality, latency, cost, review, and protected-slice results before enabling any side effect.
 
 ## Runnable low-cost example
 
@@ -186,25 +170,26 @@ This example is intentionally small and deterministic. It demonstrates the lesso
 
 ## Interview Q&A
 
-**Q: What is the difference between a source fact and an engineering inference?** A: Enforce the enterprise agent platforms rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What is the difference between a source fact and an engineering inference?** A: The announcement’s description of Frontier is a source fact. A registry, gateway, and audit schema are design recommendations inferred from the problem and must be tested locally.
 
-**Q: Why separate model output from the boundary?** A: Enforce the enterprise agent platforms rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why separate model output from the platform boundary?** A: The model can propose an operation, but only the gateway has current identity, policy, resource ownership, and credentials.
 
-**Q: Which metric would you put on the dashboard first?** A: Track enterprise agent platforms evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the enterprise agent platforms risk classes.
+**Q: Which metric would you put on the dashboard first?** A: For the hardware-investigation example, start with time to a verified diagnosis and evidence completeness, then split false leads, correction, latency, and cost by task and tenant.
 
-**Q: When should the system abstain?** A: Enforce the enterprise agent platforms rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should the system abstain?** A: When required context is stale or unauthorized, a policy check is unavailable, a tool result is ambiguous, or the evidence cannot support the proposed transition.
 
-**Q: What should happen during rollout?** A: Pin enterprise agent platforms evidence and the governing versions, begin with shadow or reversible work, and require the enterprise agent platforms invariant before widening effects.
+**Q: What should happen during rollout?** A: Use shadow runs first, then a small read-only or reversible canary with protected fixtures and an explicit kill switch.
 
 ## Glossary
 
-- **Agent Registry**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one enterprise agent platforms attempt to its actor, enterprise agent platforms evidence, decisions, and recovery evidence.
-- **Idempotency**: the enterprise agent platforms guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a enterprise agent platforms input or artifact.
-- **SLO**: an explicit enterprise agent platforms service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the enterprise agent platforms state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about enterprise agent platforms derived from source facts rather than presented as a source guarantee.
+- **Agent registry**: a versioned record of an agent’s owner, scope, tools, policy, model adapter, and operating controls.
+- **Semantic context**: a typed view of business entities and relationships assembled from authorized enterprise systems.
+- **Run ID**: a durable correlation key joining one request to its proposals, decisions, tool attempts, and outcome.
+- **Idempotency**: behavior in which retrying one logical command does not duplicate its external effect.
+- **Provenance**: origin, version, and transformation evidence attached to context, output, or feedback.
+- **SLO**: a measurable service target such as freshness, latency, availability, or queue age.
+- **Abstention**: an explicit state used when evidence, authority, or dependency health is insufficient.
+- **Break-glass access**: narrowly scoped, time-limited emergency authority with mandatory audit.
 
 ## References
 

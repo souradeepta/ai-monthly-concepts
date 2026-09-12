@@ -106,17 +106,34 @@
 - [x] May 12 — Agent budgeting: expansion and mechanics pass complete; substantive review remains.
 - [x] May 13 — Evaluator design: expansion and mechanics pass complete; substantive review remains.
 - [x] May 14 — Program sandboxing: expansion and mechanics pass complete; substantive review remains.
-- [x] January 03–06, 16–18 — required sections, word counts, and mechanics pass complete; substantive/similarity review remains.
+- [x] January 03–06 — mechanics, source, substantive review, and January-wide similarity audit complete; push pending.
+- [x] January 18 — Data governance: mechanics, source, and substantive review complete; push pending.
+- [x] January 17 — AI security: mechanics, source, and substantive review complete; push pending.
+- [x] January 16 — Observability: mechanics, source, and substantive review complete; push pending.
 - [x] January 15 — Human review: mechanics, source, and substantive review complete; push pending.
 - [x] January 14 — Hallucination handling: mechanics, source, and substantive review complete; push pending.
 - [x] January 13 — Evaluation harnesses: mechanics, source, and substantive review complete; push pending.
 - [x] January 12 — Prompt caching: mechanics, source, and substantive review complete; push pending.
 - [x] January 11 — Context engineering: mechanics, source, and substantive review complete; push pending.
 - [x] January 10 — Embeddings: mechanics, source, and substantive review complete; push pending.
-- [x] January 13–20 — topic-specific rewrite complete; individual mechanics and January-wide similarity audit pass; substantive review remains.
+- [x] January 20 — Capability overhang: mechanics, source, and substantive review complete; push pending.
 - [x] January 07 — Structured output: mechanics, source, and substantive review complete; push pending.
 - [x] January 08 — Function calling: rewrite, mechanics, source, and substantive review complete; push pending.
 - [x] January 09 — RAG: clone removed; mechanics, source, and substantive review complete; push pending.
+- [x] January 19 — Scientific agents: mechanics, source, and substantive review complete; push pending.
+- [x] February 01 — Enterprise agent platforms: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 02 — Stateful runtimes: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 03 — Agent identity: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 04 — Onboarding agents: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 05 — Feedback learning: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 06 — Permission boundaries: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 07 — Long-horizon tasks: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 08 — Agent memory: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 09 — Tool reliability: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 10 — Approval workflows: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 11 — Threat intelligence: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 12 — Abuse monitoring: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
+- [x] February 13 — Content provenance: generic batch replacement, source pass, mechanics, and substantive review complete; month-wide review pending.
 - [x] January 03–09 — sequential quality check complete; coverage, runnable examples, and failure-flow sections reviewed; substantive approval remains.
 
 ## Article backlog
@@ -124,7 +141,7 @@
 | Month | Approved / 20 | Next action |
 |---|---:|---|
 | January | 1 | Rewrite/review 02–20 individually; overlap audit found cloned prose in 09–20, so none of those drafts may be approved without a source-specific rewrite. |
-| February | 0 | Discard generic batch; rebuild 01 individually. |
+| February | 0 | Rebuild Articles 14–20 individually; run month-wide similarity and substantive review before approval. |
 | March | 3 | Rewrite/review 04–20 individually. |
 | April | 0 | Draft coverage 20/20; expand and substantively review 02–20 before approval. |
 | May | 0 | Draft coverage 20/20; expand and substantively review 01–20 before approval. |

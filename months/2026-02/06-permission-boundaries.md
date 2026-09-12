@@ -47,11 +47,11 @@ For permission boundaries, the engineering inference is narrower: turn the cited
 
 The useful permission baseline is an authenticated request checked once by an application gateway. That is inadequate when a model can choose tools, requests wait in queues, or resources change ownership. A permission boundary must be enforced again at the resource and effect owner with current scope.
 
-For **permission boundaries**, the permission boundaries boundary names permission boundaries evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For a permission boundary, name the evidence, actor, mutable state, and rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
 
 ## Architecture and data flow
 
-The permission boundaries path starts with its own permission boundaries evidence admission check, then records topic state, invokes only the needed processor, and finishes at a permission boundaries outcome gate for **permission boundaries**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to permission boundaries, not a generic agent score.
+The path starts with identity and tenant admission, records the requested action, invokes the model only to produce a typed proposal, and finishes at an authorization gate owned by the target service. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure authorization latency, denial quality, revocation lag, and protected-effect violations rather than relying on a generic agent score.
 
 ```mermaid
 flowchart LR
@@ -67,7 +67,7 @@ flowchart LR
 
 Keep requested intent, authenticated principal, capability, resource state, policy decision, and effect receipt separate. A model or document can propose a resource but cannot set the caller’s tenant or role. Bind policy revision, resource version, expiry, and decision reason to the authorization record; log references rather than sensitive payloads.
 
-For permission boundaries, record a run identifier, actor, purpose, policy decision point, capability token, resource predicate, row filter, deny default, and confused deputy, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+Record a run identifier, actor, purpose, policy decision point, capability token, resource predicate, row filter, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the durable authorization artifact: the normalized action, resource version, token expiry, approval receipt, or commit receipt. A generic transcript cannot explain why a write was accepted. Keep raw content behind controlled references and retention rules.
 
 ## Processing walkthrough and state
 
@@ -91,7 +91,7 @@ sequenceDiagram
   Note over O,P: ambiguous outcomes require reconciliation
 ```
 
-On retry, reuse the permission boundaries idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the authorization idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
 
 ## Topic mechanics: Permission boundaries
 
@@ -99,33 +99,33 @@ On retry, reuse the permission boundaries idempotency key or durable artifact; n
 
 Authorization starts with a capability inventory: resource, verb, actor, tenant, purpose, and risk class. The model may propose `create_payment_draft`, but the payment service—not the prompt—checks amount limits, vendor ownership, currency, separation of duties, and approval state. Use deny-by-default policy and return a typed denial that contains a safe reason. Resource predicates matter: a user allowed to read one customer row is not allowed to issue an unrestricted SQL query. Normalize arguments before policy evaluation so alternate encodings cannot bypass a rule. Keep policy decision and effect commit close enough to prevent a time-of-check/time-of-use race; otherwise recheck a version or authorization at commit. Tool descriptions should omit dangerous generic primitives such as unrestricted shell or arbitrary URL fetch. Test indirect prompt injection, confused deputies, cross-tenant IDs, race conditions, and policy outages. A fail-open policy may preserve availability while violating authority; a fail-closed policy may block legitimate work, so define a read-only degraded mode. Frontier's explicit-permission statement is a factual motivation for this boundary; the allow-list, row filter, approval, and race tests are engineering design.
 
-Ask what **permission boundaries** can establish at each transition. The request establishes intent only; the permission boundaries evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **permission boundaries**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Ask what the boundary can establish at each transition. The request establishes intent only; normalization establishes a bounded representation; the policy service establishes an allow or deny decision; and the effect owner establishes whether the action was committed. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
 
-Permission boundaries require versioned policy rules, resource labels, capability grants, and decision reasons. Include the policy revision in every allow or deny record; revoking a capability must change new decisions while preserving the evidence for actions already authorized.
+Permission boundaries require versioned policy rules, resource labels, capability grants, and decision reasons. Include the policy revision in every allow or deny record; revoking a capability must change new decisions while preserving the evidence for actions already authorized. A capability should identify its audience and scope, expire quickly, and be unusable outside the intended service. Delegation must preserve the original actor and record the delegating principal, otherwise a worker can become a confused deputy that spends someone else's authority.
 
 Permission enforcement should cap resource fan-out, delegation depth, policy-evaluation time, and the lifetime of a capability token. Fail closed when the policy store is unavailable unless a narrowly scoped cached read is explicitly permitted. Expose `policy_unavailable`, `scope_denied`, and `token_expired` as different outcomes.
 
-Break permission boundaries metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
+Break metrics down by task slice, actor or tenant, policy version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup. Security review should ask whether every accepted effect can be reconstructed from these fields without trusting model-generated prose.
 
 
 ## Permission boundaries: focused design workshop
 
-In permission boundaries, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. permission boundaries code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+Keep request prose, retrieved evidence, generated proposals, and the authorization record in separate typed fields. Boundary code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent. A useful proposal schema contains an action enum, resource identifier, normalized arguments, requested scope, and reason reference. The policy layer should reject unknown actions and extra fields before it evaluates business rules.
 
-For permission boundaries, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the permission boundaries artifact and the decision that moved it between states.
+The event trail must let an operator distinguish bad input, missing identity, stale resource state, dependency failure, and a confirmed outcome. Record the authorization artifact and the decision that moved it between states. Do not log bearer tokens or full customer records merely to make an audit trail convenient; store hashes, IDs, reason codes, and protected references where possible.
 
-Test authorization races. A capability can be revoked after planning but before execution, or a resource can move tenants while a cached decision remains warm. Bind the decision to resource version and expiry, then recheck at the effect owner. Preserve `policy_unavailable` and `revoked` as distinct outcomes; do not convert uncertainty into allow.
+Test authorization races. A capability can be revoked after planning but before execution, or a resource can move tenants while a cached decision remains warm. Bind the decision to resource version and expiry, then recheck at the effect owner. Preserve `policy_unavailable` and `revoked` as distinct outcomes; do not convert uncertainty into allow. For a payment, the final ledger service should verify amount, beneficiary, currency, approval, and idempotency—not just accept a gateway's earlier decision.
 
-For permission boundaries, slice permission boundaries evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare permission boundaries failure carries the largest consequence.
+Slice boundary metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare cross-tenant acceptance carries the largest consequence.
 
-Save a failing permission boundaries input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a failing authorization input as a regression fixture only after redaction, classification, and capture of the governing version. Include fixtures for a legitimate narrow read, a cross-tenant identifier, an extra action field, a revoked capability, an expired token, and a policy-store timeout.
 
 
 ## Applications and operational constraints
 
 Start permission boundaries in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
 
-Beyond **permission boundaries**, permission boundaries applies to workflows where permission boundaries evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+This pattern applies to email, payments, ticket updates, deployment controls, and database agents. Choose an application with a named owner and bounded effects, then document data residency, access, quota, staffing, latency, and rollback constraints. For an email assistant, draft mode may be safe while send mode requires recipient restrictions and human approval. For a database assistant, read-only queries can use a narrow replica while writes require parameterized commands, row-level authorization, and a transaction receipt. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
 
 Plan permission capacity around policy evaluation, key rotation, entitlement propagation, and decision logging. If the policy service is overloaded, queue or deny protected effects; do not let a timeout become an implicit allow. Mark cached-read behavior and its expiry so users understand the degraded boundary.
 
@@ -135,7 +135,7 @@ Permission failures include overbroad roles, confused delegation, stale grants, 
 
 Permission metrics can improve by making roles unusably narrow or by excluding denied requests from the denominator. Report legitimate task completion, denied high-risk actions, revocation lag, and policy outages together. A low allow rate is not automatically safe, and a low denial rate is not automatically usable.
 
-For permission boundaries, the February source has a bounded claim. The February source also has scope limits. Frontier says AI coworkers have explicit permissions and guardrails. The February fact is the product's stated boundary model; OWASP and zero-trust principles explain why a model proposal must still be checked by the service that owns the side effect. A prompt is not an authorization mechanism. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The February source has a bounded claim and scope limits. Frontier says AI coworkers have explicit permissions and guardrails. That is a product statement, not proof of robustness against your adversaries, correctness on your domain, or a particular service-level target. OWASP's prompt-injection framing and NIST's zero-trust architecture support the principle that each request should be authenticated, authorized, and checked near the protected resource. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
 
 ## Evaluation and change management
 
@@ -149,17 +149,17 @@ The source fact is bounded: **Frontier says AI coworkers have explicit permissio
 
 ## Mini exercise extension
 
-Create six fixtures for **permission boundaries** using the permission boundaries vocabulary: a permission boundaries evidence omission, a stale or contradictory permission boundaries evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior permission boundaries records remain historical.
+Create six fixtures: a missing identity, a stale resource version, a cross-tenant identifier, a revoked capability, a policy dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the policy revision and recovery owner beside every assertion, then alter the governing version and prove that prior authorization records remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Construct a permission boundaries test record with actor, request, permission boundaries evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the permission boundaries boundary as a pure function. It must inspect permission boundaries evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic permission boundaries generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the permission boundaries dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing permission boundaries states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure permission boundaries correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the permission boundaries schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Construct an authorization test record with actor, tenant, action, normalized arguments, resource version, policy revision, decision, and outcome fields.
+2. Implement the boundary as a pure function. It must reject unknown actions, missing scope, wrong tenant, expired capability, and incomplete approval.
+3. Create deterministic proposals for a valid narrow read, a malformed request, a cross-tenant ID, and a request that adds an unlisted action.
+4. Simulate policy storage failing after admission. Use an idempotency key to detect duplicate delivery and reconcile uncertainty.
+5. Write an event stream containing authorization states, redacting sensitive payloads while retaining references needed for offline replay.
+6. Measure legitimate completion, protected-effect rejection, revocation lag, policy latency, recovery work, and resource cost by slice.
+7. Change the policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
 
 ## Runnable low-cost example
 
@@ -171,19 +171,19 @@ print(authorize("agent", "acme", "draft_payment", 900, True))
 print(authorize("agent", "other", "read_invoice", 0, False))
 ```
 
-This permission sketch demonstrates a deny-by-default branch only. It does not implement authenticated identity, policy distribution, resource ownership, or audit durability; exercise the effect-owning service before using it as a control.
+This sketch demonstrates a deny-by-default branch only. It does not implement authenticated identity, policy distribution, resource ownership, revocation, or audit durability; exercise the effect-owning service before using it as a control.
 
 ## Interview Q&A
 
 **Q: Where should permission be enforced?** A: Enforce the permission boundaries rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
 
-**Q: Why is a model not a permission boundary?** A: Enforce the permission boundaries rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why is a model not a permission boundary?** A: A model can select or explain an action, but its output is influenced by untrusted text and has no independent authority. Deterministic policy and the effect-owning service must authorize it.
 
-**Q: Which metric would you put on the dashboard first?** A: Track permission boundaries evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the permission boundaries risk classes.
+**Q: Which metric would you put on the dashboard first?** A: Track whether every protected effect had a current principal, scope, resource version, and policy decision. Pair that invariant with legitimate completion, false denial, revocation lag, latency, and recovery.
 
-**Q: What is the safe response to policy outage?** A: Expose a typed permission boundaries unavailable state, stop unsafe transitions, and reconcile the external dependency before retrying.
+**Q: What is the safe response to policy outage?** A: Expose a typed `policy_unavailable` state, stop unsafe transitions, and reconcile the external dependency before retrying. A narrowly scoped cached read may be allowed only if that behavior is explicit and bounded.
 
-**Q: How should permission boundaries be released?** A: Pin permission boundaries evidence and the governing versions, begin with shadow or reversible work, and require the permission boundaries invariant before widening effects.
+**Q: How should permission boundaries be released?** A: Pin the policy revision and resource rules, begin with shadow or reversible work, exercise adversarial fixtures, and require the authorization invariant before widening effects.
 
 ## Glossary
 
