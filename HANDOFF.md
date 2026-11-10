@@ -15,6 +15,7 @@ October 2026 draft production is complete. All 20 lessons exist from October pri
 - `LICENSE.md`, `LICENSE-CODE.md`, and `DISCLOSURES.md` are present. Preserve existing user changes; do not reset or discard unrelated edits.
 - September 01–20 pass the individual validator with runnable examples, the 20-lesson similarity audit, and `git diff --check`; all are above the substantive word target and include topic-specific quantitative reasoning. September coverage is complete.
 - October 01–20 pass the individual validator with runnable examples, `git diff --check`, and the month-wide similarity audit; substantive review remains incomplete.
+- Latest pushed commit: `bdef9f4 repair: rebuild February infrastructure portfolios lesson`; `main` is clean and aligned with `origin/main`.
 
 ## Definition of done
 
@@ -41,6 +42,13 @@ For each article:
 2. Preserve the completed September review record and source ledger.
 3. Begin November source triage from `months/2026-11/README.md` after October review is complete.
 4. Continue February lesson 19, then March similarity cleanup, May stubs, and under-target April/June–August lessons.
+
+## Handoff checkpoint — 2026-11-09
+
+- Completed and pushed February lesson 18 (`bdef9f4`), rebuilding infrastructure portfolios around workload classes, pool contracts, placement constraints, headroom, useful completion, and recoverable capacity states.
+- Checks for lesson 18 passed: individual validator with runnable example, `git diff --check`, and the four-lesson similarity audit covering lessons 15–18.
+- February lessons 19–20 remain the next source-first rewrites; February is not complete and its month-wide similarity audit remains blocked by duplicated scaffold prose.
+- No uncommitted changes remain. Continue with one scoped lesson repair, then update this handoff and push the incremental commit.
 
 ## Communication rules
 
