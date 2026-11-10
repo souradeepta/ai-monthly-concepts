@@ -128,6 +128,10 @@ Review automation can create false confidence. Require human sign-off for high-c
 
 ## Mini exercise (15–30 min)
 
+For SDE2 implementation, model the review as a durable job rather than one request. The API accepts a document hash, review profile, evidence scope, and budget, then returns a job ID. Workers can retry extraction and retrieval independently, while the result store keeps partial findings. This matters for long PDFs and legal or scientific workflows where a review may exceed a request timeout. Idempotency prevents a retry from creating duplicate findings. A review profile can require citation checking, arithmetic checking, or methodology review and can set which external sources are permitted.
+
+The review output should be safe to merge into a document workflow. Findings need stable IDs, severity, confidence, source spans, and status. A revision can mark a finding as closed only when the new document version contains evidence that addresses it. Keep the old finding linked to the old hash so audit users can reconstruct what the reviewer saw. This is more useful than overwriting a report with the newest prose.
+
 Build a document checker that extracts numbered claims from a short text, links each claim to a local evidence sentence, checks arithmetic, and reports unsupported claims with line numbers. Add a revision and rerun to see finding state changes.
 
 ## Runnable low-cost example
@@ -208,7 +212,7 @@ if __name__ == "__main__":
 ## References
 
 - [Analyzing technical documents with Deep Review — Google Research — 2026-10-14](https://research.google/blog/analyzing-technical-documents-with-deep-review/)
-- [Towards Automating Scientific Review with Google’s Paper Assistant Tool](https://arxiv.org/abs/2609.14618)
+- [Towards Automating Scientific Review with Google’s Paper Assistant Tool](https://arxiv.org/abs/2606.28277)
 - [Google Deep Review](https://deepmind.google/technologies/gemini/deep-research/)
 
 ## Claim ledger

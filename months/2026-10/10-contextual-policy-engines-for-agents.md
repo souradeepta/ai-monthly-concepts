@@ -1,6 +1,6 @@
 # Contextual policy engines for agentic privacy and security
 Status: emerging
-Sources: [Open and Emergent Problems in Agentic Privacy and Security: A Contextual Angle — Google Research — 2026-10-05](https://www.research.google/blog/open-and-emergent-problems-in-agentic-privacy-and-security-a-contextual-angle/), [Technical report — Google Research](https://research.google/)
+Sources: [Open and Emergent Problems in Agentic Privacy and Security: A Contextual Angle — Google Research — 2026-10-05](https://www.research.google/blog/open-and-emergent-problems-in-agentic-privacy-and-security-a-contextual-angle/)
 
 ## In one sentence
 

@@ -138,6 +138,10 @@ Continual updates can create behavior drift that is hard to explain. Maintain ve
 
 ## Mini exercise (15–30 min)
 
+An implementation should make the sleep boundary visible to operators. Expose batch size, admitted-memory count, rejected-memory count, replay composition, evaluation version, candidate checkpoint, and promotion decision. A dashboard that shows only “model updated” cannot explain why an answer changed. Store a diff of behavior on a fixed probe set and attach it to the promotion record.
+
+The learning ledger also needs a quarantine path. Prompt injection, unsupported user claims, copied secrets, and low-confidence model summaries should remain available for investigation but must not enter replay or parameter updates. Quarantine records can be reviewed later without making the serving model depend on the review speed. This separation is the continual-learning equivalent of putting untrusted events in a dead-letter queue.
+
 Implement an active memory list and a sleep job that consolidates only approved facts into a dictionary used by a toy model. Add a regression set and reject a candidate that overwrites an old fact.
 
 ## Runnable low-cost example
@@ -221,7 +225,7 @@ if __name__ == "__main__":
 ## References
 
 - [The sleep framework — Google Research — 2026-10-27](https://research.google/blog/the-sleep-framework-a-new-way-for-llms-to-retain-knowledge-in-continual-learning/)
-- [Sleep framework paper](https://arxiv.org/)
+- [Language Models Need Sleep: Learning to Self-Modify and Consolidate Memories](https://arxiv.org/abs/2606.03979)
 - [Continual learning overview](https://www.cs.toronto.edu/~hinton/absps/nature13.pdf)
 
 ## Claim ledger

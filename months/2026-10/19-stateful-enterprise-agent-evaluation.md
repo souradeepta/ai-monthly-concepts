@@ -139,6 +139,10 @@ Privacy-sensitive state must be synthetic or access-controlled. Do not copy cust
 
 ## Mini exercise (15–30 min)
 
+For a useful local harness, represent the system of record as an event-sourced fixture. The evaluator can replay the initial events, execute the agent trace, and compare the resulting state hash with the contract. This makes failures reproducible and supports time-travel debugging: an engineer can inspect the exact record before the forbidden mutation. Add a separate policy log so a denied tool call is visible even when it did not change state.
+
+A benchmark should include both happy-path and recovery tasks. Happy-path tasks test whether the agent can complete a normal business process. Recovery tasks test whether it notices stale information, handles a tool timeout, waits for approval, or asks the user to disambiguate an identity. The latter often reveal more about deployability because production systems are defined by partial failure rather than by the ideal path.
+
 Implement a toy CRM with contacts, tickets, and protected fields. Write a contract requiring one ticket update, one unchanged field, and a maximum of three tool calls. Evaluate a correct agent trace and a trace that reaches the target state by violating policy.
 
 ## Runnable low-cost example

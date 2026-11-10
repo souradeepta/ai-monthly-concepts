@@ -137,6 +137,10 @@ Biological search is expensive. Use explicit experiment budgets and stop criteri
 
 ## Mini exercise (15–30 min)
 
+The digital twin should expose a state-diff API for every planned operation. Before execution, the agent can see that a transfer will reduce one volume, increase another, consume a tip, and reserve an instrument. After execution, the controller compares the predicted and observed diff. This makes physical errors diagnosable and gives a human approver a compact review surface. It also supports simulation: the same operation can be run against a virtual state without touching hardware.
+
+A safe experiment scheduler should preserve controls and replicates when resources are scarce. If a candidate experiment consumes the last reagent, the scheduler should reject it or ask for approval rather than silently dropping the control. The scientific objective, resource budget, and safety policy should be stored with the schedule. When a result is surprising, an investigator can then tell whether the outcome came from a biological effect, an instrument condition, or a protocol deviation.
+
 Build a toy lab twin with wells, volumes, and pipette operations. Let an agent propose a transfer, validate capacity and identity, execute it, and update state. Inject an insufficient-volume and stale-state failure.
 
 ## Runnable low-cost example
@@ -218,7 +222,7 @@ if __name__ == "__main__":
 ## References
 
 - [Grounding AI agents in biological reality — Google Research — 2026-10-16](https://research.google/blog/grounding-ai-agents-in-biological-reality-building-blocks-for-autonomous-wet-labs/)
-- [VERID paper](https://arxiv.org/)
+- [Semantic Representation for Agentic Self-Play in Automated Laboratories — VERID](https://arxiv.org/abs/2610.32755)
 - [Google Research Science AI](https://research.google/teams/science-ai/)
 
 ## Claim ledger

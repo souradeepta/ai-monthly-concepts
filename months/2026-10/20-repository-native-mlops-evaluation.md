@@ -146,6 +146,10 @@ Partial success can be useful but misleading. Report component failures instead 
 
 ## Mini exercise (15–30 min)
 
+The repository fixture should make lifecycle boundaries observable. Include a small schema file, a training configuration, a serving function, an artifact manifest, and a monitoring output. Then create a bug that crosses two boundaries, such as a renamed feature that training accepts but serving rejects. The agent must discover the contract by reading the repository, not by receiving every file path in the task prompt. This is what distinguishes repository-native reasoning from isolated code completion.
+
+When a patch fails, preserve the complete workspace diff and test transcript. A human reviewer should be able to reproduce the result from the frozen snapshot and task seed. If an agent makes unrelated edits, record them as patch hygiene findings even when the requested tests pass. Small, scoped patches are easier to review, roll back, and attribute to the intended lifecycle change.
+
 Create a tiny repository with a data loader, feature transform, model file, and serving function. Introduce a train/serve mismatch, write a fail-to-pass test, add pass-to-pass tests, and ask a local script to score a patch.
 
 ## Runnable low-cost example
@@ -219,7 +223,7 @@ if __name__ == "__main__":
 ## References
 
 - [MLOps-Bench — arXiv:2610.23506](https://arxiv.org/abs/2610.23506)
-- [MLOps-Bench repository](https://github.com/)
+- [MLOps-Bench repository](https://github.com/oracle-samples/mlops-bench)
 - [Hidden Technical Debt in Machine Learning Systems](https://papers.neurips.cc/paper/5656-hidden-technical-debt-in-machine-learning-systems)
 
 ## Claim ledger

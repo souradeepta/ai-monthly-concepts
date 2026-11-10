@@ -136,6 +136,10 @@ An agent can hide uncertainty in narrative. Require machine-readable evidence an
 
 ## Mini exercise (15–30 min)
 
+For production use, expose spatial planning as a typed intermediate representation. A plan might contain `source`, `bbox`, `time_window`, `crs`, `operation`, `resolution`, and `quality_gate` fields. Validate the representation before executing any tool. This creates a reviewable boundary between the language model and geospatial code, and it makes a failed plan reproducible without rerunning the model. A planner should be able to explain that it chose a coarse layer for discovery, a high-resolution layer for confirmation, and a particular aggregation rule for the final estimate.
+
+The agent should also distinguish data discovery from data interpretation. Discovery finds candidate layers and checks licensing, coverage, and freshness. Interpretation runs the spatial operation or domain model. Keeping them separate allows a human analyst to approve a source before the agent uses it and makes it easier to replace a stale dataset without rewriting the reasoning policy.
+
 Create a tiny spatial query planner that selects between a point lookup, rectangular aggregation, and time-series comparison. Add contracts for coordinate system, units, and date range, then reject an incompatible plan before running it.
 
 ## Runnable low-cost example
@@ -211,7 +215,7 @@ if __name__ == "__main__":
 
 - [Putting Earth AI to work: Geospatial agents for our planet’s biggest challenges — Google Research — 2026-10-14](https://research.google/blog/putting-earth-ai-to-work-geospatial-agents-for-our-planets-biggest-challenges/)
 - [Google Earth AI](https://sites.research.google/earth-ai/)
-- [GeoKTools technical report](https://arxiv.org/)
+- [Google Earth AI Geospatial Reasoning Agent: Capabilities and a Systematic Evaluation](https://arxiv.org/abs/2610.15750)
 
 ## Claim ledger
 
