@@ -1,213 +1,243 @@
 # Availability engineering
 Status: durable
-Sources: [Google SRE — availability](https://sre.google/sre-book/availability/); [IETF RFC 9110](https://www.rfc-editor.org/rfc/rfc9110); [OpenAI's February 27, 2026 announcement, Scaling AI for everyone](https://openai.com/index/scaling-ai-for-everyone/)
+Sources: [Google SRE — Availability](https://sre.google/sre-book/availability/); [IETF RFC 9110](https://www.rfc-editor.org/rfc/rfc9110); [OpenAI — Scaling AI for everyone, 2026-02-27](https://openai.com/index/scaling-ai-for-everyone/)
+
 ## In one sentence
-Availability engineering combines capacity, fallbacks, rate limits, and graceful degradation to keep useful service reachable.
+
+Availability engineering keeps a useful service reachable during dependency, capacity, and traffic failures by defining an explicit contract for normal service, degraded service, and recovery.
+
 ## Background: what existed before
-AI demos assumed an always-available model endpoint and unlimited quota.
+
+An early AI demo often treated availability as a property of one endpoint: send a prompt, wait for a model response, and display the result. If the endpoint returned HTTP 200, the application counted success. That model breaks as soon as a request depends on authentication, retrieval, moderation, a model router, tool calls, storage, and a user interface. Each dependency adds latency and another failure opportunity. A chain can be unavailable even when every component is “mostly up.”
+
+Classical web services already had the vocabulary to handle this: a service-level objective (SLO) states a measurable target, an error budget states how much failure the target permits, and load shedding protects admitted work when demand exceeds safe capacity. AI systems add special complications. Generation is expensive and variable; a long context can consume a disproportionate share of memory; retries can multiply tokens and tool calls; and a fallback may produce a response that is reachable but not equivalent to the primary experience.
+
+Availability therefore cannot mean “some bytes came back.” It means the user received an outcome that met the declared contract, or an honest degraded outcome that is separately measured and recoverable.
+
 ## What changed and why now
-Agent chains multiply dependency failures and make capacity planning visible to users.
+
+OpenAI’s February 27 announcement describes surging demand, more than 900 million weekly active users, more than 9 million paying business users, and infrastructure partnerships intended to expand capacity. Those figures are claims made by the publisher about its own scale and plans; they are not an independent reliability benchmark. They do, however, make a practical pressure visible: demand and dependency scale force capacity, routing, quota, and fallback decisions into the product architecture.
+
+Google SRE’s availability guidance supplies the operational baseline: define what users need, measure it, and spend an error budget deliberately. RFC 9110 supplies the HTTP semantics needed to distinguish successful, client-error, server-error, retryable, and cacheable responses. The engineering inference is to connect those ideas to AI-specific states such as `fallback_served`, `capacity_rejected`, `dependency_unknown`, and `reconciled`.
+
 ## Impact on current processing and architecture
-Budget latency across calls, shed load, cache safe results, and provide fallback modes.
+
+Availability begins before model invocation. The gateway authenticates the caller, identifies the workload class, checks quota, and assigns a deadline. The orchestrator allocates that deadline across retrieval, policy checks, inference, tools, and rendering. Admission control decides whether accepting another request would cause already-admitted work to miss its contract.
+
+Every retry must have a budget. If a client retries three times, the gateway retries twice, and a tool wrapper retries twice, one user action can create twelve downstream attempts. Retry only operations that are safe to repeat, use jitter, and stop when the remaining deadline cannot produce a useful result. After a timeout, the system may not know whether the downstream operation completed; it must reconcile before issuing an effectful duplicate.
+
 ## Real-world applications and constraints
-Support can fall back to retrieval or a human. Fallback quality, stale cache, and quota fairness constrain choices.
+
+An assistant can degrade from full generation to a cached answer, retrieval-only response, smaller model, draft mode, or human handoff. Each mode has a different promise. A cached answer needs freshness metadata. Retrieval-only mode must not invent missing synthesis. A smaller model may have different safety or quality characteristics. A human handoff needs queue visibility and an ownership target.
+
+A document-processing API may accept asynchronous work when synchronous capacity is full, returning a durable job reference rather than pretending the work finished. A high-risk transaction may reject rather than fall back, because a stale or weak answer is worse than a clear unavailability response. Availability is always constrained by privacy, residency, correctness, cost, and staffing.
+
 ## Mental model
+
 ```mermaid
 flowchart LR
- U[User]-->L[Limiter]-->P[Primary]
- P--fail-->F[Fallback]-->U
- classDef a fill:#dbeafe,stroke:#2563eb,color:#111827; classDef b fill:#fef3c7,stroke:#d97706,color:#111827; class U,L a; class P,F b
+  U[User request] --> G[Gateway: identity and deadline]
+  G --> A{Admit safely?}
+  A -- no --> R[Retry-after or async queue]
+  A -- yes --> P[Primary path]
+  P --> D{Dependency healthy?}
+  D -- yes --> S[Validated useful result]
+  D -- no --> F[Declared fallback]
+  F --> V[Degraded result or handoff]
+  classDef input fill:#dbeafe,stroke:#2563eb,color:#172554
+  classDef control fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef risk fill:#fee2e2,stroke:#dc2626,color:#450a0a
+  classDef result fill:#fef3c7,stroke:#d97706,color:#78350f
+  class U,G,S input
+  class A,P,D control
+  class R,F risk
+  class V result
 ```
-```mermaid
-sequenceDiagram
- Client->>Primary: request
- Primary-->>Client: timeout
- Client->>Fallback: reduced request
- Fallback-->>Client: cached/human path
-```
+
+The key decision is not “primary or fallback.” It is “which user contract can still be met within the remaining deadline and safety constraints?” A fallback that violates freshness, residency, or correctness should be rejected. A degraded result must carry a mode label so product metrics do not mix it with normal success.
+
 ## What changed this month
-February connects agent availability to dependency-aware service design.
+
+February connects AI demand and infrastructure scale with a service-level design question: what should happen when capacity or a dependency is unavailable? The sources provide the scale motivation, SRE availability vocabulary, and HTTP behavior. The explicit degraded-state model, retry budget, and reconciliation ledger are engineering synthesis rather than claims made by the February announcement.
+
 ## Engineering consequence
-Define useful degraded behavior and measure it separately from hard failure.
+
+Write an availability contract before writing a failover branch. Define the request classes, target latency, freshness, correctness, safety, regions, dependencies, and acceptable degraded modes. For each mode, specify the user-visible status, cache policy, data restrictions, owner, and recovery path. Put the contract under version control.
+
+Measure availability from the user’s point of view. Track normal useful success, degraded useful success, timeout, rejected admission, dependency failure, and unknown outcome separately. Include p50 and tail latency, queue age, token cost, fallback rate, retry amplification, and error-budget consumption. Slice by tenant, region, model, dependency, workload class, and response mode.
+
 ## Limits and failure modes
-Fallbacks can leak stale or unsafe data; retries synchronize load; rate limits can punish legitimate bursts.
 
-## SDE2 primer and prerequisites
+The most common failure is a retry storm. A slow dependency causes clients to retry while the original work is still running, increasing load and making the dependency slower. Use a request deadline, bounded attempts, exponential backoff with jitter, and a shared retry budget. Do not let every library layer own an independent retry loop.
 
-This lesson treats **availability engineering** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is availability engineering evidence and state: the service must preserve it across availability engineering and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
+Another failure is an untruthful fallback. Returning stale data without a timestamp, routing restricted data to another region, or presenting a low-confidence answer as normal success can preserve uptime while violating the actual contract. Product and safety owners must approve the fallback semantics, not only platform engineering.
 
-The useful boundary for availability engineering is **SLO, admission control, queue, fallback, load shedding, regional capacity, and graceful degradation**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
+Health checks can also lie. A shallow endpoint may be healthy while the model queue is saturated or the retrieval index is stale. Probe the critical dependency path, but keep probes cheap and bounded. Use user-visible telemetry and synthetic tests without letting synthetic traffic consume production capacity.
 
-## February source reading: fact before inference
-
-For availability engineering, read the February source through its own claim boundary. The cited February event is **OpenAI's February 27, 2026 announcement, Scaling AI for everyone**. OpenAI's February 27 announcement describes surging demand, more than 900 million weekly active users, more than 9 million paying business users, and infrastructure partnerships intended to expand capacity. These are claims in the company's announcement. Designing an SLO, fallback, and load-shedding policy for your own service is an engineering inference. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
-
-For availability engineering, the engineering inference is narrower: turn the cited capability into an operational contract with topic-specific inputs, states, evidence, and failure ownership. Test that contract against ordinary, adversarial, stale, and interrupted work. A source can motivate this design; it cannot guarantee the resulting reliability or safety.
-
-## Historical baseline and problem boundary
-
-The useful availability baseline is a service that returns success or an error from one dependency. It fails under correlated outages, retry storms, and fallbacks that violate the user contract. Availability engineering adds budgets, dependency modeling, failure injection, and explicit degraded behavior.
-
-For **availability engineering**, the availability engineering boundary names availability engineering evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+Failover can overload the destination. A regional outage that moves all traffic into one surviving region may turn a partial failure into a global one. Reserve capacity, cap failover percentage, shed optional work, and make the response explicit when the surviving region cannot meet the original target.
 
 ## Architecture and data flow
 
-The availability engineering path starts with its own availability engineering evidence admission check, then records topic state, invokes only the needed processor, and finishes at a availability engineering outcome gate for **availability engineering**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to availability engineering, not a generic agent score.
-
 ```mermaid
-flowchart LR
-  A[Caller] --> I[Identity and tenant]
-  I --> C[Context/evidence]
-  C --> M[Model proposal]
-  M --> B[Slo boundary]
-  B --> X[Effect or review]
-  X --> L[(Evidence log)]
-  classDef data fill:#dbeafe,stroke:#2563eb,color:#172554; classDef control fill:#dcfce7,stroke:#15803d,color:#14532d; classDef risk fill:#fee2e2,stroke:#dc2626,color:#450a0a
-  class A,C,X,L data; class I,B control; class M risk
+flowchart TB
+  C[Client] --> E[Edge: auth, quota, request ID]
+  E --> B[Deadline and retry budget]
+  B --> Q[(Admission and queue state)]
+  Q --> O[Orchestrator]
+  O --> R[Retrieval / policy]
+  O --> M[Model router]
+  O --> T[Tool dependencies]
+  R --> G[Contract gate]
+  M --> G
+  T --> G
+  G --> N[Normal response]
+  G --> F[Fallback / handoff]
+  O --> L[(Outcome and reconciliation ledger)]
+  N --> L
+  F --> L
+  classDef input fill:#dbeafe,stroke:#2563eb,color:#172554
+  classDef control fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef store fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef risk fill:#fee2e2,stroke:#dc2626,color:#450a0a
+  class C,E,B,N input
+  class Q,O,R,M,T,G control
+  class L store
+  class F risk
 ```
 
-Keep request intent, dependency observation, retry state, fallback response, user-visible outcome, and incident evidence separate. A fast error page does not prove the service met its contract. Bind route, tenant, dependency, deadline, attempt, and degraded-mode label to each outcome while redacting payloads.
-
-For availability engineering, record a run identifier, actor, purpose, SLO, admission control, queue, fallback, load shedding, regional capacity, and graceful degradation, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+The ledger is essential. It records request ID, tenant, contract version, dependency attempts, retry budget, response mode, status, timestamps, and reconciliation state. Payloads may remain behind controlled references. This record lets an operator answer whether the system rejected work, served a fallback, timed out after an unknown downstream effect, or completed normally.
 
 ## Processing walkthrough and state
 
-Availability state should distinguish admitted, queued, served, fallback, timed_out, dependency_unknown, and recovered. Bound retries and reconcile idempotent requests after timeout. A service that returns bytes from a degraded path must still disclose which contract was preserved or lost.
-
 ```mermaid
 sequenceDiagram
-  participant U as Caller
+  participant U as User
+  participant G as Gateway
   participant O as Orchestrator
-  participant M as Model
-  participant P as Boundary
-  participant H as Reviewer/effect
-  U->>O: request + run_id
-  O->>M: bounded context
-  M-->>O: typed proposal
-  O->>P: validate + authorize
-  P-->>O: allow, deny, or pending
-  O->>H: execute/review
-  H-->>O: outcome + evidence
-  O-->>U: status + reference
-  Note over O,P: ambiguous outcomes require reconciliation
+  participant D as Dependency
+  participant L as Ledger
+  U->>G: request + deadline + idempotency key
+  G->>G: check quota and admission
+  G->>O: admitted request with budget
+  O->>D: bounded attempt
+  D-->>O: result, error, or timeout
+  alt useful primary result
+    O->>L: normal completion
+    O-->>U: normal response
+  else safe degraded path
+    O->>L: fallback_served + mode
+    O-->>U: degraded response
+  else uncertain effect
+    O->>L: dependency_unknown
+    O-->>U: reconciliation status
+  end
 ```
 
-On retry, reuse the availability engineering idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+Use explicit states: `received`, `admitted`, `queued`, `running`, `fallback_eligible`, `fallback_served`, `rejected_capacity`, `timed_out`, `dependency_unknown`, `reconciled`, `completed`, and `cancelled`. A timeout is not automatically a failed downstream operation. Reconciliation may query a provider by idempotency key, inspect a durable job record, or route to human review. Only then should the system retry an effectful operation.
 
-## Topic mechanics: Availability engineering
+## Topic mechanics: designing availability
 
-### Decision model and topic-specific data contract
+Start with user journeys, not infrastructure percentages. For each journey, define what counts as useful, how fresh the data must be, how long the user will wait, and what must never happen. A support answer may tolerate a cached response for five minutes; a payment authorization may not. A batch API may accept an asynchronous queue; an interactive voice experience may need a short, bounded fallback.
 
-Availability is a property of the user-visible outcome, not merely of the primary model. Allocate a deadline across ingress, retrieval, policy, inference, tools, and rendering. Admission control rejects or defers work when the queue cannot meet that deadline; load shedding protects existing requests. A fallback can use a smaller model, cached evidence, retrieval-only answer, draft mode, or human handoff, but it needs its own quality and safety contract. Do not retry every layer independently, or a single request becomes a fan-out storm. Use a global request ID and a retry budget. For the February scaling announcement, OpenAI reports demand, 900 million weekly active users, over 9 million paying business users, and infrastructure partnerships aimed at expanding capacity. Those are company-reported scale facts; an individual service must still establish its own SLO and error budget. Test quota exhaustion, regional loss, stale cache, fallback hallucination, and recovery. Report useful-degraded service separately from hard failure so a fast but unsafe answer cannot improve availability on paper.
+Build a dependency budget. If the total deadline is 1,000 ms, allocate time to authentication, retrieval, model inference, tools, and rendering with margin. A dependency that consumes its budget should be cancelled or bypassed; otherwise it steals time from the rest of the path. Measure queue time separately from execution time because scaling the worker pool does not fix admission delay.
 
-Ask what **availability engineering** can establish at each transition. The request establishes intent only; the availability engineering evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **availability engineering**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+Use load shedding deliberately. Reject optional enrichment before the primary answer, reduce context size only when quality and policy permit it, and return `429 Too Many Requests` or an asynchronous job contract when the caller can retry safely. Respect HTTP semantics and provide a retry hint only when retry is likely to succeed. A retry hint without capacity planning can synchronize clients into another overload.
 
-Availability work needs versioned SLOs, dependency budgets, fallback behavior, load profiles, and incident runbooks. Attach the active contract to each measurement window; changing an SLO should not retroactively make an outage look compliant.
-
-Availability controls should bound retry storms, queue depth, failover attempts, and dependency probe volume. Shed optional work before the critical path misses its budget, and distinguish `dependency_down`, `capacity_rejected`, and `fallback_served` in SLO accounting. A fallback response is not the same as normal success.
-
-Break availability engineering metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
-
-
-## Availability engineering: focused design workshop
-
-In availability engineering, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. availability engineering code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
-
-For availability engineering, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the availability engineering artifact and the decision that moved it between states.
-
-Test availability races. A dependency may recover after a fallback is selected, or a retry may arrive after the original request committed. Use a request deadline and receipt lookup at each transition. Count `fallback_served`, `duplicate_suppressed`, and `dependency_unknown` separately from ordinary success.
-
-For availability engineering, slice availability engineering evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare availability engineering failure carries the largest consequence.
-
-Save a failing availability engineering input as a regression fixture only after redaction, classification, and capture of the governing version.
-
+Design fallbacks as products. Name the mode, define its evidence and freshness, test its safety behavior, and tell the user what changed. Cache only responses whose authorization, tenant scope, and freshness are still valid. A fallback should not widen permissions just because the primary path failed.
 
 ## Applications and operational constraints
 
-Start availability engineering in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
+For a customer-facing assistant, shadow-classify requests and observe which fallbacks would have been selected before enabling them. Canary one tenant or region. Keep a kill switch for a faulty fallback, and alert on fallback rate and quality—not just server errors. For an asynchronous workflow, make job state durable and let clients poll or receive a callback without replaying the work.
 
-Beyond **availability engineering**, availability engineering applies to workflows where availability engineering evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
-
-Plan availability capacity around dependency quotas, retry budgets, failover targets, and health-check load. Shed optional work before the protected path, and count fallback responses separately from normal success. A recovered dependency should not cause queued requests to replay blindly.
-
-## Failure modes, security, and limits
-
-Availability fails through retry storms, correlated dependency loss, stale health checks, and fallbacks that violate the user contract. Budget retries, exercise regional and dependency failures, and make degraded responses explicit. Measure error budget consumption and recovery quality, not only whether a request eventually returned bytes.
-
-Availability metrics can improve by excluding degraded responses, resetting error-budget windows, or returning a fast fallback that violates the contract. Count fallback, timeout, and recovery quality explicitly by dependency and tenant. A high uptime percentage cannot excuse a critical operation that silently lost its guarantee.
-
-For availability engineering, the February source has a bounded claim. The February source also has scope limits. OpenAI's February 27 announcement describes surging demand, more than 900 million weekly active users, more than 9 million paying business users, and infrastructure partnerships intended to expand capacity. These are claims in the company's announcement. Designing an SLO, fallback, and load-shedding policy for your own service is an engineering inference. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+Ownership must be explicit. Service teams own the user contract and correctness gates. Platform teams own admission, routing, and capacity. Dependency owners publish failure semantics and idempotency behavior. Support or operations owns human handoff. Security and privacy owners approve cache scope, cross-region behavior, and telemetry retention.
 
 ## Evaluation and change management
 
-Build availability fixtures for dependency loss, retry storms, regional failover, stale health checks, partial response, and recovery. Assert the user contract for normal and degraded paths, including idempotency. Keep failure injection independent of the application’s own health dashboard and inspect error-budget impact.
+Inject dependency latency, errors, queue saturation, regional loss, stale cache, duplicate delivery, and partial tool completion. Verify that the service protects admitted work, avoids retry amplification, labels degraded responses, and reconciles uncertain effects. Test recovery too: when a dependency returns, do not release a burst of queued work that recreates the outage.
 
-Promote an availability change only when dependency failure, retry, failover, recovery, and degraded-contract tests meet the SLO. Canary one region or route, retain a traffic-shed switch, and reconcile requests that crossed the old and new behavior during rollback.
+Compare policy revisions against a fixed traffic replay. Review normal success, degraded success, rejection, tail latency, token cost, retry amplification, and error-budget use by workload class. A policy that improves uptime by returning unsafe or stale answers is a regression. Preserve the contract and configuration versions in the review record.
 
-## February primary-source evidence
+## Mini exercise (15–30 min)
 
-The source fact is bounded: **OpenAI's February 27 announcement describes surging demand, more than 900 million weekly active users, more than 9 million paying business users, and infrastructure partnerships intended to expand capacity. These are claims in the company's announcement. Designing an SLO, fallback, and load-shedding policy for your own service is an engineering inference.** The February publication date and the publisher's wording should be cited when teaching the event. The recommendation that teams implement SLO, admission control, queue, fallback, load shedding, regional capacity, and graceful degradation is an inference from the event plus established systems practice. It should be validated with local fixtures, security review, operational metrics, and domain experts. The source does not independently verify the examples, and this article does not present them as guarantees.
-
-## Mini exercise extension
-
-Create six fixtures for **availability engineering** using the availability engineering vocabulary: a availability engineering evidence omission, a stale or contradictory availability engineering evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior availability engineering records remain historical.
+Model a 1,000 ms request with retrieval, generation, and one tool dependency. Give the tool a 250 ms budget and allow one retry only if 100 ms remains. Implement three outcomes: primary success, a cached retrieval fallback with freshness label, and a handoff when no safe response fits. Add a dependency timeout and prove that the code records `dependency_unknown` instead of blindly repeating an effectful call. Discuss which metric should count as normal availability and which should count as degraded availability.
 
 ## Build it locally: numbered implementation
 
-1. Construct a availability engineering test record with actor, request, availability engineering evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the availability engineering boundary as a pure function. It must inspect availability engineering evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic availability engineering generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the availability engineering dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing availability engineering states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure availability engineering correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the availability engineering schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Write a contract for one user journey with deadline, freshness, correctness, safety, and allowed degraded modes.
+2. Assign budgets to each dependency and propagate one request ID, deadline, and retry budget through every call.
+3. Implement admission control that rejects or queues work when capacity cannot meet the contract.
+4. Make fallback selection deterministic and attach a response-mode label, evidence age, and owner to the result.
+5. Add idempotency keys and a ledger state for timeouts whose downstream outcome is unknown.
+6. Inject latency, errors, queue saturation, and recovery; assert no layer exceeds the global retry budget.
+7. Replay a fixed request set under two policy revisions and compare normal success, degraded success, cost, tail latency, and recovery work.
 
 ## Runnable low-cost example
 
 ```python
-def serve(primary_ok, remaining_ms):
-    if primary_ok: return {"mode":"primary", "label":"normal"}
-    if remaining_ms > 0: return {"mode":"fallback", "label":"degraded"}
-    return {"mode":"handoff", "label":"human"}
-print(serve(False, 200), serve(False, 0))
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Outcome:
+    mode: str
+    status: str
+    retry: bool
+
+def choose(primary_ok: bool, cache_fresh: bool, remaining_ms: int) -> Outcome:
+    if primary_ok:
+        return Outcome("normal", "completed", False)
+    if cache_fresh and remaining_ms >= 50:
+        return Outcome("cached_fallback", "degraded", False)
+    if remaining_ms < 50:
+        return Outcome("handoff", "degraded", False)
+    return Outcome("retryable_failure", "unavailable", True)
+
+if __name__ == "__main__":
+    assert choose(True, False, 10).mode == "normal"
+    assert choose(False, True, 100).mode == "cached_fallback"
+    assert choose(False, False, 20).mode == "handoff"
+    print(choose(False, True, 100))
 ```
 
-This availability sketch demonstrates a bounded retry policy only. It does not model correlated failure, regional failover, user contracts, or recovery; add dependency and fallback tests before using it to set an SLO.
+This example makes response mode and retry intent explicit. It does not prove that a cache is authorized, fresh for a particular tenant, or safe for a particular task. Production code must validate those conditions and reconcile effectful timeouts.
 
 ## Interview Q&A
 
-**Q: Is a fast fallback normal success?** A: Enforce the availability engineering rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Is a fallback response equivalent to normal availability?** A: Not automatically. Count it separately and verify its freshness, safety, correctness, and user contract. A reachable but misleading answer is not a successful completion.
 
-**Q: What is a degraded response?** A: Enforce the availability engineering rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why can retries make availability worse?** A: Each layer can multiply attempts while the original work is still consuming capacity. Propagate a deadline, use one shared retry budget, add jitter, and retry only safe operations.
 
-**Q: Which metric would you put on the dashboard first?** A: Track availability engineering evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the availability engineering risk classes.
+**Q: What does `dependency_unknown` mean?** A: The caller timed out or lost the response without proving whether the downstream operation completed. Reconcile by idempotency key or durable status before issuing another effectful attempt.
 
-**Q: Why budget retries?** A: Enforce the availability engineering rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should a service reject instead of degrade?** A: Reject when the fallback would violate a hard requirement such as authorization, data residency, freshness, or transaction correctness. An honest failure can preserve more safety than an invented answer.
 
-**Q: How should availability engineering be released?** A: Pin availability engineering evidence and the governing versions, begin with shadow or reversible work, and require the availability engineering invariant before widening effects.
+**Q: What does the February OpenAI source establish?** A: It establishes what OpenAI reported about demand and infrastructure plans. It does not establish your SLO or prove that a particular fallback, capacity plan, or reliability result works for your service.
 
 ## Glossary
 
-- **Slo**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one availability engineering attempt to its actor, availability engineering evidence, decisions, and recovery evidence.
-- **Idempotency**: the availability engineering guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a availability engineering input or artifact.
-- **SLO**: an explicit availability engineering service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the availability engineering state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about availability engineering derived from source facts rather than presented as a source guarantee.
+- **Availability**: the proportion of requests that receive the promised useful outcome within the contract.
+- **SLO**: a measurable service target such as successful useful responses within a latency and freshness bound.
+- **Error budget**: the tolerated failure amount implied by an SLO during a defined window.
+- **Admission control**: the decision to accept, queue, defer, or reject work based on safe capacity and contract budget.
+- **Load shedding**: intentionally dropping optional or excess work to protect admitted requests.
+- **Graceful degradation**: serving a reduced but explicitly defined experience when the primary path cannot meet its contract.
+- **Retry amplification**: extra downstream attempts created when multiple layers retry one logical request.
+- **Idempotency key**: a stable identifier that lets a retry refer to one logical operation.
+- **Dependency unknown**: a state where completion cannot be proven after timeout or transport failure.
+- **Tail latency**: a high percentile such as p95 or p99 describing the slowest important requests.
 
 ## References
 
-- [OpenAI: Scaling AI for everyone — February 27, 2026](https://openai.com/index/scaling-ai-for-everyone/)
-- [Google SRE: availability](https://sre.google/sre-book/availability/)
-- [IETF RFC 9110](https://www.rfc-editor.org/rfc/rfc9110)
+- [Google SRE — Availability](https://sre.google/sre-book/availability/)
+- [IETF RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110)
+- [OpenAI — Scaling AI for everyone, 2026-02-27](https://openai.com/index/scaling-ai-for-everyone/)
 
 ## Claim ledger
 
 | Claim | Source | Fact or inference |
 |---|---|---|
-| The cited publisher published the February event on the stated date. | [OpenAI's February 27, 2026 announcement, Scaling AI for everyone](https://openai.com/index/scaling-ai-for-everyone/) | Fact |
-| OpenAI's February 27 announcement describes surging demand, more than 900 million weekly active users, more than 9 million paying business users, and infrastructure partnerships intended to expand capacity. | [OpenAI's February 27, 2026 announcement, Scaling AI for everyone](https://openai.com/index/scaling-ai-for-everyone/) | Fact |
-| Defining useful service under dependency failure instead of equating availability with one model endpoint. | Engineering design synthesis | Inference |
-| A separately enforced boundary is safer and easier to operate than treating model text as authority. | Topic standards and systems reasoning | Inference |
-| The local example demonstrates the concept but does not prove production security, reliability, or generalization. | This lesson | Fact about the example |
+| Google SRE describes availability, SLOs, and error-budget reasoning. | [Google SRE — Availability](https://sre.google/sre-book/availability/) | Fact about the source |
+| RFC 9110 defines HTTP semantics used for status and retry behavior. | [IETF RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | Fact about the source |
+| OpenAI’s February 27 announcement reports demand and infrastructure scale claims. | [OpenAI — Scaling AI for everyone](https://openai.com/index/scaling-ai-for-everyone/) | Fact about the publisher’s announcement |
+| AI services should measure normal and degraded useful outcomes separately. | Source synthesis plus systems reasoning | Inference |
+| A shared deadline and retry budget reduce retry amplification. | Engineering design recommendation | Inference |
+| The Python example proves production availability or fallback safety. | This lesson | False; it is a local illustration |

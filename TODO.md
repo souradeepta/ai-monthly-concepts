@@ -22,6 +22,7 @@
 - [x] February 16 — model benchmarking rebuilt source-first around task taxonomies, protected splits, evaluator contracts, uncertainty, and cost-quality decisions; individual validator and runnable example pass. Lessons 17–20 remain.
 - [x] February 17 — privacy-preserving analytics rebuilt source-first around purpose limitation, controlled joins, cohort thresholds, privacy budgets, and release ledgers; individual validator and runnable example pass. Lessons 18–20 remain.
 - [x] February 18 — infrastructure portfolios rebuilt source-first around workload classes, pool contracts, placement constraints, headroom, useful completion, and recoverable capacity states; individual validator, runnable example, and four-lesson similarity audit pass. Lessons 19–20 remain.
+- [x] February 19 — availability engineering rebuilt source-first around SLOs, dependency budgets, retry amplification, admission control, graceful degradation, and reconciliation; individual validator, runnable example, and five-lesson similarity audit pass. Lesson 20 remains.
 
 - [x] July 2026 — Create and expand source-backed articles 01–20; mechanics, similarity, and Terra substantive review complete.
 - [x] July 01 — Robot task orchestration: expansion and mechanics pass complete; substantive review remains.
