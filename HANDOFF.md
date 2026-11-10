@@ -9,7 +9,7 @@ October 2026 draft production is complete. All 20 lessons exist from October pri
 - January–August each contain 20 numbered article files.
 - January lessons pass validation, runnable examples, whitespace checks, and similarity audit.
 - February lessons 01–13 complete mechanics rewrite, source pass, and substantive review; month-wide similarity audit and lessons 14–20 remain.
-- February lesson 14 has been source-first rewritten around verifier-guided mathematical reasoning; it passes its individual validator, runnable example, and `git diff --check`. Lessons 15–20 remain generic scaffold rewrites.
+- February lessons 14–15 have been source-first rewritten around verifier-guided mathematical reasoning and model-assisted reproducibility; both pass their individual validators, runnable examples, and `git diff --check`. Lessons 16–20 remain generic scaffold rewrites, and the February-wide similarity audit still fails on duplicated scaffold prose.
 - March has duplicated long prose across its lesson set and requires the same cleanup approach.
 - May has one reported similarity pair; April, June, July, and August have several lessons below the 2,400-word target.
 - `LICENSE.md`, `LICENSE-CODE.md`, and `DISCLOSURES.md` are present. Preserve existing user changes; do not reset or discard unrelated edits.
@@ -40,7 +40,7 @@ For each article:
 1. Run a substantive fact-check and quality review across October 01–20; keep the month open until findings are repaired.
 2. Preserve the completed September review record and source ledger.
 3. Begin November source triage from `months/2026-11/README.md` after October review is complete.
-4. Return to February lesson 15, then continue March similarity cleanup, May stubs, and under-target April/June–August lessons.
+4. Continue February lesson 16, then March similarity cleanup, May stubs, and under-target April/June–August lessons.
 
 ## Communication rules
 

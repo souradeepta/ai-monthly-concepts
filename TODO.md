@@ -18,6 +18,7 @@
 - [x] September 2026 — all 20 source-backed lessons are complete; individual validators with runnable examples, diff checks, substantive review, and the month-wide similarity audit pass.
 - [ ] October 2026 — all 20 source-backed lessons now exist; individual validators, runnable examples, diff checks, and the month-wide similarity audit pass. Substantive fact-check and quality review remain.
 - [x] February 14 — mathematical reasoning rebuilt source-first around verifier-guided search, proof obligations, failure states, and bounded inference-time compute; individual validator and runnable example pass. Lessons 15–20 remain.
+- [x] February 15 — scientific reproducibility rebuilt source-first around manifests, model-mediated provenance, comparable reruns, divergence states, and evidence bundles; individual validator and runnable example pass. Lessons 16–20 remain.
 
 - [x] July 2026 — Create and expand source-backed articles 01–20; mechanics, similarity, and Terra substantive review complete.
 - [x] July 01 — Robot task orchestration: expansion and mechanics pass complete; substantive review remains.

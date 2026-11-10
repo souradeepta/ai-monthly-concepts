@@ -1,210 +1,228 @@
-# Scientific reproducibility
+# Scientific reproducibility for model-assisted research
 Status: durable
-Sources: [Nature — reproducibility](https://www.nature.com/articles/533452a); [DeepMind — 2026-02-11 Deep Think](https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/)
+Sources: [Google DeepMind — Accelerating Mathematical and Scientific Discovery with Gemini Deep Think — 2026-02-11](https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/); [Nature — Reproducibility](https://www.nature.com/articles/533452a)
+
 ## In one sentence
-Reproducibility means another team can rerun the same data, code, model settings, and analysis and inspect evidence.
+
+Scientific reproducibility is the ability to rerun a declared method with the same data, code, model configuration, and environment, then explain any divergence instead of hiding it behind a matching headline result.
+
 ## Background: what existed before
-Papers often omitted exact prompts, seeds, dependency versions, or intermediate artifacts.
+
+Reproducibility is older than machine learning. A scientific result is more useful when another team can inspect the method, obtain the relevant inputs, rerun the analysis, and understand why its output agrees or differs. In software terms, a paper is not just a result; it is a build description for an experiment. The build includes source data, transformations, code, dependencies, instruments, parameters, and interpretation.
+
+Many research artifacts historically omitted some of this information. A paper might describe a dataset without preserving the exact snapshot, name a library without recording its version, or show a final figure without publishing the intermediate table. A computational notebook may contain the analysis but depend on an untracked local file or manual step. These gaps do not prove that the original result is wrong, but they prevent a clean audit.
+
+Machine learning adds more moving parts. A model endpoint can change behind a stable name. Sampling can be nondeterministic. Retrieval results can change as an index is updated. Tool calls can depend on live websites. Hardware kernels can introduce numerical variation. The prompt may be part of the method, and the model’s output may be an intermediate hypothesis rather than a final scientific conclusion.
+
+The engineering baseline is therefore not “save the notebook.” It is a versioned run package with explicit boundaries between input, computation, artifact, and claim. A rerun should be able to say `reproduced`, `divergent`, `blocked`, or `not comparable` with evidence for the state.
+
 ## What changed and why now
-AI-assisted discovery adds nondeterminism and tool chains that must be recorded.
+
+Google DeepMind’s February 11, 2026 Deep Think report describes a research workflow that combines mathematicians, physicists, and computer scientists with Gemini Deep Think. It describes Aletheia, a math research agent that uses a natural-language verifier to identify flaws, iteratively generate and revise solutions, browse literature, and admit failure. The report says the system scored up to 90% on IMO-ProofBench Advanced as inference-time compute scaled, with results graded by human experts. It also presents a taxonomy of AI contribution and explicitly says it does not claim Level 3 major advances or Level 4 landmark breakthroughs.
+
+Those are publisher-reported facts, not independent validation of arbitrary research performance. Their engineering significance is that the research process contains more than a final generated answer: prompts, model outputs, browsing traces, candidate solutions, verification results, human collaboration, and contribution labels become part of the evidence. When AI contributes to an open-ended investigation, reproducibility must cover the model-mediated path as well as the final calculation.
+
 ## Impact on current processing and architecture
-Package data manifests, code commit, environment lockfile, prompt, seed, model ID, and outputs.
+
+A reproducible run starts with a manifest. The manifest names the research question, data snapshot, code commit, environment lockfile, model identifier, endpoint or checkpoint, prompt and tool configuration, random seed, hardware/runtime, and output artifacts. It also names what cannot be shared, why it cannot be shared, and how another researcher can perform a permitted rerun.
+
+```mermaid
+flowchart LR
+    Q[Research question and assumptions] --> M[Immutable run manifest]
+    M --> D[Data and retrieval snapshot]
+    M --> E[Environment and code]
+    M --> X[Model, prompt, tools, seed]
+    D --> P[Analysis or research pipeline]
+    E --> P
+    X --> P
+    P --> A[Intermediate artifacts]
+    A --> R[Result and interpretation]
+    R --> C[Claim package]
+    C --> V[Independent rerun or review]
+    V --> S[Reproduced, divergent, blocked, or not comparable]
+    classDef input fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef control fill:#fef3c7,stroke:#b45309,color:#451a03;
+    classDef process fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef evidence fill:#dcfce7,stroke:#15803d,color:#052e16;
+    classDef outcome fill:#fee2e2,stroke:#b91c1c,color:#450a0a;
+    class Q input;
+    class M,D,E,X control;
+    class P process;
+    class A,R,C evidence;
+    class V,S outcome;
+```
+
+The manifest is a control boundary, not a file filled in after the fact. Before execution, validate that required inputs exist and that the model and tool versions are allowed. During execution, append events with run ID, stage, timestamp, artifact hash, and status. After execution, seal the manifest so later corrections create a new run rather than rewriting history.
+
+Keep the raw model-mediated process separate from the normalized claim. A raw response may contain several candidate proofs, speculative explanations, failed searches, and copied references. The normalized claim states exactly what the research team is asserting. The artifact package links that claim to the data, code, proof, simulation, or experiment that supports it. This distinction prevents a polished summary from becoming the only surviving evidence.
+
+```mermaid
+sequenceDiagram
+    participant R as Researcher
+    participant O as Run orchestrator
+    participant M as Model and tools
+    participant L as Run ledger
+    participant V as Verifier or rerunner
+    participant P as Publication package
+    R->>O: question, assumptions, budget
+    O->>L: create manifest and run ID
+    O->>M: bounded prompt and pinned tools
+    M-->>L: outputs, searches, code, and failures
+    O->>V: artifact plus manifest
+    V-->>L: reproduced, divergent, blocked, or incomparable
+    L->>P: sealed evidence bundle and contribution record
+    P-->>R: claim with limits and rerun instructions
+```
+
+Reproduction state needs more precision than pass or fail. `specified` means the method and inputs are declared but not run. `provisioned` means the environment and data are available. `running` means execution is active. `reproduced` means the declared outputs match within stated tolerances. `divergent` means the rerun completed but differs materially. `blocked` means a dependency, permission, or data restriction prevented execution. `not_comparable` means inputs or method changed enough that the run answers a different question.
+
+These states affect retries. A timeout does not prove a scientific claim false. A missing dataset does not prove the original result unreproducible in principle. A changed model endpoint does not produce a comparable rerun. Preserve the original manifest and create a new attempt with an explicit reason whenever an input changes.
+
+Reproducibility also has a cost model. The rerun may require downloading a large dataset, rebuilding a container, loading a model, reserving a GPU, or scheduling an instrument. Record resource budgets and actual use. If a team replaces a high-cost step with a cheaper approximation, label that result as a sensitivity analysis or alternate experiment rather than silently calling it a reproduction.
+
 ## Real-world applications and constraints
-Important in drug and climate research. Proprietary data, nondeterministic hardware, and long-term storage complicate reruns.
+
+In AI-assisted mathematics, preserve the problem statement, prompt, model version, browsing sources, candidate solutions, verifier output, formalization, and human edits. A proof assistant can validate the encoded proposition, but it cannot establish that the proposition captures the intended natural-language problem. Store library commits, imported axioms, compiler versions, and proof-check commands.
+
+In climate or earth-science analysis, a data URL is not enough. Record acquisition time, dataset release, spatial and temporal filters, coordinate system, missing-value handling, and preprocessing. A rerun against the latest feed may be scientifically useful but is not the same experiment.
+
+In drug or protein research, preserve sequence databases, model checkpoints, assay protocol, instrument calibration, sample lineage, and negative results. A model-generated candidate is a hypothesis; it becomes evidence only through the declared experimental and validation process.
+
+In software and systems research, pin compiler, runtime, hardware, kernel, library, and benchmark configuration. Report variance and warm-up behavior. A matching average can hide a changed workload, cache state, or measurement boundary.
+
+In a proprietary environment, access controls may prevent publishing raw data or prompts. Provide a secure rerun protocol, synthetic fixture, redacted schema, or trusted third-party execution path. Document the gap honestly. “Not publicly rerunnable” is different from “reproducible by authorized reviewers.”
+
 ## Mental model
-```mermaid
-flowchart LR
- D[Data]-->P[Pipeline]-->R[Result]
- E[Environment]-->P; M[Model/prompt]-->P; P-->A[Archive]
- classDef a fill:#dbeafe,stroke:#2563eb,color:#111827; classDef b fill:#dcfce7,stroke:#16a34a,color:#111827; class D,E,M a; class P,R,A b
-```
-```mermaid
-sequenceDiagram
- Researcher->>Registry: manifest + code
- Registry-->>Runner: pinned environment
- Runner->>Runner: execute
- Runner-->>Reviewer: result + evidence
-```
+
+Think of a research result as a signed build artifact. The source code is the method, the input lockfile is the data snapshot, the compiler is the environment, the binary is the derived result, and the release notes are the interpretation and limitations. A successful build proves that the declared inputs produce the artifact; it does not prove that the software solves the right problem. Scientific reproducibility has the same boundary.
+
 ## What changed this month
-The February science concept applies reproducibility requirements to model-mediated discovery.
+
+The Deep Think report makes model outputs, prompts, browsing, verification, human collaboration, and AI-contribution taxonomy visible parts of an AI-assisted research workflow. The practical change is that reproducibility must capture the model as a probabilistic research component while preserving deterministic checks and human accountability.
+
 ## Engineering consequence
-Make runs content-addressed and publish a minimal reproduction command.
+
+Define a manifest schema and reject incomplete runs before expensive execution. At minimum, require run ID, actor, purpose, code revision, data version or access explanation, environment, model identifier, prompt/tool configuration, seed or nondeterminism note, and artifact references.
+
+Use content-addressed artifacts. A data snapshot, container, prompt bundle, model configuration, and output should have hashes or immutable version identifiers. Store derived artifacts separately from source inputs and link them through the manifest.
+
+Publish a minimal reproduction command. It should fetch or point to the declared inputs, create the pinned environment, run the analysis, and compare outputs using stated tolerances. If the command cannot be public, provide the authorized equivalent and explain the restriction.
+
+Separate reproducibility from validity. A repeatable flawed analysis is still flawed, and a scientifically valid result may be difficult to reproduce because data are restricted. Report both dimensions rather than using reproducibility as a proxy for truth.
+
 ## Limits and failure modes
-Reproducibility does not establish validity; inaccessible data and drifting APIs can block exact reruns.
 
-## SDE2 primer and prerequisites
+Model endpoints can change behind stable identifiers. Capture snapshot or deployment metadata and treat a live endpoint rerun as potentially non-comparable.
 
-This lesson treats **scientific reproducibility** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is scientific reproducibility evidence and state: the service must preserve it across scientific reproducibility and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
+Retrieval indexes and websites drift. Cache documents, record retrieval timestamps, and preserve citation spans.
 
-The useful boundary for scientific reproducibility is **run manifest, dataset version, environment lockfile, model ID, prompt, seed, artifact, and independent rerun**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
+Hardware and parallel kernels can create small numeric differences. Define tolerances and compare intermediate distributions, not only one rounded number.
 
-## February source reading: fact before inference
+Data licensing can prevent full release. Provide an access-controlled path, synthetic fixture, or precise provenance gap.
 
-For scientific reproducibility, read the February source through its own claim boundary. The cited February event is **Google DeepMind's February 11, 2026 Deep Think report**. DeepMind says its February work came from collaboration among mathematicians, physicists, and computer scientists, and links papers, prompts, model outputs, and a taxonomy of AI contribution. It describes autonomous, collaborative, and human-plus-AI examples while explicitly saying no Level 3 or Level 4 major breakthrough is claimed. Those details make documentation part of the result. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
+Human interpretation can change even when code and outputs match. Preserve the claim wording, assumptions, and review record.
 
-For scientific reproducibility, the engineering inference is narrower: turn the cited capability into an operational contract with topic-specific inputs, states, evidence, and failure ownership. Test that contract against ordinary, adversarial, stale, and interrupted work. A source can motivate this design; it cannot guarantee the resulting reliability or safety.
+Reproduction pipelines can leak sensitive prompts, samples, or credentials. Apply least privilege, secret scanning, retention, and redaction to run artifacts.
 
-## Historical baseline and problem boundary
+## Mini exercise (15–30 min)
 
-The useful reproducibility baseline is a paper’s method section and a request to rerun the analysis. That often omits exact data, dependencies, seeds, or environment state. A reproducible workflow makes those inputs inspectable and labels what cannot be regenerated.
-
-For **scientific reproducibility**, the scientific reproducibility boundary names scientific reproducibility evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
-
-## Architecture and data flow
-
-The scientific reproducibility path starts with its own scientific reproducibility evidence admission check, then records topic state, invokes only the needed processor, and finishes at a scientific reproducibility outcome gate for **scientific reproducibility**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to scientific reproducibility, not a generic agent score.
-
-```mermaid
-flowchart LR
-  A[Caller] --> I[Identity and tenant]
-  I --> C[Context/evidence]
-  C --> M[Model proposal]
-  M --> B[Run Manifest boundary]
-  B --> X[Effect or review]
-  X --> L[(Evidence log)]
-  classDef data fill:#dbeafe,stroke:#2563eb,color:#172554; classDef control fill:#dcfce7,stroke:#15803d,color:#14532d; classDef risk fill:#fee2e2,stroke:#dc2626,color:#450a0a
-  class A,C,X,L data; class I,B control; class M risk
-```
-
-Keep source data, code revision, environment manifest, analysis output, interpretation, and publication claim separate. A narrative summary cannot substitute for raw inputs or method. Bind run ID, snapshot, seed, dependency set, instrument state, and access purpose to the manifest while protecting restricted data.
-
-For scientific reproducibility, record a run identifier, actor, purpose, run manifest, dataset version, environment lockfile, model ID, prompt, seed, artifact, and independent rerun, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
-
-## Processing walkthrough and state
-
-Reproduction state should distinguish specified, provisioned, running, reproduced, divergent, blocked, and not_comparable. Freeze the original manifest and explain every changed input. Missing dependencies or data should produce a documented gap, not a silently simplified rerun.
-
-```mermaid
-sequenceDiagram
-  participant U as Caller
-  participant O as Orchestrator
-  participant M as Model
-  participant P as Boundary
-  participant H as Reviewer/effect
-  U->>O: request + run_id
-  O->>M: bounded context
-  M-->>O: typed proposal
-  O->>P: validate + authorize
-  P-->>O: allow, deny, or pending
-  O->>H: execute/review
-  H-->>O: outcome + evidence
-  O-->>U: status + reference
-  Note over O,P: ambiguous outcomes require reconciliation
-```
-
-On retry, reuse the scientific reproducibility idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
-
-## Topic mechanics: Scientific reproducibility
-
-### Decision model and topic-specific data contract
-
-Reproducibility begins before the first model call. A run manifest should identify dataset hashes, filters, code commit, dependency lockfile, hardware/runtime, model and endpoint, system instructions, user prompt template, tool versions, seed, sampling parameters, and output artifacts. Store raw outputs and normalized analysis separately. When data cannot be shared, publish a synthetic fixture or a secure rerun protocol and document the limitation. For a Deep Think-inspired physics analysis, preserve the candidate derivation, verifier output, code used to calculate a quantity, and the human decision that accepted or rejected it. A rerun should compare both final values and important intermediate artifacts; a matching headline number can hide a changed dataset. Record nondeterminism and tolerance instead of promising bit-for-bit equality. Separate reproducibility from validity: a perfectly repeatable flawed experiment is still flawed. DeepMind links papers, prompts, model outputs, and a taxonomy of autonomous and collaborative contribution, and explicitly declines to claim its highest result levels. Those details are source facts that support transparent reporting, not evidence that every result will reproduce. Measure artifact completeness and independent rerun time.
-
-Ask what **scientific reproducibility** can establish at each transition. The request establishes intent only; the scientific reproducibility evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **scientific reproducibility**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
-
-Reproducibility requires versioned code, data snapshot, dependencies, random seeds, instrument configuration, and analysis notebook. Make the manifest immutable for a reported result; a later correction should point to a new run and explain which input or method changed.
-
-Reproduction jobs need quotas for data transfer, compute, instrument access, and rerun count. Refuse a result that exceeds the declared method or data budget rather than silently substituting a smaller experiment. Mark `environment_missing`, `data_unavailable`, and `result_diverged` separately in the manifest.
-
-Break scientific reproducibility metrics down by task slice, actor or tenant, version, dependency, and outcome class so a healthy average cannot hide a dangerous subgroup.
-
-
-## Scientific reproducibility: focused design workshop
-
-In scientific reproducibility, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. scientific reproducibility code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
-
-For scientific reproducibility, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the scientific reproducibility artifact and the decision that moved it between states.
-
-Test reproduction races. A dependency can disappear after a run starts, or a data snapshot can be corrected while an analysis is being regenerated. Keep the original manifest immutable and mark the new attempt `not_comparable` when inputs differ. Preserve missing-environment and divergent-result states.
-
-For scientific reproducibility, slice scientific reproducibility evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare scientific reproducibility failure carries the largest consequence.
-
-Save a failing scientific reproducibility input as a regression fixture only after redaction, classification, and capture of the governing version.
-
-
-## Applications and operational constraints
-
-Start scientific reproducibility in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
-
-Beyond **scientific reproducibility**, scientific reproducibility applies to workflows where scientific reproducibility evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
-
-Plan reproduction capacity around data transfer, environment setup, compute, instrument reservations, and archival. If one dependency is missing, preserve a reproducibility gap and its reason rather than substituting an unrecorded environment. A successful rerun is meaningful only when its inputs and method remain comparable.
-
-## Failure modes, security, and limits
-
-Reproducibility fails through hidden preprocessing, unavailable dependencies, selective reruns, and incomparable environments. Preserve raw inputs and manifests, report what could not be recreated, and mark changed data or code as a new run. A matching headline number without matching method is not replication evidence.
-
-Reproducibility metrics can improve by rerunning only easy studies, relaxing environment matching, or reporting a similar number without identical inputs. Pair rerun rate with manifest completeness, data availability, method equivalence, and divergence explanations. A successful rerun of a changed experiment is a new result, not replication.
-
-For scientific reproducibility, the February source has a bounded claim. The February source also has scope limits. DeepMind says its February work came from collaboration among mathematicians, physicists, and computer scientists, and links papers, prompts, model outputs, and a taxonomy of AI contribution. It describes autonomous, collaborative, and human-plus-AI examples while explicitly saying no Level 3 or Level 4 major breakthrough is claimed. Those details make documentation part of the result. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
-
-## Evaluation and change management
-
-Build reproduction fixtures for matching inputs, missing dependencies, changed preprocessing, random seeds, unavailable instruments, and divergent results. Assert manifest completeness and comparable method before calling a rerun successful. Keep sensitive data redacted and record why any reproduction gap remains.
-
-Accept a reproduction only when manifest completeness, method equivalence, data provenance, and divergence explanation meet the study’s criteria. Run a small independent rerun first, retain the original package, and label any changed dependency or input rather than merging its result into the original claim.
-
-## February primary-source evidence
-
-The source fact is bounded: **DeepMind says its February work came from collaboration among mathematicians, physicists, and computer scientists, and links papers, prompts, model outputs, and a taxonomy of AI contribution. It describes autonomous, collaborative, and human-plus-AI examples while explicitly saying no Level 3 or Level 4 major breakthrough is claimed. Those details make documentation part of the result.** The February publication date and the publisher's wording should be cited when teaching the event. The recommendation that teams implement run manifest, dataset version, environment lockfile, model ID, prompt, seed, artifact, and independent rerun is an inference from the event plus established systems practice. It should be validated with local fixtures, security review, operational metrics, and domain experts. The source does not independently verify the examples, and this article does not present them as guarantees.
-
-## Mini exercise extension
-
-Create six fixtures for **scientific reproducibility** using the scientific reproducibility vocabulary: a scientific reproducibility evidence omission, a stale or contradictory scientific reproducibility evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior scientific reproducibility records remain historical.
-
-## Build it locally: numbered implementation
-
-1. Construct a scientific reproducibility test record with actor, request, scientific reproducibility evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the scientific reproducibility boundary as a pure function. It must inspect scientific reproducibility evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic scientific reproducibility generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the scientific reproducibility dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing scientific reproducibility states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure scientific reproducibility correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the scientific reproducibility schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+Create a small run manifest for a deterministic data analysis. Run it once, change the input file, rerun, and classify the result as reproduced, divergent, or not comparable. Add a missing-dependency case and record why it is blocked.
 
 ## Runnable low-cost example
 
 ```python
+import hashlib
 import json
-manifest = {"dataset_hash":"d1", "commit":"abc", "model_id":"demo", "prompt_hash":"p1", "seed":7}
-print(json.dumps(manifest, sort_keys=True))
+from pathlib import Path
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def run_manifest(data_path: Path) -> dict:
+    numbers = [int(line) for line in data_path.read_text().splitlines() if line.strip()]
+    return {
+        "data_hash": sha256(data_path),
+        "count": len(numbers),
+        "sum": sum(numbers),
+        "mean": sum(numbers) / len(numbers),
+        "method": "integer_sum_v1",
+    }
+
+
+def compare(original: dict, rerun: dict) -> str:
+    if original["data_hash"] != rerun["data_hash"]:
+        return "not_comparable"
+    if original["sum"] == rerun["sum"] and original["count"] == rerun["count"]:
+        return "reproduced"
+    return "divergent"
+
+
+def main() -> None:
+    path = Path("repro-data.txt")
+    path.write_text("2\n4\n6\n")
+    original = run_manifest(path)
+    rerun = run_manifest(path)
+    assert compare(original, rerun) == "reproduced"
+    path.write_text("2\n4\n7\n")
+    changed = run_manifest(path)
+    assert compare(original, changed) == "not_comparable"
+    print(json.dumps({"original": original, "changed_state": compare(original, changed)}, indent=2))
+    path.unlink()
+
+
+if __name__ == "__main__":
+    main()
 ```
 
-This manifest sketch checks required fields only. It does not recreate dependencies, validate instruments, compare data, or establish scientific validity; add missing-environment and changed-input fixtures before calling a run reproducible.
+## Build it locally
+
+1. Save the example as `reproducibility.py` and run `python3 reproducibility.py`.
+2. Add a code commit, Python version, dependency lockfile, and model identifier to the manifest.
+3. Add a prompt hash and a note describing any nondeterministic model or tool behavior.
+4. Store intermediate outputs and compare them alongside the final sum.
+5. Add a tolerance field for floating-point results.
+6. Add a blocked state when the data file or dependency is unavailable.
+7. Seal the original manifest and create a new run when any input changes.
 
 ## Interview Q&A
 
-**Q: When is a rerun comparable?** A: Enforce the scientific reproducibility rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**What is the difference between reproducibility and validity?** Reproducibility asks whether the declared method can be rerun consistently. Validity asks whether the method and conclusion answer the scientific question correctly.
 
-**Q: What does a reproducibility manifest do?** A: Enforce the scientific reproducibility rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Why is a model ID insufficient?** A model name may resolve to a changing endpoint. Record snapshot, deployment, prompt, tools, sampling settings, and retrieved inputs.
 
-**Q: Which metric would you put on the dashboard first?** A: Track scientific reproducibility evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the scientific reproducibility risk classes.
+**What does a formal proof establish?** It establishes the encoded proposition under its formal environment. It does not prove that the encoding matches the intended research question.
 
-**Q: When is a result not comparable?** A: Enforce the scientific reproducibility rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**What should happen when data cannot be shared?** Document the restriction and provide an authorized rerun, synthetic fixture, redacted schema, or trusted execution path.
 
-**Q: How should scientific reproducibility be released?** A: Pin scientific reproducibility evidence and the governing versions, begin with shadow or reversible work, and require the scientific reproducibility invariant before widening effects.
+**When should a rerun be labeled not comparable?** When data, preprocessing, code, model, environment, or method changed enough that the output answers a different experimental question.
 
 ## Glossary
 
-- **Run Manifest**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one scientific reproducibility attempt to its actor, scientific reproducibility evidence, decisions, and recovery evidence.
-- **Idempotency**: the scientific reproducibility guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a scientific reproducibility input or artifact.
-- **SLO**: an explicit scientific reproducibility service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the scientific reproducibility state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about scientific reproducibility derived from source facts rather than presented as a source guarantee.
+- **Reproducibility:** Ability to rerun a declared method with the declared inputs and inspect agreement or divergence.
+- **Run manifest:** Versioned record of data, code, environment, model, tools, parameters, and artifacts.
+- **Provenance:** Evidence describing an artifact’s origin and transformations.
+- **Content addressing:** Naming an artifact by a cryptographic hash or immutable version.
+- **Nondeterminism:** Variation caused by sampling, concurrency, hardware, or changing services.
+- **Method equivalence:** Condition that a rerun uses the same meaningful procedure and assumptions.
+- **Not comparable:** State indicating that changed inputs or methods answer a different question.
+- **Evidence bundle:** Linked raw inputs, intermediate outputs, checks, and interpretation supporting a claim.
 
 ## References
 
-- [Google DeepMind: Gemini Deep Think — February 11, 2026](https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/)
-- [Nature: reproducibility](https://www.nature.com/articles/533452a)
+- [Accelerating Mathematical and Scientific Discovery with Gemini Deep Think — Google DeepMind — 2026-02-11](https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/)
+- [Reproducibility — Nature](https://www.nature.com/articles/533452a)
+- [Lean theorem prover](https://lean-lang.org/)
 
 ## Claim ledger
 
 | Claim | Source | Fact or inference |
 |---|---|---|
-| The cited publisher published the February event on the stated date. | [Google DeepMind's February 11, 2026 Deep Think report](https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/) | Fact |
-| DeepMind says its February work came from collaboration among mathematicians, physicists, and computer scientists, and links papers, prompts, model outputs, and a taxonomy of AI contribution. | [Google DeepMind's February 11, 2026 Deep Think report](https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think/) | Fact |
-| Making an ai-assisted claim inspectable, rerunnable, and honest about who contributed what. | Engineering design synthesis | Inference |
-| A separately enforced boundary is safer and easier to operate than treating model text as authority. | Topic standards and systems reasoning | Inference |
-| The local example demonstrates the concept but does not prove production security, reliability, or generalization. | This lesson | Fact about the example |
+| The Deep Think report describes collaboration among mathematicians, physicists, and computer scientists. | Google DeepMind report | Fact about the publisher’s report |
+| The report describes Aletheia using verification, revision, browsing, and failure admission. | Google DeepMind report | Fact about the publisher’s report |
+| The report says results reached up to 90% on IMO-ProofBench Advanced as inference-time compute scaled. | Google DeepMind report | Fact about the publisher’s measurement |
+| The report presents an AI-contribution taxonomy and does not claim Level 3 or Level 4 results. | Google DeepMind report | Fact about the publisher’s report |
+| A model-mediated research run needs prompts, browsing, outputs, verification, and human decisions in its evidence package. | Reproducibility engineering | Engineering inference |
+| A rerun with changed data or method should be labeled not comparable rather than reproduced. | Experimental-method design | Engineering inference |
+| The local example demonstrates manifest classification, not scientific validity or production reproducibility. | This lesson | Fact about the example |
