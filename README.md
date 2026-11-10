@@ -1,8 +1,9 @@
 # AI Monthly Concepts
 
-A compact, source-backed study repo for **August 2026**. It turns important AI changes into lessons a CS student or software engineer can use.
+A compact, source-backed study repo for monthly AI concepts. It turns important AI changes into lessons a CS student or software engineer can use.
 
 Answer the calibration questions in [`PROFILE.md`](PROFILE.md). The first monthly index is [`months/2026-08/README.md`](months/2026-08/README.md).
+The completed September lessons are indexed in [`months/2026-09/README.md`](months/2026-09/README.md). October research and writing is underway in [`months/2026-10/README.md`](months/2026-10/README.md).
 Use [`LEARNING_PATH.md`](LEARNING_PATH.md) for the recommended study order.
 Build [`projects/secure-agent-lab`](projects/secure-agent-lab/README.md) after the August lessons to connect the concepts locally.
 Use [`SOURCES.md`](SOURCES.md) to extend monthly research beyond ten concepts when distinct, high-impact developments warrant it.
