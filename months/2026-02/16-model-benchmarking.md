@@ -34,65 +34,74 @@ Benchmarks can be gamed or stale; human rubrics vary; offline gains may not tran
 
 ## SDE2 primer and prerequisites
 
-This lesson treats **model benchmarking** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is model benchmarking evidence and state: the service must preserve it across model benchmarking and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
+An SDE2 should read a benchmark as an experiment service. The runner schedules requests, the model gateway enforces a configuration, the evaluator scores outputs, and the report supports a release or procurement decision. The difficult bugs are often outside the model: a changed prompt, a leaked test item, an evaluator that sees the reference answer, a retry that gets counted twice, or a cost meter that omits tool calls.
 
-The useful boundary for model benchmarking is **task taxonomy, held-out slice, contamination check, confidence interval, cost-quality frontier, and human rubric**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
+The prerequisites are basic probability, HTTP or batch job APIs, JSONL data, queues, and observability. The lesson adds five benchmark-specific contracts: a task taxonomy that describes the workload, a frozen split, an evaluator contract, an uncertainty report, and a decision rule. These are testable software artifacts. A benchmark is credible only when another engineer can identify exactly what was measured and what was excluded.
 
 ## February source reading: fact before inference
 
-For model benchmarking, read the February source through its own claim boundary. The cited February event is **Google DeepMind's February 11, 2026 Deep Think report**. DeepMind reports up to 90% on IMO-ProofBench Advanced, says results were graded by human experts, and reports lower inference-time compute for Aletheia at comparable reasoning quality. The same post shows FutureMath Basic results remain well below its benchmark reference and distinguishes levels of AI contribution. These reported numbers illustrate why a benchmark needs task and protocol context. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
+Read the Deep Think post as a worked warning about denominator and task boundaries. It reports up to 90% on IMO-ProofBench Advanced, human grading, and a lower-compute Aletheia result, while showing substantially weaker FutureMath Basic performance and a taxonomy that separates contribution levels. The numbers are source-reported measurements. They do not establish performance on customer support, code repair, or research workflows. The benchmark lesson is the comparison protocol: task family, evaluator, inference budget, and claims about transfer must remain visible.
 
-For model benchmarking, the engineering inference is narrower: turn the cited capability into an operational contract with topic-specific inputs, states, evidence, and failure ownership. Test that contract against ordinary, adversarial, stale, and interrupted work. A source can motivate this design; it cannot guarantee the resulting reliability or safety.
+The engineering inference is to make a benchmark a decision record. Store the workload definition, split manifest, model configuration, evaluator version, raw outcomes, uncertainty, cost, latency, and release recommendation. A source can motivate this design, but it cannot guarantee that a local benchmark predicts production behavior.
 
 ## Historical baseline and problem boundary
 
 The useful benchmarking baseline is a single headline score on a named test set. It becomes misleading when the split, evaluator, decoding settings, or protected slices change. Reliable benchmarking treats task, denominator, configuration, and uncertainty as part of the result.
 
-For **model benchmarking**, the model benchmarking boundary names model benchmarking evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For **model benchmarking**, the important boundary is between the workload definition, the runner, the model gateway, the evaluator, and the decision owner. The runner may submit a request, but it cannot change the protected split or scoring code. The model may produce an answer, but it cannot select the reference answer or mark its own output correct. The report may recommend a release, but an owner must approve the policy change. Test this boundary with a contaminated item, an evaluator outage, a duplicate retry, and a late model response.
 
 ## Architecture and data flow
 
-The model benchmarking path starts with its own model benchmarking evidence admission check, then records topic state, invokes only the needed processor, and finishes at a model benchmarking outcome gate for **model benchmarking**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to model benchmarking, not a generic agent score.
+The benchmark service admits a versioned workload, runs it through a pinned model configuration, evaluates every item, aggregates by protected slice, and emits a decision package. Keep raw outputs separate from scores because a reviewer may need to inspect a disputed item without changing the aggregate. The decision service consumes evidence; it does not let a model or evaluator mutate the benchmark definition.
 
 ```mermaid
 flowchart LR
-  A[Caller] --> I[Identity and tenant]
-  I --> C[Context/evidence]
-  C --> M[Model proposal]
-  M --> B[Task Taxonomy boundary]
-  B --> X[Effect or review]
-  X --> L[(Evidence log)]
-  classDef data fill:#dbeafe,stroke:#2563eb,color:#172554; classDef control fill:#dcfce7,stroke:#15803d,color:#14532d; classDef risk fill:#fee2e2,stroke:#dc2626,color:#450a0a
-  class A,C,X,L data; class I,B control; class M risk
+  W[Workload manifest] --> R[Runner]
+  R --> G[Model gateway]
+  G --> O[Raw outputs and telemetry]
+  O --> E[Evaluator]
+  E --> S[Protected slice scores]
+  S --> U[Uncertainty and cost report]
+  U --> D[Release or procurement decision]
+  W --> C[Contamination and split checks]
+  C --> R
+  classDef input fill:#dbeafe,stroke:#2563eb,color:#172554;
+  classDef process fill:#fef3c7,stroke:#b45309,color:#451a03;
+  classDef evidence fill:#dcfce7,stroke:#15803d,color:#14532d;
+  classDef decision fill:#fee2e2,stroke:#dc2626,color:#450a0a;
+  class W,C input;
+  class R,G,E process;
+  class O,S,U evidence;
+  class D decision;
 ```
 
 Keep task split, model checkpoint, decoding configuration, evaluator output, uncertainty estimate, and publication record separate. A leaderboard number is not a complete result. Bind task revision, denominator, hardware, evaluator, and contamination controls to each run while preserving only permitted diagnostic artifacts.
 
-For model benchmarking, record a run identifier, actor, purpose, task taxonomy, held-out slice, contamination check, confidence interval, cost-quality frontier, and human rubric, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+For model benchmarking, record a run identifier, workload owner, task taxonomy, split hash, contamination review, model and decoding configuration, evaluator version, raw-output location, slice scores, uncertainty method, cost and latency telemetry, human rubric, decision owner, and final state. Keep reference answers and hidden tests behind controlled access. The durable artifact is the complete benchmark manifest and report, not a generic conversation transcript.
 
 ## Processing walkthrough and state
 
-Benchmark state should distinguish planned, running, incomplete, scored, audited, comparable, and withdrawn. Require complete protected slices and evaluator identity before publishing a score. A failed job is not a low model score, and a changed denominator is not a comparable result.
+Benchmark state should distinguish `planned`, `running`, `incomplete`, `scored`, `audited`, `comparable`, and `withdrawn`. Require a complete denominator, evaluator identity, and split hash before publishing a score. A failed job is not a low model score; a changed denominator is not a comparable result; an evaluator outage is not model failure.
 
 ```mermaid
 sequenceDiagram
-  participant U as Caller
-  participant O as Orchestrator
-  participant M as Model
-  participant P as Boundary
-  participant H as Reviewer/effect
-  U->>O: request + run_id
-  O->>M: bounded context
-  M-->>O: typed proposal
-  O->>P: validate + authorize
-  P-->>O: allow, deny, or pending
-  O->>H: execute/review
-  H-->>O: outcome + evidence
-  O-->>U: status + reference
-  Note over O,P: ambiguous outcomes require reconciliation
+  participant B as Benchmark owner
+  participant R as Runner
+  participant M as Model gateway
+  participant E as Evaluator
+  participant A as Auditor
+  participant D as Decision owner
+  B->>R: frozen manifest and protected split
+  R->>M: request with pinned configuration
+  M-->>R: output, latency, tokens, tool events
+  R->>E: output plus item ID
+  E-->>R: score, rubric evidence, or evaluator error
+  R->>A: complete run package
+  A-->>D: comparable slices and uncertainty
+  D-->>B: promote, hold, or withdraw
 ```
 
-On retry, reuse the model benchmarking idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the item attempt ID and preserve the original response. A timeout can be retried, but the report must distinguish the first unknown attempt from the successful retry and avoid counting both as independent samples.
 
 ## Topic mechanics: Model benchmarking
 
@@ -111,30 +120,30 @@ Break model benchmarking metrics down by task slice, actor or tenant, version, d
 
 ## Model benchmarking: focused design workshop
 
-In model benchmarking, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. model benchmarking code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+In model benchmarking, keep the task text, reference answer, model output, evaluator judgment, and release recommendation in separate typed fields. The benchmark runner owns completeness and accounting; the evaluator owns scoring; the model never owns either. This separation prevents a prompt change from masquerading as a model improvement and prevents a grader from silently changing the denominator.
 
-For model benchmarking, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the model benchmarking artifact and the decision that moved it between states.
+The event trail should distinguish item-level outcomes: `correct`, `incorrect`, `abstained`, `tool_error`, `timeout`, `evaluator_error`, and `not_run`. Store the reason and the responsible component. A timeout caused by the serving platform should not lower model quality, while a model that repeatedly times out within its allowed budget should fail operational viability.
 
-Test benchmark races. A leaderboard task or evaluator may change while jobs are queued, or a failed protected slice may be hidden by a newly computed aggregate. Freeze split, evaluator, and denominator at admission. Preserve `incomplete` and `evaluator_changed`; neither is a comparable score.
+Test benchmark races. A task file or evaluator may change while jobs are queued, or a failed protected slice may be hidden by a newly computed aggregate. Freeze split, evaluator, and denominator at admission. Preserve `incomplete` and `evaluator_changed`; neither is a comparable score. Run a manifest-integrity check before aggregation.
 
-For model benchmarking, slice model benchmarking evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare model benchmarking failure carries the largest consequence.
+Report quality, latency, cost, abstention, and critical-error rate by task class, risk slice, context length, tool path, and evaluator version. Averages are insufficient when a small safety slice carries the largest consequence. Include confidence intervals or bootstrap intervals for proportions and show the number of items behind every percentage.
 
-Save a failing model benchmarking input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a failing item as a regression fixture only after redaction, licensing review, and capture of the governing split and evaluator version. Do not add every failed test to the public benchmark; that creates leakage and rewards memorization.
 
 
 ## Applications and operational constraints
 
-Start model benchmarking in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
+Start model benchmarking in offline or shadow mode. Compare candidate models against the incumbent on the same frozen workload, then run a small live cohort only after offline failures have owners. A benchmark can recommend a deployment; it must not directly change production routing.
 
-Beyond **model benchmarking**, model benchmarking applies to workflows where model benchmarking evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+For support summarization, measure factual omission, escalation impact, latency, and human edit rate. For coding agents, measure test-preserving task completion, tool failures, and review time. For research assistants, measure citation correctness, abstention, and expert acceptance. Choose an application with a named owner and document its data residency, quota, staffing, latency, and rollback constraints.
 
-Plan benchmark capacity around evaluator workers, protected slices, hardware allocation, and artifact retention. If a required slice cannot run, publish an incomplete status rather than a favorable partial score. A cheaper run is valuable only when its denominator and evaluator remain comparable.
+Plan capacity around evaluator workers, protected slices, hardware allocation, rate limits, and artifact retention. If a required slice cannot run, publish `incomplete` rather than a favorable partial score. A cheaper run is useful only when its denominator, evaluator, and quality threshold remain comparable. Include evaluator cost and human review time in the cost-quality frontier.
 
 ## Failure modes, security, and limits
 
-Benchmarking fails through contamination, denominator drift, evaluator leakage, and aggregate scores that hide a protected slice. Keep test data and scoring code controlled, publish confidence or variance where relevant, and require complete run manifests. A leaderboard change is not a model improvement until the task and evaluator remain comparable.
+Benchmarking fails through contamination, denominator drift, evaluator leakage, and aggregate scores that hide a protected slice. Keep test data and scoring code controlled, publish confidence or variance where relevant, and require complete run manifests. A leaderboard change is not a model improvement until task, evaluator, configuration, and population remain comparable.
 
-Benchmark metrics can improve through test contamination, hidden prompt tuning, denominator changes, or selecting only favorable tasks. Pair headline scores with protected splits, evaluator audit, confidence intervals, and full run manifests. A leaderboard position is not a general capability claim.
+Metrics can improve through test contamination, hidden prompt tuning, denominator changes, cherry-picked tasks, or a grader that rewards the model’s preferred style. Pair headline scores with protected splits, evaluator audits, confidence intervals, and full run manifests. A leaderboard position is not a general capability claim.
 
 For model benchmarking, the February source has a bounded claim. The February source also has scope limits. DeepMind reports up to 90% on IMO-ProofBench Advanced, says results were graded by human experts, and reports lower inference-time compute for Aletheia at comparable reasoning quality. The same post shows FutureMath Basic results remain well below its benchmark reference and distinguishes levels of AI contribution. These reported numbers illustrate why a benchmark needs task and protocol context. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
 
@@ -150,49 +159,86 @@ The source fact is bounded: **DeepMind reports up to 90% on IMO-ProofBench Advan
 
 ## Mini exercise extension
 
-Create six fixtures for **model benchmarking** using the model benchmarking vocabulary: a model benchmarking evidence omission, a stale or contradictory model benchmarking evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior model benchmarking records remain historical.
+Create six benchmark fixtures: a contaminated item, a missing protected slice, an evaluator disagreement, a serving timeout, a complete run, and a changed denominator. Assert different states for each case. Store item count, split hash, evaluator version, and recovery owner beside every assertion, then alter the governing version and prove that an old score remains historical rather than being silently recomputed.
 
 ## Build it locally: numbered implementation
 
-1. Construct a model benchmarking test record with actor, request, model benchmarking evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the model benchmarking boundary as a pure function. It must inspect model benchmarking evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic model benchmarking generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the model benchmarking dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing model benchmarking states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure model benchmarking correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the model benchmarking schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Create a JSONL workload with task ID, task family, risk slice, reference answer, and protected-set marker.
+2. Write a runner that records model output, latency, tokens, tool calls, and attempt ID without storing secrets in logs.
+3. Implement an evaluator that returns `correct`, `incorrect`, `abstained`, or `evaluator_error`; never infer correctness from a missing score.
+4. Add split and evaluator hashes to the run manifest and reject aggregation when either changes.
+5. Compute per-slice quality, p95 latency, cost per completed item, and abstention rate.
+6. Add bootstrap confidence intervals or repeated resampling for one quality metric.
+7. Compare two models with a cost-quality decision rule and retain the full report for review.
 
 ## Runnable low-cost example
 
 ```python
-runs = [{"model":"A","slice":"safety","score":.98,"cost":.10},{"model":"B","slice":"safety","score":.90,"cost":.03}]
-chosen = max(runs, key=lambda r: (r["score"], -r["cost"]))
-print(chosen)
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Run:
+    model: str
+    slice_name: str
+    correct: int
+    total: int
+    cost: float
+    p95_ms: int
+
+    @property
+    def quality(self) -> float:
+        return self.correct / self.total
+
+
+def choose(runs: list[Run], minimum_quality: float, maximum_p95: int) -> Run:
+    eligible = [
+        run for run in runs
+        if run.quality >= minimum_quality and run.p95_ms <= maximum_p95
+    ]
+    if not eligible:
+        raise ValueError("no run satisfies the release contract")
+    return min(eligible, key=lambda run: run.cost)
+
+
+def main() -> None:
+    runs = [
+        Run("A", "safety", 98, 100, 0.10, 900),
+        Run("B", "safety", 92, 100, 0.03, 500),
+    ]
+    chosen = choose(runs, minimum_quality=0.90, maximum_p95=700)
+    assert chosen.model == "B"
+    print(chosen)
+
+
+if __name__ == "__main__":
+    main()
 ```
 
-This benchmark sketch computes a score over a toy split. It does not measure contamination, uncertainty, evaluator validity, or generalization; add protected slices and complete manifests before publishing comparisons.
+This benchmark sketch applies a release contract to one slice. It does not measure contamination, uncertainty, evaluator validity, or generalization; add protected slices and complete manifests before publishing comparisons.
 
 ## Interview Q&A
 
-**Q: What makes a benchmark result interpretable?** A: Enforce the model benchmarking rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What makes a benchmark result interpretable?** A: A frozen workload, configuration, evaluator, denominator, protected slices, and uncertainty report. Without these, the number cannot be compared safely.
 
-**Q: What does a benchmark score measure?** A: Enforce the model benchmarking rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: What does a benchmark score measure?** A: Performance on the declared task population under the declared protocol. It does not automatically measure general capability or production reliability.
 
-**Q: Which metric would you put on the dashboard first?** A: Track model benchmarking evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the model benchmarking risk classes.
+**Q: Which metric belongs beside accuracy?** A: At least p95 latency, cost per completed task, abstention, critical-error rate, and per-slice confidence intervals. The right set depends on the workflow’s failure cost.
 
-**Q: When should a score be withheld?** A: Enforce the model benchmarking rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should a score be withheld?** A: When the denominator is incomplete, the evaluator changed, contamination is unresolved, a protected slice is missing, or the run cannot be reproduced from its manifest.
 
-**Q: How should model benchmarking be released?** A: Pin model benchmarking evidence and the governing versions, begin with shadow or reversible work, and require the model benchmarking invariant before widening effects.
+**Q: How should a benchmark influence rollout?** A: Use it as one input to a decision record, pair it with production shadowing and monitoring, and require an owner to approve the route or model change.
 
 ## Glossary
 
-- **Task Taxonomy**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one model benchmarking attempt to its actor, model benchmarking evidence, decisions, and recovery evidence.
-- **Idempotency**: the model benchmarking guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a model benchmarking input or artifact.
-- **SLO**: an explicit model benchmarking service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the model benchmarking state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about model benchmarking derived from source facts rather than presented as a source guarantee.
+- **Task taxonomy:** Classification of workload slices such as routine, long-context, adversarial, tool-use, or high-risk.
+- **Protected split:** Hidden or access-controlled evaluation population reserved for unbiased measurement.
+- **Contamination:** Test information entering model training, prompt tuning, retrieval, or evaluator construction.
+- **Evaluator contract:** Versioned rule that maps an output and reference to a score or explicit error.
+- **Denominator:** Number and identity of cases included in a reported metric.
+- **Cost-quality frontier:** Trade-off curve between quality and total operational cost.
+- **Abstention:** Explicit response that the model or evaluator cannot safely establish an answer.
+- **Comparable run:** Benchmark execution with the same meaningful task, configuration, evaluator, and population.
 
 ## References
 
