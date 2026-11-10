@@ -2,17 +2,19 @@
 
 ## Active priority
 
-Quality cleanup is proceeding month by month. January is the reference-clean month: all 20 lessons pass mechanics and the month-wide similarity audit. February is active next; lessons 02–20 have received three cleanup batches, while eight duplicated scaffold blocks remain. Do not mark February approved until its similarity audit passes.
+October 2026 draft production is complete. All 20 lessons exist from October primary sources and pass individual validators, runnable examples, whitespace checks, and the month-wide similarity audit; substantive fact-check and quality review remain. November has a source queue and README but no lesson files.
 
 ## Current repository state
 
 - January–August each contain 20 numbered article files.
 - January lessons pass validation, runnable examples, whitespace checks, and similarity audit.
 - February lessons 01–13 complete mechanics rewrite, source pass, and substantive review; month-wide similarity audit and lessons 14–20 remain.
-- February lessons 14–20 pass individual validators and `git diff --check`; require mechanics and source rewrite similar to 01–13.
+- February lesson 14 has been source-first rewritten around verifier-guided mathematical reasoning; it passes its individual validator, runnable example, and `git diff --check`. Lessons 15–20 remain generic scaffold rewrites.
 - March has duplicated long prose across its lesson set and requires the same cleanup approach.
 - May has one reported similarity pair; April, June, July, and August have several lessons below the 2,400-word target.
 - `LICENSE.md`, `LICENSE-CODE.md`, and `DISCLOSURES.md` are present. Preserve existing user changes; do not reset or discard unrelated edits.
+- September 01–20 pass the individual validator with runnable examples, the 20-lesson similarity audit, and `git diff --check`; all are above the substantive word target and include topic-specific quantitative reasoning. September coverage is complete.
+- October 01–20 pass the individual validator with runnable examples, `git diff --check`, and the month-wide similarity audit; substantive review remains incomplete.
 
 ## Definition of done
 
@@ -35,11 +37,10 @@ For each article:
 
 ## Next sequence
 
-1. Complete February lessons 14–20 by applying mechanics rewrite and source pass similar to 01–13, then run month-wide similarity audit.
-2. Re-run every February validator and confirm month audit passes; only then mark February ready for approval.
-3. Clean March’s duplicated long paragraphs, then resolve May’s remaining similarity pair.
-4. Expand under-target lessons in April, June, July, and August to at least 2,400 substantive words, validating each lesson after editing.
-5. Perform substantive source and quality review before any month is marked approved, committed, or pushed.
+1. Run a substantive fact-check and quality review across October 01–20; keep the month open until findings are repaired.
+2. Preserve the completed September review record and source ledger.
+3. Begin November source triage from `months/2026-11/README.md` after October review is complete.
+4. Return to February lesson 15, then continue March similarity cleanup, May stubs, and under-target April/June–August lessons.
 
 ## Communication rules
 

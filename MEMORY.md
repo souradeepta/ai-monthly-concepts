@@ -7,6 +7,7 @@
 - Git read-only commands (`status`, `diff`, `log`, `show`) and `git push` are authorized for this repository.
 - Continue article production until all January–August 2026 articles are complete; do not stop after partial batches.
 - Workflow override: push completed article drafts first; perform substantive review as a later follow-up pass to maximize progress under limited usage.
+- User-directed workflow: make incremental commits and pushes as article batches become mechanically complete; do not wait for the entire month before pushing.
 - Default routing: Luna for easy bounded work; Terra for review; override only for quality.
 - Audience: CS student and SDE2.
 - Lessons should use multiple detailed diagrams, practical code, local implementation steps, explained prerequisites, interview Q&A, glossary, references, and a claim ledger.
@@ -26,6 +27,7 @@
 - Local uncommitted batches exist for January, February, and March. Do not commit them until they pass both mechanical and Terra substantive review.
 - A January overlap audit found cloned long prose in drafts 09–20. They remain unapproved and require source-specific rewrites; Function Calling (08) had its cloned block removed and passes the current similarity check with Structured Output (07).
 - User-directed priority: create missing/stub articles in April–July first, then August 05–20; defer reconstruction of existing January–March drafts until that coverage work is complete.
+- September 2026 coverage is complete: articles 01–20 exist and received a full quality pass on 2026-09-22. All 20 pass individual validation, Python execution, `git diff --check`, and the 20-lesson similarity audit; all exceed the substantive word target and contain topic-specific diagrams, examples, and quantitative systems reasoning.
 
 ## Low-token workflow
 
@@ -34,6 +36,8 @@
 - Do not copy articles, use paid APIs, or run multi-agent research without need.
 - After draft coverage is complete, expand each draft and run `python3 scripts/audit_lesson_similarity.py <reviewed lesson files or month> --fail-on-findings` before a monthly push.
 - For each expanded lesson, use `python3 scripts/validate_lessons.py <lesson> --run-python` for the repeated structural, diagram, word-count, whitespace, and runnable-example check; use the similarity audit only for a reviewed batch.
+- September is no longer the immediate backlog. Preserve its README and substantive review as complete, then resume the older-month backlog.
+- February 14 is the first post-September rewrite: the former generic scaffold was replaced with a source-specific mathematical-reasoning lesson using DeepMind’s Aletheia report, two topic-specific diagrams, proof-state handling, quantitative search budgeting, and a finite-check example. Lessons 15–20 still contain the duplicated scaffold and are the next rewrite targets.
 
 ## Execution discipline
 
@@ -46,7 +50,7 @@
 - Use `HANDOFF.md` for active article-production scope, sequence, and definition of done.
 - Use `COLD_START.md` at the beginning of every new session; read memory, TODO, README, and the target lesson before editing.
 - Apply tables when they materially clarify comparisons, state transitions, trade-offs, or decisions; avoid decorative tables.
-- Keep July active until articles 01–20 pass mechanics and similarity checks; May remains parked.
+- September is complete; May remains parked unless the user redirects priority. The next work is older-month quality cleanup.
 - User allows a modest word-count shortfall when the lesson is substantively complete; still target 2,400 and retain required sections/checks.
 
 ## Tooling lesson: Claude-style Git isolation
