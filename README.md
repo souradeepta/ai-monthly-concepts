@@ -2,6 +2,8 @@
 
 A compact, source-backed study repo for monthly AI concepts. It turns important AI changes into lessons a CS student or software engineer can use.
 
+Follow the repository's [lesson standards](LESSON_STANDARDS.md) for article depth, sources, diagrams, exercises, and completion checks.
+
 Answer the calibration questions in [`PROFILE.md`](PROFILE.md). The first monthly index is [`months/2026-08/README.md`](months/2026-08/README.md).
 The completed September lessons are indexed in [`months/2026-09/README.md`](months/2026-09/README.md). October research and writing is underway in [`months/2026-10/README.md`](months/2026-10/README.md).
 Use [`LEARNING_PATH.md`](LEARNING_PATH.md) for the recommended study order.
@@ -26,7 +28,7 @@ Run `python3 scripts/validate_lessons.py months/2026-06 --run-python` for the re
 
 1. **Collect (weekly, 20 min):** check the source feeds; record only current-month announcements, papers, docs, technical reports, or evaluations.
 2. **Triage (10 min):** retain an item only if it creates a durable concept, changes engineering practice, or explains a larger change. Target **3–5 concepts/month**.
-3. **Teach:** write one 500–900 word lesson at a time using the template in `AGENTS.md`.
+3. **Teach:** write 20 separate articles per month, each targeting at least 2,400 substantive words and following `LESSON_STANDARDS.md`.
 4. **Verify (5 min):** every factual claim needs a direct source and date; label interpretations as inference.
 5. **Review (monthly, 30 min):** mark each concept `durable`, `emerging`, or `watch`; add a five-question self-check.
 
@@ -40,6 +42,6 @@ Run `python3 scripts/validate_lessons.py months/2026-06 --run-python` for the re
 
 ## Monthly definition of done
 
-- 3–5 concepts, each backed by a primary source.
-- The reader can explain the idea, trade-off, and place in a software system.
-- No unlinked factual claims or unsupported “state of the art” rankings.
+- 20 individual article files exist and are linked from the monthly README.
+- Each lesson meets `LESSON_STANDARDS.md`; incomplete entries remain labeled planned.
+- The month passes individual validation and similarity review before it is marked complete.

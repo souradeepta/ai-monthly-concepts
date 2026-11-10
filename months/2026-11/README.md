@@ -12,15 +12,15 @@ The month requires 20 individual `01-*.md` through `20-*.md` article files. Ever
 
 | Candidate | Engineering concept | Direct source | Initial decision |
 |---|---|---|---|
-| nov-01 | Benchmarking everyday life-task assistance | [LifeVal — OpenAI — 2026-11-02](https://openai.com/index/lifeval/) | queued |
-| nov-02 | Wet-lab data interpretation benchmarks | [BioBasicsBench — OpenAI — 2026-11-06](https://openai.com/index/biobasicsbench/) | queued |
+| nov-01 | Benchmarking everyday life-task assistance | [LifeVal — OpenAI — 2026-11-02](https://openai.com/index/lifeval/) | selected — source describes task selection from time-use datasets plus a representative survey; reported task scores are vendor claims and need the paper for protocol details |
+| nov-02 | Wet-lab data interpretation benchmarks | [BioBasicsBench — OpenAI — 2026-11-06](https://openai.com/index/measuring-how-ai-agents-handle-wet-lab-science/) | selected — corrected direct source; fractional rubric credit and task-level sampling must not be described as task success rate |
 | nov-03 | Autonomous Linux vulnerability patching | [A thousand fewer paths to root — OpenAI — 2026-11-04](https://openai.com/index/a-thousand-fewer-paths-to-root/) | queued |
-| nov-04 | Layered monitoring for frontier model misalignment | [How we detect frontier model misalignment — OpenAI — 2026-10-29](https://openai.com/index/how-we-detect-frontier-model-misalignment/) | queued |
-| nov-05 | Scaling Git for agent-generated changes | [Scaling Git at OpenAI — OpenAI Engineering — 2026-11-02](https://openai.com/news/engineering/scaling-git-at-openai/) | queued |
+| nov-04 | Human definition of ambiguous evaluation criteria | [Agile Deliberation — Google Research — 2026-11-04](https://research.google/blog/agile-deliberation-how-ai-helps-humans-define-the-gray-areas/) | selected as replacement for duplicate October coverage; teaches iterative human-AI rubric refinement |
+| nov-05 | Scaling Git for agent-generated changes | [Scaling Git at OpenAI — OpenAI — 2026-11-02](https://openai.com/index/scaling-git-at-openai/) | selected — Pando’s pack planning, compaction, cache, migration, and conformance approach; company-reported performance figures |
 | nov-06 | Scientific understanding from model-assisted mathematics | [Working with academic communities — OpenAI — 2026-10-26](https://openai.com/index/working-with-academic-communities-to-build-scientific-understanding/) | queued |
 | nov-07 | AI-assisted physical-world engineering | [Accelerating engineering for the physical world — OpenAI — 2026-11-03](https://openai.com/index/accelerating-engineering-for-the-physical-world/) | queued |
 | nov-08 | Continual-learning retention and consolidation | [The sleep framework — Google Research — 2026-10-27](https://research.google/blog/the-sleep-framework-a-new-way-for-llms-to-retain-knowledge-in-continual-learning/) | queued |
-| nov-09 | Human definition of ambiguous evaluation criteria | [Agile Deliberation — Google Research — 2026-11-04](https://research.google/blog/agile-deliberation-how-ai-helps-humans-define-the-gray-areas/) | queued |
+| nov-09 | Human definition of ambiguous evaluation criteria | [Agile Deliberation — Google Research — 2026-11-04](https://research.google/blog/agile-deliberation-how-ai-helps-humans-define-the-gray-areas/) | covered by article 04; choose a distinct source before selecting a replacement |
 | nov-10 | Stateful enterprise-agent contracts | [CRM-Agent-Bench — arXiv:2610.32004](https://arxiv.org/abs/2610.32004) | queued |
 
 The remaining candidates will be selected after checking overlap with October and the January–October lessons. Vendor measurements will be labeled as source claims rather than independent verification.
@@ -34,7 +34,12 @@ The remaining candidates will be selected after checking overlap with October an
 
 ## Lesson files
 
-Lessons 01–20 are not yet drafted. Add each link here only after its article file exists; keep any unfinished entry marked `planned`.
+1. [Evaluating personalized assistance on everyday life tasks](01-lifeval-personal-task-evaluation.md) — draft; mechanics validation in progress.
+2. [Evaluating agents on raw laboratory evidence](02-raw-lab-evidence-evaluation.md) — draft; mechanics validation complete.
+3. [From vulnerability candidate to reviewed patch](03-vulnerability-to-verified-patch.md) — draft; mechanics validation complete.
+4. [Deliberating subjective classifier boundaries](04-deliberating-subjective-classifier-boundaries.md) — draft; mechanics validation complete.
+5. [Scaling Git for many agent workflows](05-scaling-git-for-agent-workloads.md) — draft; mechanics validation complete.
+6–20. planned.
 
 ## Required checks
 

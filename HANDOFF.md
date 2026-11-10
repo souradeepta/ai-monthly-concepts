@@ -2,7 +2,7 @@
 
 ## Active priority
 
-October 2026 draft production is complete. All 20 lessons exist from October primary sources and pass individual validators, runnable examples, whitespace checks, and the month-wide similarity audit; substantive fact-check and quality review remain. November has a source queue and README but no lesson files.
+October 2026 draft production is complete. All 20 lessons exist from October primary sources and pass individual validators, runnable examples, whitespace checks, and the month-wide similarity audit; substantive fact-check and quality review remain. November articles 01–05 are drafted; 06–20 remain planned.
 
 ## Current repository state
 
@@ -40,7 +40,7 @@ For each article:
 
 1. Run a substantive fact-check and quality review across October 01–20; keep the month open until findings are repaired.
 2. Preserve the completed September review record and source ledger.
-3. Begin November source triage from `months/2026-11/README.md` after October review is complete.
+3. Continue November source triage and drafting from article 06 after the 01–05 mechanics and similarity checks.
 4. Continue February similarity cleanup among earlier lessons, then March similarity cleanup, May stubs, and under-target April/June–August lessons.
 
 ## Handoff checkpoint — 2026-11-09

@@ -14,6 +14,12 @@
 
 ## Active
 
+- [ ] November 2026 — articles 01–05 drafted and source-checked; mechanics and five-article similarity audit pending; articles 06–20 remain planned.
+- [x] November 01 — LifeVal personalized consumer-task evaluation drafted; individual validator and runnable example pass.
+- [x] November 02 — BioBasicsBench raw laboratory-evidence evaluation drafted; individual validator and runnable example pass.
+- [x] November 03 — Vulnerability-to-reviewed-patch pipeline drafted; individual validator and runnable example pass.
+- [x] November 04 — Agile Deliberation on subjective classifier boundaries drafted as a distinct topic; individual validator and runnable example pass.
+- [x] November 05 — Pando and Git scaling for agent workloads drafted; individual validator and runnable example pass.
 - [x] September 2026 — twenty source-backed articles collected, drafted, reviewed, validated, and similarity-audited.
 - [x] September 2026 — all 20 source-backed lessons are complete; individual validators with runnable examples, diff checks, substantive review, and the month-wide similarity audit pass.
 - [ ] October 2026 — all 20 source-backed lessons now exist; individual validators, runnable examples, diff checks, and the month-wide similarity audit pass. Substantive fact-check and quality review remain.
