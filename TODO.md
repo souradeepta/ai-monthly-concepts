@@ -20,6 +20,7 @@
 - [x] February 14 — mathematical reasoning rebuilt source-first around verifier-guided search, proof obligations, failure states, and bounded inference-time compute; individual validator and runnable example pass. Lessons 15–20 remain.
 - [x] February 15 — scientific reproducibility rebuilt source-first around manifests, model-mediated provenance, comparable reruns, divergence states, and evidence bundles; individual validator and runnable example pass. Lessons 16–20 remain.
 - [x] February 16 — model benchmarking rebuilt source-first around task taxonomies, protected splits, evaluator contracts, uncertainty, and cost-quality decisions; individual validator and runnable example pass. Lessons 17–20 remain.
+- [x] February 17 — privacy-preserving analytics rebuilt source-first around purpose limitation, controlled joins, cohort thresholds, privacy budgets, and release ledgers; individual validator and runnable example pass. Lessons 18–20 remain.
 
 - [x] July 2026 — Create and expand source-backed articles 01–20; mechanics, similarity, and Terra substantive review complete.
 - [x] July 01 — Robot task orchestration: expansion and mechanics pass complete; substantive review remains.

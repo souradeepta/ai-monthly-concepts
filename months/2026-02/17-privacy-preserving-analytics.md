@@ -33,65 +33,74 @@ Auxiliary data can re-identify users; repeated queries can consume a privacy bud
 
 ## SDE2 primer and prerequisites
 
-This lesson treats **privacy preserving analytics** as a concrete engineering discipline, not a synonym for model intelligence. Its key artifact is privacy preserving analytics evidence and state: the service must preserve it across privacy preserving analytics and expose enough evidence for an operator to decide what happened. A model may suggest a next step, but deterministic interfaces, ownership, and versioned records decide whether that suggestion is usable. The useful prerequisite is familiarity with HTTP, JSON, persistence, queues, retries, authentication, and service-level objectives; the topic adds its own state and failure vocabulary.
+An SDE2 should see privacy-preserving analytics as a data pipeline with a threat model. The pipeline ingests events, removes or protects fields, computes a statistic, applies a release mechanism, and records who received the result. The hard engineering questions are which joins are permitted, how repeated queries compose, what an analyst can infer from auxiliary data, and how deletion or consent changes future releases.
 
-The useful boundary for privacy-preserving analytics is **data minimization, pseudonym, cohort threshold, privacy budget, differential privacy, and controlled join**. These are not magic model capabilities. They are interfaces, records, checks, and operating procedures that can be unit-tested. Start with a low-blast-radius workflow and make every external effect attributable to a run ID, actor, policy version, and evidence reference.
+The prerequisites are SQL or stream aggregation, access control, key management, and basic probability. The lesson adds six contracts: purpose limitation, data minimization, cohort threshold, controlled linkage, privacy-loss accounting, and release audit. Differential privacy is one mechanism within that design; it does not replace authorization, retention, or incident handling.
 
 ## February source reading: fact before inference
 
-For privacy preserving analytics, read the February source through its own claim boundary. The cited February event is **OpenAI's February 25, 2026 report, Disrupting malicious uses of AI**. OpenAI's February report describes cross-platform and cross-model threat activity, which creates a legitimate need to join signals while limiting exposure. The report does not prescribe differential privacy. NIST's privacy framework and Google's differential-privacy documentation supply the controls and trade-offs for that engineering response. The report or announcement is evidence about what its publisher described. It is not independent validation of the publisher's claims, and it does not specify your data, threat model, latency budget, or regulatory obligations. That distinction matters because a source can motivate a concept without proving that the concept is solved.
-
-For privacy preserving analytics, the engineering inference is narrower: turn the cited capability into an operational contract with topic-specific inputs, states, evidence, and failure ownership. Test that contract against ordinary, adversarial, stale, and interrupted work. A source can motivate this design; it cannot guarantee the resulting reliability or safety.
+The February OpenAI report describes cross-platform and cross-model malicious activity. That source fact explains why a security team may want to correlate signals across providers, identities, or tools. It does not grant permission to build an unrestricted identity graph, and it does not prescribe differential privacy. NIST’s Privacy Framework and Google’s differential-privacy documentation provide the engineering vocabulary for purpose, minimization, noise, and trade-offs. Treat the report as an observation about threat intelligence and label the privacy architecture as inference.
 
 ## Historical baseline and problem boundary
 
 The useful analytics baseline is an analyst querying row-level data and exporting a report. It offers precision but exposes membership, linkage, and purpose risks. Privacy-preserving analytics adds release controls and budget accounting while making utility and residual disclosure risk explicit.
 
-For **privacy preserving analytics**, the privacy preserving analytics boundary names privacy preserving analytics evidence, the actor, the mutable state, and the rejecting component. Treat read evidence, model proposals, and committed effects as different data classes. A request can influence a proposal but cannot grant authority. Test this boundary with stale, malformed, replayed, and partially completed cases.
+For **privacy preserving analytics**, the key boundary separates raw evidence, protected linkage, aggregate computation, and released output. An analyst may receive a noisy count without receiving row-level identity. A security investigator may use a controlled join under a stricter purpose and retention policy. The model or dashboard cannot grant access to the linkage table. Test this boundary with a small cohort, a revoked purpose, a repeated query, and an attempted join on an unapproved field.
 
 ## Architecture and data flow
 
-The privacy preserving analytics path starts with its own privacy preserving analytics evidence admission check, then records topic state, invokes only the needed processor, and finishes at a privacy preserving analytics outcome gate for **privacy preserving analytics**. Keep policy and configuration revisions beside the work, while generated text remains separate from authorization. Measure the bottleneck that belongs to privacy preserving analytics, not a generic agent score.
+The analytics service should admit a declared purpose and query shape, resolve only permitted fields, compute an aggregate in a protected environment, charge the privacy ledger, and release a versioned result. Keep the raw event store, linkage service, aggregate table, and dashboard API separate. A dashboard should receive a release ID and limitations, not a SQL cursor into the event store.
 
 ```mermaid
 flowchart LR
-  A[Caller] --> I[Identity and tenant]
-  I --> C[Context/evidence]
-  C --> M[Model proposal]
-  M --> B[Data Minimization boundary]
-  B --> X[Effect or review]
-  X --> L[(Evidence log)]
-  classDef data fill:#dbeafe,stroke:#2563eb,color:#172554; classDef control fill:#dcfce7,stroke:#15803d,color:#14532d; classDef risk fill:#fee2e2,stroke:#dc2626,color:#450a0a
-  class A,C,X,L data; class I,B control; class M risk
+  E[Raw telemetry] --> M[Minimize and classify]
+  M --> J[Controlled join service]
+  J --> Q[Purpose-bound query]
+  Q --> K[Cohort and sensitivity checks]
+  K --> N[Noise and privacy ledger]
+  N --> R[Released aggregate]
+  R --> D[Dashboard or investigator]
+  N --> L[(Audit ledger)]
+  classDef raw fill:#fee2e2,stroke:#b91c1c,color:#450a0a;
+  classDef control fill:#fef3c7,stroke:#b45309,color:#451a03;
+  classDef safe fill:#dcfce7,stroke:#15803d,color:#052e16;
+  classDef output fill:#dbeafe,stroke:#2563eb,color:#172554;
+  class E raw;
+  class M,J,Q,K,N,L control;
+  class R safe;
+  class D output;
 ```
 
 Keep row-level inputs, cohort definition, privacy mechanism, budget ledger, released aggregate, and access purpose separate. A masked export is not automatically private. Bind query identity, purpose, cohort size, composition spend, and release policy to each result while avoiding raw-row retention.
 
-For privacy preserving analytics, record a run identifier, actor, purpose, data minimization, pseudonym, cohort threshold, privacy budget, differential privacy, and controlled join, policy and model versions, evidence references, decision, attempts, timestamps, and final state. Add the topic's durable artifact—such as a checkpoint, capability, proof status, privacy budget, or provenance chain—rather than assuming a generic transcript can explain the outcome. Keep raw content behind controlled references and retention rules.
+Record query ID, actor, purpose, approved fields, join policy, cohort size, mechanism and parameters, privacy-budget spend, data version, release ID, recipients, retention, and deletion status. The durable artifact is the release ledger and its privacy accounting. Keep raw content behind controlled references with separate credentials and shorter retention.
 
 ## Processing walkthrough and state
 
-Privacy-query state should distinguish requested, purpose_checked, cohort_rejected, computed, budget_spent, released, and withheld. Check cumulative privacy loss before release and preserve denied-query metadata without exposing the underlying cohort. A noisy answer can still be unsafe when combined with earlier releases.
+Privacy-query state should distinguish `requested`, `purpose_checked`, `fields_minimized`, `cohort_rejected`, `computed`, `budget_charged`, `released`, and `withheld`. Check cumulative loss before release and preserve denial metadata without exposing the cohort. A noisy answer can still be unsafe when combined with earlier releases or an external identifier list.
 
 ```mermaid
 sequenceDiagram
-  participant U as Caller
-  participant O as Orchestrator
-  participant M as Model
-  participant P as Boundary
-  participant H as Reviewer/effect
-  U->>O: request + run_id
-  O->>M: bounded context
-  M-->>O: typed proposal
-  O->>P: validate + authorize
-  P-->>O: allow, deny, or pending
-  O->>H: execute/review
-  H-->>O: outcome + evidence
-  O-->>U: status + reference
-  Note over O,P: ambiguous outcomes require reconciliation
+  participant A as Analyst
+  participant P as Purpose policy
+  participant J as Join service
+  participant G as Aggregate engine
+  participant L as Privacy ledger
+  participant D as Dashboard
+  A->>P: requested metric and purpose
+  P-->>J: approved fields and join scope
+  J-->>G: protected cohort identifiers
+  G->>L: sensitivity and budget check
+  alt allowed
+    L-->>G: mechanism and remaining budget
+    G-->>D: noisy or thresholded release ID
+  else denied
+    L-->>A: withheld reason without cohort detail
+  end
+  G->>L: append release, spend, recipients, and expiry
 ```
 
-On retry, reuse the privacy preserving analytics idempotency key or durable artifact; never ask the model to invent a second action when the first attempt has an unknown outcome.
+On retry, reuse the query ID and do not charge or release a second result until the first attempt’s ledger state is reconciled. An unknown response from the release service is an operational incident, not permission to issue another query with a fresh budget.
 
 ## Topic mechanics: Privacy-preserving analytics
 
@@ -99,7 +108,7 @@ On retry, reuse the privacy preserving analytics idempotency key or durable arti
 
 Privacy-preserving analytics begins with purpose limitation. Define the question—such as weekly abuse rate by region—before collecting raw conversation content. Replace direct identifiers with keyed tokens in a restricted join service, strip fields not needed for the aggregate, enforce minimum cohort sizes, and separate an investigator's privileged evidence path from a product dashboard. Differential privacy adds calibrated noise and a privacy budget; it does not make a sensitive query harmless, and repeated or overlapping queries consume budget. For cross-platform abuse analysis, maintain two views: a protected linkage table that can join events under strict access and an aggregate table exposed to analysts. Log query purpose, caller, policy, and budget consumption. Test singling out with auxiliary data, differencing attacks across time windows, small cohorts, and repeated queries. Retain raw evidence only as long as an incident or legal process requires, and make deletion observable. The February report's cross-platform threat observation explains why linkage may be useful; it does not grant permission to collect everyone’s identity. Measure analyst utility alongside re-identification risk and deletion lag.
 
-Ask what **privacy preserving analytics** can establish at each transition. The request establishes intent only; the privacy preserving analytics evidence and state stage establishes a bounded representation; the next checker, owner, or reconciliation step establishes whether the proposed result is acceptable. A timeout, missing dependency, or ambiguous response therefore becomes an explicit status for **privacy preserving analytics**, not an implicit success. Persist the relevant versions and evidence references, and retain unknown, deferred, or needs-review states when the system cannot prove the stronger claim.
+An analytics release establishes only the statistic under its declared population, mechanism, and budget. It does not establish that an individual is absent, that a campaign is malicious, or that a trend is causal. If the join service, ledger, or deletion feed is unavailable, retain `withheld` or `unknown` rather than returning a precise fallback. Preserve the release ID and policy revision so a later auditor can reconstruct why the output was visible.
 
 Privacy-preserving analytics should version the cohort query, consent or purpose rule, noise mechanism, privacy budget ledger, and release threshold. Keep the budget spend attached to each result so a repeated query cannot appear harmless merely because its individual output is noisy.
 
@@ -110,32 +119,32 @@ Break privacy preserving analytics metrics down by task slice, actor or tenant, 
 
 ## Privacy-preserving analytics: focused design workshop
 
-In privacy preserving analytics, keep request prose, retrieved evidence, generated proposals, and the lesson artifact in separate typed fields. privacy preserving analytics code owns completeness, freshness, authorization, and promotion of a result; prose only explains intent.
+In privacy preserving analytics, keep the analyst’s question, permitted purpose, protected query plan, mechanism parameters, aggregate, and release decision in separate fields. The analyst can request a metric; only the policy service can approve fields and joins; only the ledger can authorize budget spend. A model may help phrase or summarize the result, but it cannot decide that a small cohort is safe to reveal.
 
-For privacy preserving analytics, the event trail must let an operator distinguish bad input, missing topic evidence, stale state, dependency failure, and a confirmed outcome. Record the privacy preserving analytics artifact and the decision that moved it between states.
+The event trail should distinguish `purpose_denied`, `field_denied`, `small_cohort`, `linkage_blocked`, `budget_exhausted`, `released`, and `release_failed`. Store enough metadata to audit the decision without storing the underlying individuals in the dashboard log.
 
-Test privacy races. Consent or purpose can be withdrawn while a query is running, and repeated releases can consume more privacy budget than any single result shows. Check purpose and ledger state immediately before release. Preserve `budget_exhausted` and `purpose_revoked`; do not release a more detailed fallback.
+Test privacy races. Consent or purpose can be withdrawn while a query is running, and repeated releases can consume more budget than any individual result shows. Check purpose and ledger state immediately before release. Preserve `budget_exhausted` and `purpose_revoked`; do not release a more detailed fallback.
 
-For privacy preserving analytics, slice privacy preserving analytics evidence metrics by task class, actor or tenant, governing revision, dependency, and final state. Report the topic invariant, useful completion, latency, cost, and recovery burden together; averages are insufficient when a rare privacy preserving analytics failure carries the largest consequence.
+Report utility, privacy loss, denial rate, query latency, deletion lag, and linkage-test results by purpose, tenant, cohort size, and release mechanism. A high average utility can conceal a dangerous small-group query or a tenant whose budget is exhausted.
 
-Save a failing privacy preserving analytics input as a regression fixture only after redaction, classification, and capture of the governing version.
+Save a privacy failure as a synthetic or redacted regression fixture. Capture the governing purpose, field policy, ledger version, and release decision; never copy a production row into a test simply because it makes the failure easy to reproduce.
 
 
 ## Applications and operational constraints
 
-Start privacy preserving analytics in observation or draft mode, compare against a deterministic or human baseline, then expand only a narrow cohort and reversible effect class.
+Start in a shadow report that is visible only to the privacy owner. Compare utility against an approved baseline, run linkage and differencing tests, then expand to analysts only after the release contract and deletion path are verified.
 
-Beyond **privacy preserving analytics**, privacy preserving analytics applies to workflows where privacy preserving analytics evidence matters. Choose an application with a named owner and bounded effects, then document its data residency, access, quota, staffing, latency, and rollback constraints. The right metric differs by deployment; do not import a support or research target without checking the actual user outcome.
+For abuse analytics, correlate signals in a restricted service and expose aggregate campaign trends to responders. For product analytics, prefer event classes and cohort counts over conversation content. For research telemetry, publish minimum-count or noisy aggregates and document the threat model. Every use needs a named owner, permitted purpose, retention, deletion path, and escalation route.
 
-Plan privacy-analytics capacity around cohort computation, secure joins, key management, and privacy-budget accounting. Under load, queue or reject a query while preserving its purpose and budget check. A coarser aggregate may be a safe fallback, but label its precision and release policy.
+Plan capacity around secure joins, key management, cohort computation, noise generation, and budget accounting. Under load, queue or reject a query while preserving its purpose and ledger state. A coarser aggregate can be a safe fallback only when its release policy is evaluated separately; do not silently broaden the time window or cohort to make a query pass.
 
 ## Failure modes, security, and limits
 
-Privacy analytics fails through linkage, repeated-query attacks, small cohorts, and budget accounting that ignores correlated releases. Enforce purpose and minimum cohort rules before computation, spend a tracked privacy budget, and review joins that can reconstruct identities. More noise is not a substitute for correct governance.
+Privacy analytics fails through linkage, repeated-query attacks, small cohorts, correlated releases, and joins that reconstruct identity. Enforce purpose and minimum-cohort rules before computation, charge a tracked budget, and review release sequences. More noise is not a substitute for correct governance or data minimization.
 
-Privacy metrics can improve by shrinking cohorts, spending budget across untracked joins, or publishing only queries that pass a utility threshold. Pair utility with privacy loss, linkage tests, purpose compliance, and repeated-query accounting. A noisy result is not safe if the release sequence identifies people.
+Privacy metrics can look healthy when teams shrink the measured cohort, omit denied queries, or spend budget across untracked joins. Pair utility with privacy loss, linkage tests, purpose compliance, deletion lag, and repeated-query accounting. A noisy result is not safe if the release sequence identifies people.
 
-For privacy preserving analytics, the February source has a bounded claim. The February source also has scope limits. OpenAI's February report describes cross-platform and cross-model threat activity, which creates a legitimate need to join signals while limiting exposure. The report does not prescribe differential privacy. NIST's privacy framework and Google's differential-privacy documentation supply the controls and trade-offs for that engineering response. Nothing in that observation proves robustness against your adversaries, correctness on your domain, or a particular service-level target. Treat vendor examples as source facts and label recommendations as inference. When evidence is weak, abstention and escalation are valid outcomes.
+The source boundary is narrow: OpenAI’s report describes threat activity across platforms and models; it does not specify a privacy mechanism or authorize a data-sharing architecture. NIST and Google provide general privacy engineering guidance, not a guarantee for this telemetry. The recommended design therefore requires a local threat model, synthetic attack fixtures, privacy review, and a documented owner for every cross-system join. Treat the incident report as motivation and the controls as engineering inference.
 
 ## Evaluation and change management
 
@@ -145,54 +154,82 @@ Release an aggregate only when minimum cohort, purpose, privacy-budget, linkage-
 
 ## February primary-source evidence
 
-The source fact is bounded: **OpenAI's February report describes cross-platform and cross-model threat activity, which creates a legitimate need to join signals while limiting exposure. The report does not prescribe differential privacy. NIST's privacy framework and Google's differential-privacy documentation supply the controls and trade-offs for that engineering response.** The February publication date and the publisher's wording should be cited when teaching the event. The recommendation that teams implement data minimization, pseudonym, cohort threshold, privacy budget, differential privacy, and controlled join is an inference from the event plus established systems practice. It should be validated with local fixtures, security review, operational metrics, and domain experts. The source does not independently verify the examples, and this article does not present them as guarantees.
+Use the OpenAI report only for the observation that malicious activity can span platforms and model providers. It does not claim that a particular aggregation, join, or privacy mechanism is safe. NIST’s framework contributes a vocabulary for identifying privacy risk and managing it; Google’s documentation explains differential-privacy mechanisms and their utility trade-offs. The local architecture is therefore a proposed defensive design. Its acceptance depends on the organization’s threat model, sensitivity analysis, composition accounting, retention rules, and review by a privacy owner.
 
 ## Mini exercise extension
 
-Create six fixtures for **privacy preserving analytics** using the privacy preserving analytics vocabulary: a privacy preserving analytics evidence omission, a stale or contradictory privacy preserving analytics evidence record, an adversarial input, a boundary rejection, a dependency interruption, and a verified completion. Assert different states for each case; do not use one generic success label. Store the evidence reference and recovery owner beside every assertion, then alter the governing version and prove that prior privacy preserving analytics records remain historical.
+Create six fixtures: a small cohort, a revoked purpose, a repeated query, an unapproved join, a budget-exhausted release, and an allowed aggregate. Assert distinct states and store purpose, mechanism, budget spend, and release ID beside each assertion. Change the policy version and prove that previous releases remain historical.
 
 ## Build it locally: numbered implementation
 
-1. Construct a privacy preserving analytics test record with actor, request, privacy preserving analytics evidence, decision, and outcome fields; reject a run that cannot identify the governing version.
-2. Implement the privacy preserving analytics boundary as a pure function. It must inspect privacy preserving analytics evidence, return a typed state, and refuse an unrecognized or incomplete transition.
-3. Create a deterministic privacy preserving analytics generator with a valid proposal, a malformed proposal, and an input that attempts to redirect the topic-specific decision.
-4. Simulate the privacy preserving analytics dependency failing after admission. Use its own correlation or artifact key to detect duplicate delivery and reconcile uncertainty.
-5. Write an event stream containing privacy preserving analytics states, redacting sensitive payloads while retaining the evidence pointers needed for an offline replay.
-6. Measure privacy preserving analytics correctness alongside rejection rate, time in each state, recovery work, and resource cost; report slices relevant to the lesson.
-7. Change the privacy preserving analytics schema or policy revision and verify that old events still resolve under their original contract rather than being reinterpreted.
+1. Create synthetic events with tenant, purpose, cohort, and sensitive-field metadata.
+2. Implement minimization that removes fields not required by the declared metric.
+3. Add a controlled join that returns opaque cohort tokens rather than identity fields.
+4. Enforce minimum cohort size and a per-purpose budget before computation.
+5. Add a simple noise mechanism and record its parameters in a release ledger.
+6. Simulate two overlapping queries and reject the second when composition exceeds budget.
+7. Add a deletion event and verify that future releases exclude the deleted subject.
 
 ## Runnable low-cost example
 
 ```python
-events = ["anon-a", "anon-a", "anon-b"]
-counts = {x: events.count(x) for x in set(events)}
-visible = {k:v for k,v in counts.items() if v >= 2}
-print(visible)
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Release:
+    purpose: str
+    cohort_size: int
+    epsilon_cost: float
+    remaining_budget: float
+
+
+def authorize(release: Release, minimum_cohort: int) -> str:
+    if release.purpose != "abuse_rate":
+        return "purpose_denied"
+    if release.cohort_size < minimum_cohort:
+        return "small_cohort"
+    if release.epsilon_cost > release.remaining_budget:
+        return "budget_exhausted"
+    return "released"
+
+
+def main() -> None:
+    allowed = Release("abuse_rate", 20, 0.5, 1.0)
+    denied = Release("identity_lookup", 20, 0.1, 1.0)
+    assert authorize(allowed, 10) == "released"
+    assert authorize(denied, 10) == "purpose_denied"
+    print(authorize(allowed, 10), authorize(denied, 10))
+
+
+if __name__ == "__main__":
+    main()
 ```
 
-This aggregate sketch demonstrates a minimum-cohort check only. It does not implement differential privacy, composition accounting, linkage resistance, or consent enforcement; use synthetic records and a privacy review before release.
+This sketch models purpose, cohort, and budget gates. It does not implement a differential-privacy mechanism, composition theorem, linkage resistance, or consent enforcement; use synthetic records and a privacy review before release.
 
 ## Interview Q&A
 
-**Q: Does adding noise guarantee privacy?** A: Enforce the privacy preserving analytics rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Does adding noise guarantee privacy?** A: No. Privacy depends on the mechanism, sensitivity, composition, auxiliary data, access policy, and release sequence.
 
-**Q: Why is noise not enough?** A: Enforce the privacy preserving analytics rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: Why minimize data before aggregation?** A: Noise cannot repair an unnecessary identity join or a retained raw field. Minimization reduces both breach impact and inference surface.
 
-**Q: Which metric would you put on the dashboard first?** A: Track privacy preserving analytics evidence, plus false acceptance or rejection, time spent, resource cost, and recovery; slice results by the privacy preserving analytics risk classes.
+**Q: What belongs on the privacy dashboard?** A: Utility, privacy-budget spend, denial reasons, linkage-test results, retention, deletion lag, and release recipients—not only query latency.
 
-**Q: When should an aggregate be withheld?** A: Enforce the privacy preserving analytics rule in deterministic code at the resource or artifact boundary; model output may propose, but it cannot authorize or prove the result.
+**Q: When should an aggregate be withheld?** A: When purpose, minimum cohort, budget, join authorization, data freshness, or deletion state is unresolved.
 
-**Q: How should privacy preserving analytics be released?** A: Pin privacy preserving analytics evidence and the governing versions, begin with shadow or reversible work, and require the privacy preserving analytics invariant before widening effects.
+**Q: How should a privacy release be operated?** A: Version the query and mechanism, charge a cumulative budget, preserve a release audit, and start with a narrow approved audience.
 
 ## Glossary
 
-- **Data Minimization**: the topic-specific control boundary that mediates a model proposal and an outcome.
-- **Run ID**: the correlation key that joins one privacy preserving analytics attempt to its actor, privacy preserving analytics evidence, decisions, and recovery evidence.
-- **Idempotency**: the privacy preserving analytics guarantee that a retry does not create a second logical result or duplicate effect.
-- **Provenance**: origin, version, and transformation evidence attached to a privacy preserving analytics input or artifact.
-- **SLO**: an explicit privacy preserving analytics service target, such as freshness, verification latency, queue age, or availability.
-- **Abstention**: the privacy preserving analytics state used when evidence, authority, or dependency health is insufficient for a stronger claim.
-- **Inference**: an engineering recommendation about privacy preserving analytics derived from source facts rather than presented as a source guarantee.
+- **Data minimization:** Removing fields, precision, or retention not required for the declared purpose.
+- **Pseudonym:** Replaceable token used to join records without exposing the direct identifier to an analyst.
+- **Cohort threshold:** Minimum group size required before an aggregate can be released.
+- **Differential privacy:** Formal framework that bounds how much one person’s data changes a release distribution.
+- **Privacy budget:** Account of cumulative privacy loss across a sequence of releases.
+- **Controlled join:** Restricted service that links records under purpose, field, and retention policy.
+- **Differencing attack:** Inferring an individual by comparing overlapping aggregate releases.
+- **Release ledger:** Immutable record of query, mechanism, budget spend, recipients, and expiry.
 
 ## References
 
