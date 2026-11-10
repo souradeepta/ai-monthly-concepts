@@ -23,6 +23,7 @@
 - [x] February 17 — privacy-preserving analytics rebuilt source-first around purpose limitation, controlled joins, cohort thresholds, privacy budgets, and release ledgers; individual validator and runnable example pass. Lessons 18–20 remain.
 - [x] February 18 — infrastructure portfolios rebuilt source-first around workload classes, pool contracts, placement constraints, headroom, useful completion, and recoverable capacity states; individual validator, runnable example, and four-lesson similarity audit pass. Lessons 19–20 remain.
 - [x] February 19 — availability engineering rebuilt source-first around SLOs, dependency budgets, retry amplification, admission control, graceful degradation, and reconciliation; individual validator, runnable example, and five-lesson similarity audit pass. Lesson 20 remains.
+- [x] February 20 — responsible deployment rebuilt source-first around bounded release scope, evidence gates, rollout states, effect reconciliation, monitoring, and recourse; individual validator, runnable example, and lessons 15–20 similarity audit pass. February-wide audit still reports overlap among earlier lessons.
 
 - [x] July 2026 — Create and expand source-backed articles 01–20; mechanics, similarity, and Terra substantive review complete.
 - [x] July 01 — Robot task orchestration: expansion and mechanics pass complete; substantive review remains.
@@ -151,7 +152,7 @@
 | Month | Approved / 20 | Next action |
 |---|---:|---|
 | January | 1 | Rewrite/review 02–20 individually; overlap audit found cloned prose in 09–20, so none of those drafts may be approved without a source-specific rewrite. |
-| February | 0 | Rebuild Articles 14–20 individually; run month-wide similarity and substantive review before approval. |
+| February | 0 | Articles 14–20 rebuilt; rewrite similarity findings among earlier lessons and run month-wide substantive review before approval. |
 | March | 3 | Rewrite/review 04–20 individually. |
 | April | 0 | Draft coverage 20/20; expand and substantively review 02–20 before approval. |
 | May | 0 | Draft coverage 20/20; expand and substantively review 01–20 before approval. |
